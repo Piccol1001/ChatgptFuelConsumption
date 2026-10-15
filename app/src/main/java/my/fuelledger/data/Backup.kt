@@ -11,7 +11,10 @@ data class Backup(val format: String, val version: Int,
     val createdAt: Long, val categories: List<Category>, val expenses: List<Expense>,
     val refuels: List<Refuel>, val settings: AppSettings,
     val incomes: List<FinanceIncome> = emptyList(), val budgets: List<FinanceBudget> = emptyList(),
-    val recurring: List<FinanceRecurring> = emptyList())
+    val recurring: List<FinanceRecurring> = emptyList(),
+    val plannerMonths: List<FinanceMonth> = emptyList(), val allocations: List<AllocationPlan> = emptyList(),
+    val journeys: List<SavedJourney> = emptyList(),
+    val receiptMerchants: List<ReceiptMerchant> = emptyList(), val receiptScans: List<ReceiptScan> = emptyList())
 
 private val receiptFileName = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.jpg")
 private fun validateReceiptFile(name: String?) {
@@ -45,7 +48,7 @@ fun validateCategory(category: Category) {
     require(category.icon in categoryIcons && category.color in categoryColors) { "Choose a supported icon and colour." }
 }
 fun Backup.validate() {
-    require(format == "my.fuelledger.backup" && version in 1..3) { "This is not a compatible Fuel & Expense Tracker backup." }
+    require(format == "my.fuelledger.backup" && version in 1..4) { "This is not a compatible Fuel & Expense Tracker backup." }
     require(createdAt in 0..32_503_680_000_000L) { "Invalid backup creation date." }
     require(categories.size in 7..500 && expenses.size <= 100_000 && refuels.size <= 100_000 &&
         incomes.size <= 100_000 && budgets.size <= 100_000 && recurring.size <= 100_000) {
@@ -65,11 +68,20 @@ fun Backup.validate() {
     val categoryIds = categories.map { it.id }.toSet()
     val fuelById = refuels.associateBy { it.id }
     require(expenses.all { it.categoryId in categoryIds }) { "Expense refers to a missing category." }
+    require(plannerMonths.size <= 12360 && allocations.size <= 12361 && plannerMonths.map { it.month }.distinct().size == plannerMonths.size && allocations.map { it.scope }.distinct().size == allocations.size) { "Invalid planner history." }
+    require(journeys.size <= 100000 && journeys.map { it.id }.distinct().size == journeys.size) { "Invalid saved journeys." }
+    require(receiptMerchants.size <= 10000 && receiptScans.size <= 100000 && receiptMerchants.map { it.merchant }.distinct().size == receiptMerchants.size && receiptScans.map { it.fingerprint }.distinct().size == receiptScans.size) { "Invalid receipt mapping or scan history." }
+    receiptMerchants.forEach(::validateReceiptMerchant)
+    receiptScans.forEach(::validateReceiptScan)
+    require(receiptMerchants.all { it.categoryId in categoryIds }) { "Receipt merchant category is missing." }
+    journeys.forEach(::validateSavedJourney)
+    plannerMonths.forEach(::validateFinanceMonth)
+    allocations.forEach(::validateAllocationPlan)
     incomes.forEach(::validateFinanceIncome)
     budgets.forEach(::validateFinanceBudget)
     recurring.forEach(::validateFinanceRecurring)
     require(budgets.all { it.categoryId.isEmpty() || it.categoryId in categoryIds } &&
-        recurring.all { it.categoryId in categoryIds }) { "A financial record refers to a missing category." }
+        recurring.all { it.kind == "Income" || it.categoryId in categoryIds }) { "A financial record refers to a missing category." }
     require(budgets.map { it.month to it.categoryId }.distinct().size == budgets.size) {
         "Backup contains duplicate budgets for a month and category."
     }

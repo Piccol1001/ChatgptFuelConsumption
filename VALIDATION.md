@@ -1,3 +1,74 @@
+# Version 1.3.0 validation
+
+Verified 15 October 2026. Package `my.fuelledger`; version **1.3.0 / code 5**, min API26, target/compile API37. Previous reports are preserved below.
+
+## Final results
+
+- **184 host tests passed**, no failures/errors/skipped. Real Compose navigation/entry runs on Robolectric APIs26 and35, including saving a journey without financial side effects and immediately persisting theme/scanner mode changes.
+- **9 native Android tests passed** in airplane mode on the booted AOSP API26 x86_64 software emulator. The suite includes bundled offline OCR; packaged permission and backup flags; encrypted local finance, monthly plans, allocations, journeys, receipt auto-save/deduplication/Undo, complete photo/finance backup/restore and reopen; schema 1/2/3 → encrypted schema4 preservation; and damaged/wrong/missing-key fail-closed behavior. Instrumentation result: `OK (9 tests)`, 303.018 seconds.
+- **4 build-policy tests passed**. Bundled Latin OCR dependency and reviewed telemetry shape are unchanged; preBuild verifies them.
+- Signed debug APK, Android test APK and optimized unsigned release APK build successfully. Debug lint: **0 errors, 3 advisory warnings** (tested SQLite2.6.2 vs available2.7.0, optional Bitmap.get KTX syntax, optional String.toUri KTX syntax). Release vital lint passes.
+- The final debug APK contains **21 bundled OCR model assets**, no DataTransport runtime/CCT or Firebase Analytics/Crashlytics definitions, and all four reviewed telemetry sinks are no-ops. Manifest/APK permission inspection confirms **no Internet, network-state, camera or public-storage permission**. The optional new permission is `POST_NOTIFICATIONS`.
+- Debug APK signature verifies with the original certificate SHA256 `4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8`. Debug and unsigned release ZIP alignment checks pass with 16KiB native alignment.
+- Published versioned debug APK: **76,639,470 bytes**, SHA256 **`c85624e8ee2e9ce299718ad409150284577edb9413bfdb2d1c57fbfe722ef059`**. Original 1.0.0 and1.2.0 APK files remain unchanged; checksums are in `downloads/SHA256SUMS`.
+
+## Host suites
+
+| Suite | Executions |
+| --- | ---: |
+| FinanceRepositoryTest | 12 |
+| PlannerRepositoryTest | 13 |
+| PlanningCalculationsTest | 18 |
+| ReceiptBackupArchiveTest | 23 |
+| RepositoryTest | 24 |
+| SettingsStoreTest | 12 |
+| CalculationsTest | 17 |
+| ReceiptParserTest | 23 |
+| ReceiptReviewTest | 2 |
+| ReceiptStoreTest | 10 |
+| AppLockSessionTest | 7 |
+| AppLockStoreTest | 10 |
+| LocalVaultTest | 3 |
+| AppLockUiTest | 4 |
+| AppSmokeTest | 6 |
+
+## Coverage added in this upgrade
+
+Monthly plan tests cover the requested RM3,000 − RM1,130 = RM1,870 example, expected/actual separation, fixed-payment reservation and actual-cost updates, negative results, daily/weekly/month-end schedules, start/end/pause, missed-month backfill, timezone boundaries, historical snapshot preservation and transaction linking/deduplication across manual/automatic recurrence.
+
+Allocation tests cover exact100% validation, invalid/negative/oversized percentages, duplicate category mappings, independent defaults/overrides, savings reserves, zero/negative available amounts, sen-preserving largest-remainder rounding and spending not already reserved in the selected month. A fixed payment recorded in another month counts as unreserved spending there.
+
+Journey tests cover the reused150km fuel example (RM21.53), exact fee sums, distinct return distances/tolls, selected cost sharing, invalid values, local CRUD/duplication and no expense/refuel side effects. Distance starts blank in the entry screen and must be entered or loaded from a saved route.
+
+Receipt tests cover Malaysian TOTAL/GRAND TOTAL/AMOUNT PAID/NET TOTAL/JUMLAH/JUMLAH BAYARAN layouts; subtotal/tax/change rejection; requested merchant examples; conflicting totals/dates, currency and low-quality fallbacks; mode/recognized-field checks; concurrent duplicate prevention; refuel linking; normal deletion/tombstones; unchanged-only Undo; encrypted image crop/rotation/long portrait limits; and complete metadata backup/restore. Theme/scanner settings are tested across encrypted DataStore restarts and older preference migration.
+
+One host integration test exposed a cached application factory holding a different test application; ViewModels now explicitly use the current application. An expanded native test initially retained repository references after deliberately closing/reopening its test database; its fixture now uses the reopened database. The final suites above pass. No app/user data was cleared to run these checks.
+
+## Commands and local evidence
+
+```sh
+source /workspace/.tooling/fuel-ledger-env.sh
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew :app:assembleRelease
+./gradlew :app:lintDebug
+./gradlew -p buildSrc test
+/workspace/.tooling/fuel-adb.sh -s emulator-5556 install -r app/build/outputs/apk/debug/app-debug.apk
+/workspace/.tooling/fuel-adb.sh -s emulator-5556 install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+/workspace/.tooling/fuel-adb.sh -s emulator-5556 shell am instrument -w -r my.fuelledger.test/androidx.test.runner.AndroidJUnitRunner
+(cd downloads && sha256sum -c SHA256SUMS)
+```
+
+Native tests ran with airplane mode on, Wi-Fi and mobile data off. The emulator was first installed offline during the preceding1.2.0 validation; this version was installed as an update, without clearing app records. The model remains bundled and was exercised offline again. A separate first-install1.3.0 run on a physical phone remains unverified.
+
+Final logs: `/tmp/fuel-delivery-host.log`, `/tmp/fuel-delivery-release.log`, `/tmp/fuel-delivery-lint.log`, `/tmp/fuel-delivery-policy.log`, `/tmp/fuel-native-upgrade-final.log`. Generated reports/screenshots remain ignored under `app/build/`. Run build/release/lint sequentially and do not edit source while an analysis task is reading it.
+
+## Practical limits
+
+Physical camera/Photo Picker handoff, Android notification-denial flows, biometric/PIN/OEM reboot behavior and a broad collection of real Malaysian thermal-paper photographs need hands-on device testing. OCR quality gates are conservative heuristics and cannot guarantee error-free extraction. Optional tax/item-level parsing is not implemented. Current/next-month notification summaries do not include older unpaid months; those remain visible through the planner's month selection. Captured past plans preserve recorded settings; uncaptured old months are reconstructed from the current available rules. Release distribution still requires the owner's private signing key.
+
+<details>
+<summary>Preserved v1.2.0 and earlier validation reports</summary>
+
 # Version 1.2.0 validation
 
 Verified on **15 October 2026 (Asia/Kuala_Lumpur)**. Application ID `my.fuelledger`, version **1.2.0 / code 4**, Android API 26 minimum / 37 target. The original baseline report is preserved below as historical evidence.
@@ -194,3 +265,5 @@ The complete setup script was exercised, including wrapper activation, SDK setup
 ## Remaining verification
 
 No physical phone or hardware emulator was attached (`/dev/kvm` is absent). Robolectric tests are automated Android simulations, not physical-device tests. On your phone, verify the document picker, CSV export, backup/restore, keyboard behavior, accessibility/font scaling and updates with the same signing key before depending on it for irreplaceable records. The app supports one vehicle and MYR; backups replace existing data after confirmation and are not encrypted. CSV import is not provided.
+
+</details>

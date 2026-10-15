@@ -60,6 +60,30 @@ class ReceiptStore(context: Context, private val vault: LocalVault = LocalVault(
         }
     }
 
+    /** Creates a new encrypted copy; existing attachments are never overwritten. */
+    suspend fun transformPhoto(name: String, rotate: Boolean, topPercent: Int, bottomPercent: Int): String = withContext(Dispatchers.IO) {
+        require(topPercent in 0..45 && bottomPercent in 0..45 && topPercent + bottomPercent < 90) { "Crop percentages must keep at least 10% of the image." }
+        val bytes = readPhoto(name)
+        val original = try { BitmapFactory.decodeByteArray(bytes, 0, bytes.size) } finally { bytes.fill(0) }
+            ?: throw IOException("Cannot decode the receipt")
+        var cropped: Bitmap? = null
+        var rotated: Bitmap? = null
+        try {
+            val top = original.height * topPercent / 100
+            val bottom = original.height * bottomPercent / 100
+            val crop = Bitmap.createBitmap(original, 0, top, original.width, original.height - top - bottom).also { cropped = it }
+            val result = if (rotate) Bitmap.createBitmap(crop, 0, 0, crop.width, crop.height, Matrix().apply { postRotate(90f) }, true).also { rotated = it } else crop
+            val encoded = ByteArrayOutputStream().use { output ->
+                check(result.compress(Bitmap.CompressFormat.JPEG, 95, output)); output.toByteArray()
+            }
+            try { saveRestored(encoded) } finally { encoded.fill(0) }
+        } finally {
+            rotated?.takeIf { it !== cropped && it !== original }?.recycle()
+            cropped?.takeIf { it !== original }?.recycle()
+            original.recycle()
+        }
+    }
+
     /** Validates an already normalized JPEG, encrypts it, and refuses to replace an existing photo. */
     suspend fun writePhoto(name: String, bytes: ByteArray) {
         var created: File? = null
@@ -114,7 +138,8 @@ class ReceiptStore(context: Context, private val vault: LocalVault = LocalVault(
         require(bounds.outWidth > 0 && bounds.outHeight > 0) { "Choose a supported image file" }
         require(bounds.outWidth.toLong() * bounds.outHeight <= MAX_SOURCE_PIXELS) { "Receipt image dimensions are too large" }
         var sample = 1
-        while (maxOf(bounds.outWidth, bounds.outHeight) / sample > MAX_EDGE * 2) sample *= 2
+        while (maxOf(bounds.outWidth, bounds.outHeight) / sample > MAX_EDGE * 2 ||
+            (bounds.outWidth / sample).toLong() * (bounds.outHeight / sample) > 4096L * 1600) sample *= 2
         val original = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply {
             inSampleSize = sample
             inPreferredConfig = Bitmap.Config.ARGB_8888
@@ -131,8 +156,9 @@ class ReceiptStore(context: Context, private val vault: LocalVault = LocalVault(
             )
             oriented = adjusted
             val longest = maxOf(adjusted.width, adjusted.height)
-            val finalBitmap = if (longest <= MAX_EDGE) adjusted else {
-                val factor = MAX_EDGE.toDouble() / longest
+            val targetEdge = if (adjusted.height >= adjusted.width * 2.5) MAX_EDGE else 1600
+            val finalBitmap = if (longest <= targetEdge) adjusted else {
+                val factor = targetEdge.toDouble() / longest
                 adjusted.scale((adjusted.width * factor).toInt().coerceAtLeast(1),
                     (adjusted.height * factor).toInt().coerceAtLeast(1), true)
             }
@@ -152,8 +178,8 @@ class ReceiptStore(context: Context, private val vault: LocalVault = LocalVault(
             bytes[bytes.size - 2] == 0xff.toByte() && bytes.last() == 0xd9.toByte()) { "The receipt is not a complete JPEG image" }
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        require(bounds.outMimeType == "image/jpeg" && bounds.outWidth in 1..MAX_EDGE && bounds.outHeight in 1..MAX_EDGE) {
-            "Receipt photos must be normalized JPEG images no larger than 1600 pixels"
+        require(bounds.outMimeType == "image/jpeg" && bounds.outWidth in 1..MAX_EDGE && bounds.outHeight in 1..MAX_EDGE && bounds.outWidth.toLong() * bounds.outHeight <= 4096L * 1600) {
+            "Receipt photos must be normalized JPEG images no larger than 4096 pixels"
         }
         val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
         requireNotNull(decoded) { "The receipt photo cannot be decoded" }
@@ -180,7 +206,7 @@ class ReceiptStore(context: Context, private val vault: LocalVault = LocalVault(
         private const val MAX_PHOTO_BYTES = 8 * 1024 * 1024
         private const val ENVELOPE_ALLOWANCE = 64 * 1024
         private const val MAX_SOURCE_PIXELS = 150_000_000L
-        private const val MAX_EDGE = 1600
+        private const val MAX_EDGE = 4096
         private val RECEIPT_NAME = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.jpg")
         private val storageMutex = Mutex()
 

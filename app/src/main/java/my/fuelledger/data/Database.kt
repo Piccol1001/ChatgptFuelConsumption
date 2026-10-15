@@ -34,7 +34,7 @@ data class Refuel(@PrimaryKey val id: String, val timestamp: Long, val odometer:
 @Entity(tableName = "expenses", foreignKeys = [
     ForeignKey(entity = Category::class, parentColumns = ["id"], childColumns = ["categoryId"], onDelete = ForeignKey.RESTRICT),
     ForeignKey(entity = Refuel::class, parentColumns = ["id"], childColumns = ["fuelId"], onDelete = ForeignKey.CASCADE)
-], indices = [Index("categoryId"), Index(value = ["fuelId"], unique = true), Index("timestamp")])
+], indices = [Index("categoryId"), Index(value = ["fuelId"], unique = true), Index("timestamp"), Index(value = ["recurringRuleId", "recurringDate"], unique = true)])
 data class Expense(@PrimaryKey val id: String, val cents: Long, val categoryId: String,
     val timestamp: Long, val description: String = "", val notes: String = "",
     val payment: String = "Cash", val fuelId: String? = null, val receiptFile: String? = null,
@@ -55,7 +55,7 @@ val defaultCategories = listOf(
     Category("bills", "Bills", "bill", 0xFFBB9A48, false),
     Category(OTHER_CATEGORY, "Others", "other", 0xFF8B8C9B, false)
 )
-val paymentMethods = listOf("Cash", "Debit Card", "Credit Card", "E-wallet")
+val paymentMethods = listOf("Cash", "Debit Card", "Credit Card", "E-wallet", "Not specified")
 val categoryIcons = listOf("food", "basket", "movie", "fuel", "bag", "bill", "other", "health")
 val categoryColors = listOf(0xFFE98A57L, 0xFF629C77L, 0xFF9B80C5L, 0xFF449AADL, 0xFFD877A1L, 0xFFBB9A48L, 0xFF8B8C9BL, 0xFFB65E67L)
 
@@ -68,6 +68,7 @@ interface LedgerDao {
     @Query("SELECT * FROM expenses ORDER BY timestamp, id") suspend fun allExpenses(): List<Expense>
     @Query("SELECT * FROM refuels ORDER BY timestamp, id") suspend fun allRefuels(): List<Refuel>
     @Query("SELECT * FROM expenses WHERE id = :id") suspend fun expense(id: String): Expense?
+    @Query("SELECT * FROM expenses WHERE recurringRuleId = :ruleId AND recurringDate = :date LIMIT 1") suspend fun occurrence(ruleId: String, date: String): Expense?
     @Query("SELECT * FROM expenses WHERE fuelId = :id") suspend fun linkedExpense(id: String): Expense?
     @Query("SELECT * FROM pending_settings WHERE id = 1") suspend fun pendingSettings(): PendingSettings?
     @Upsert suspend fun putCategory(category: Category)
@@ -85,10 +86,13 @@ interface LedgerDao {
 }
 
 @Database(entities = [Category::class, Expense::class, Refuel::class, PendingSettings::class,
-    FinanceIncome::class, FinanceBudget::class, FinanceRecurring::class], version = 3, exportSchema = true)
+    FinanceIncome::class, FinanceBudget::class, FinanceRecurring::class, FinanceMonth::class, AllocationPlan::class, SavedJourney::class, ReceiptMerchant::class, ReceiptScan::class], version = 4, exportSchema = true)
 abstract class LedgerDatabase : RoomDatabase() {
     abstract fun dao(): LedgerDao
     abstract fun financeDao(): FinanceDao
+    abstract fun plannerDao(): PlannerDao
+    abstract fun journeyDao(): JourneyDao
+    abstract fun receiptAutomationDao(): ReceiptAutomationDao
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -108,11 +112,24 @@ abstract class LedgerDatabase : RoomDatabase() {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `finance_recurring` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `cents` INTEGER NOT NULL, `categoryId` TEXT NOT NULL, `frequency` TEXT NOT NULL, `startDate` TEXT NOT NULL, `nextDate` TEXT NOT NULL, `enabled` INTEGER NOT NULL, `payment` TEXT NOT NULL, `notes` TEXT NOT NULL, PRIMARY KEY(`id`))")
             }
         }
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_expenses_recurringRuleId_recurringDate ON expenses (recurringRuleId, recurringDate)")
+                db.execSQL("ALTER TABLE finance_recurring ADD COLUMN kind TEXT NOT NULL DEFAULT 'Expense'")
+                db.execSQL("ALTER TABLE finance_recurring ADD COLUMN manualPayment INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE finance_recurring ADD COLUMN endDate TEXT")
+                db.execSQL("CREATE TABLE IF NOT EXISTS receipt_merchants (merchant TEXT NOT NULL, displayName TEXT NOT NULL, categoryId TEXT NOT NULL, PRIMARY KEY(merchant))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS receipt_scans (fingerprint TEXT NOT NULL, expenseId TEXT NOT NULL, PRIMARY KEY(fingerprint))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS journey_plans (id TEXT NOT NULL, timestamp INTEGER NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(id))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS finance_months (month TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(month))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS finance_allocations (scope TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(scope))")
+            }
+        }
         fun open(context: Context, vault: LocalVault = LocalVault(context), databaseName: String = "fuel-ledger.db"): LedgerDatabase {
             val password = EncryptedDatabaseFiles.prepare(context, databaseName, vault)
             return Room.databaseBuilder(context, LedgerDatabase::class.java, databaseName)
                 .openHelperFactory(PreservingOpenHelperFactory(password))
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
         }
     }
 }

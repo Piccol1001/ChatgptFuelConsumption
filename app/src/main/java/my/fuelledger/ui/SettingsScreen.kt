@@ -1,6 +1,12 @@
 package my.fuelledger.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -12,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import my.fuelledger.*
 import my.fuelledger.R
 import my.fuelledger.data.*
@@ -20,11 +27,17 @@ import java.util.UUID
 @Composable
 fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, exportExpenses: () -> Unit,
     exportRefuels: () -> Unit, backup: () -> Unit, restore: () -> Unit,
-    restoreLegacy: () -> Unit = {}, openFinance: () -> Unit = {}) {
+    restoreLegacy: () -> Unit = {}, openFinance: () -> Unit = {}, openAllocations: () -> Unit = openFinance) {
     var price by rememberSaveable(state.settings.petrolPrice) { mutableStateOf(state.settings.petrolPrice) }
     var consumption by rememberSaveable(state.settings.consumption) { mutableStateOf(state.settings.consumption.toString()) }
-    var theme by rememberSaveable(state.settings.theme) { mutableStateOf(state.settings.theme) }
+    val context = LocalContext.current
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) vm.saveSettings(state.settings.copy(plannerReminders = true)) {}
+    }
     var error by remember { mutableStateOf<String?>(null) }
+    val receiptRules by vm.receiptMerchants.collectAsStateWithLifecycle()
+    var merchantRule by remember { mutableStateOf<ReceiptMerchant?>(null) }
+    var addMerchantRule by remember { mutableStateOf(false) }
     var addCategory by remember { mutableStateOf(false) }
     var editCategory by remember { mutableStateOf<Category?>(null) }
     LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -35,18 +48,67 @@ fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, expor
                     Text("Preferences", style = MaterialTheme.typography.titleMedium)
                     NumericField(price, { price = it }, "Default petrol price (RM/L)")
                     NumericField(consumption, { consumption = it }, "Estimated consumption (L/100 km)")
-                    Choice("Appearance", theme, listOf("System", "Light", "Dark").map { it to it }) { theme = it }
                     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     Button(onClick = {
-                        runCatching { AppSettings(price.trim(), consumption.toDouble(), theme).also { it.validate() } }
+                        runCatching { state.settings.copy(petrolPrice = price.trim(), consumption = consumption.toDouble()).also { it.validate() } }
                             .onSuccess { error = null; vm.saveSettings(it) {} }.onFailure { error = it.message ?: "Invalid preferences." }
                     }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Save preferences") }
                 }
             }
         }
+        item { SectionTitle("Financial Planning", "Monthly Money Planner · Fixed Expenses · Monthly Allocation") }
         item {
             OutlinedButton(onClick = openFinance, modifier = Modifier.fillMaxWidth(), enabled = !busy) {
-                Icon(ledgerSymbol("wallet"), null); Spacer(Modifier.width(8.dp)); Text("Income, budgets & recurring expenses")
+                Icon(ledgerSymbol("wallet"), null); Spacer(Modifier.width(8.dp)); Text("Monthly Money Planner")
+            }
+        }
+        item {
+            OutlinedButton(onClick = openAllocations, modifier = Modifier.fillMaxWidth(), enabled = !busy) { Text("Monthly Allocation") }
+        }
+        item {
+            LedgerCard {
+                Text("Appearance", style = MaterialTheme.typography.titleMedium)
+                Choice("Theme", state.settings.theme, listOf("System" to "System Default", "Light" to "Light", "Dark" to "Dark")) {
+                    if (!busy) vm.saveSettings(state.settings.copy(theme = it)) {}
+                }
+                Text("Applies immediately and stays selected after reopening.", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        item {
+            LedgerCard {
+                Text("Local planning reminders", style = MaterialTheme.typography.titleMedium)
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Upcoming, overdue and shortfall alerts", Modifier.weight(1f))
+                    Switch(state.settings.plannerReminders, enabled = !busy, onCheckedChange = { enabled ->
+                        if (enabled && Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+                            permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        else vm.saveSettings(state.settings.copy(plannerReminders = enabled)) {}
+                    })
+                }
+                Text("Optional on-device checks when the app opens and about every 12 hours. Android may delay reminders; no exact alarm or internet service is used. Alerts hide financial details. Enable notifications in Android settings if previously blocked.", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        item {
+            LedgerCard {
+                Text("Receipt Scanner", style = MaterialTheme.typography.titleMedium)
+                Choice("Save Mode", state.settings.receiptSaveMode, listOf("Review" to "Review Before Saving", "Smart" to "Smart Auto-Save")) {
+                    if (!busy) vm.saveSettings(state.settings.copy(receiptSaveMode = it)) {}
+                }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Keep encrypted receipt photos by default", Modifier.weight(1f))
+                    Switch(state.settings.keepReceiptPhotos, { vm.saveSettings(state.settings.copy(keepReceiptPhotos = it)) {} }, enabled = !busy)
+                }
+                Text("Use Scan Receipt on the dashboard. Smart mode saves only a known category, clear merchant, unique final total and valid date. Petrol receipts, foreign currencies and possible duplicates require review. Attachments inside an existing expense/refuel form always remain under your control.", style = MaterialTheme.typography.bodySmall)
+                OutlinedButton({ addMerchantRule = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Add merchant → category rule") }
+            }
+        }
+        items(receiptRules, key = { "receipt-merchant-${it.merchant}" }) { rule ->
+            OutlinedCard(onClick = { merchantRule = rule }, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(rule.displayName)
+                    Text(state.categories.find { it.id == rule.categoryId }?.name ?: "Others", style = MaterialTheme.typography.bodySmall)
+                    Text("Tap to edit or remove", style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
         item { AppLockSettings() }
@@ -78,6 +140,12 @@ fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, expor
             Text(stringResource(R.string.app_display_name) + "\nOffline by design. No account, ads or tracking.\nDates use your device's local time zone. Week totals run Monday to Sunday.\nBack up before uninstalling: Android removes the local database when you uninstall.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+    if (addMerchantRule || merchantRule != null) {
+        val seed = merchantRule
+        MerchantRuleEditor(seed, state.categories, busy, { addMerchantRule = false; merchantRule = null }, { name, category ->
+            vm.saveReceiptMerchant(name, category) { addMerchantRule = false; merchantRule = null }
+        }, { seed?.let { vm.deleteReceiptMerchant(it.merchant) }; addMerchantRule = false; merchantRule = null })
+    }
     if (addCategory || editCategory != null) {
         val seed = editCategory
         val id = remember(seed?.id) { seed?.id ?: UUID.randomUUID().toString() }
@@ -103,4 +171,16 @@ private fun CategoryEditor(seed: Category?, id: String, busy: Boolean, dismiss: 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) { CategoryBadge(Category(id, name, icon, color)); Text(name.ifBlank { "Category preview" }) }
     }
     if (confirm) DeleteConfirmation("Delete category?", "Expenses and recurring payments in this category move to Others. Its monthly budgets are combined with existing Others budgets. No expense records are deleted.", busy, { confirm = false }, delete)
+}
+
+@Composable
+private fun MerchantRuleEditor(seed: ReceiptMerchant?, categories: List<Category>, busy: Boolean, close: () -> Unit,
+    save: (String, String) -> Unit, delete: () -> Unit) {
+    var name by rememberSaveable(seed?.merchant) { mutableStateOf(seed?.displayName.orEmpty()) }
+    var category by rememberSaveable(seed?.merchant) { mutableStateOf(seed?.categoryId ?: categories.firstOrNull()?.id.orEmpty()) }
+    EditorShell("Merchant category rule", busy, null, close, { save(name, category) }, if (seed != null) delete else null) {
+        TextField(name, { if (seed == null) name = it }, "Merchant name", 200)
+        Choice("Category", category, categories.map { it.id to it.name }) { category = it }
+        Text("Merchant matching ignores punctuation and letter case. Remove an existing rule to change its merchant name.")
+    }
 }

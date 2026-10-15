@@ -1,3 +1,110 @@
+# Current progress — Fuel & Expense Tracker v1.3.0
+
+Updated 15 October 2026. This update extends the existing application from commit `2725b51`; the complete prior progress report is preserved below.
+
+## Completed features
+
+- Monthly Money Planner with recurring expected income, fixed commitments, planned available, actual net cash flow and remaining allowance. Expected income remains separate from received income. Negative plans stay visible.
+- Fixed Expenses and Expected Income management reuse the existing recurrence model, with manual payment confirmation, optional end dates, pause/resume and original-day monthly anchoring. Existing automatic recurring rules retain their behavior. Paid occurrences link one actual expense; a unique occurrence index and transactional checks prevent duplicate charges, including after converting a legacy automatic rule to manual confirmation.
+- Saved monthly snapshots preserve captured past plans. Startup/screen reconciliation backfills missed months without continuous execution. Future months are forecasts. Uncaptured old months are reconstructed from the rules available when first viewed.
+- Monthly Allocation settings: editable categories and exact two-decimal percentages, 100% validation, independent month overrides, integer-sen largest-remainder rounding, spending mappings and savings reserves. Defaults and overrides use the existing encrypted Room store. Allocations never post transactions or deduct fixed commitments twice.
+- Appearance settings: System Default for new installations, immediate Light/Dark/System selection, encrypted DataStore persistence, preserved previous choices and matching app-lock appearance.
+- Standalone Journey Planner in bottom navigation. Manual origin/destination/distance with offline saved-location suggestions; outbound/return distances, toll segments, parking, custom fees, selectable passenger sharing, local save/edit/delete/duplicate history. Existing fuel-estimation logic is reused; plans never create expenses. Fuel Tracker retains actual statistics and history.
+- Automatic offline Receipt Scanner via the dashboard: delegated camera capture and Photo Picker, optional crop/rotate, larger portrait receipts with bounded decoding, bundled ML Kit OCR, conservative total/date/merchant parsing and image-quality checks, editable local merchant mappings, review/default and optional Smart Auto-Save modes, duplicate fingerprints and same-day/amount review, existing-refuel matching, encrypted retained photos, transactional save and guarded Undo.
+- Optional on-device upcoming/overdue/shortfall reminders with Android 13+ permission requested only when enabled. No exact scheduling or Internet connection required.
+- Additive Room schema 3 → 4, updated encrypted complete backups including all new planning/journey/scanner records, preserved schema 1 → 2 → 3 migrations, and database-free Compose previews for the new summary components.
+
+## Current implementation and verification
+
+Feature implementation is complete. **184 host tests pass**, with no failures, errors or skipped cases. Debug and Android test APKs build. Optimized unsigned release builds. All 9 native API26 tests pass in airplane mode, including offline OCR, complete encrypted finance/planning/scanner backups, additive schema 1/2/3 → 4 migrations and wrong/missing-key preservation. All 4 build-policy tests pass. Final debug/release lint has 0 errors and 3 advisory warnings. See VALIDATION.md for the final record.
+
+New tests cover the RM3,000 − RM1,130 = RM1,870 example, fixed-payment deduplication, missed schedules, month-end dates, negative/zero allocation, rounding and invalid percentages, month overrides/history, time zones, journey fee/sharing validation, theme/scanner persistence, merchant categorization, duplicate/auto-save/review/Undo safeguards, additive migration from installed schema 3, backup round trips and real Compose navigation/data entry.
+
+## Updated APK
+
+- `downloads/Fuel-Expense-Tracker-v1.3.0-debug.apk` — 76,639,470 bytes, Android 8.0+, signed debug build.
+- SHA-256: `c85624e8ee2e9ce299718ad409150284577edb9413bfdb2d1c57fbfe722ef059`.
+- Version 1.3.0 / code 5; package and signing certificate match previous builds for in-place updates. Older APKs are preserved.
+- Optimized unsigned release remains at `app/build/outputs/apk/release/app-release-unsigned.apk` and requires private signing. No signing keys, databases, passwords or caches belong in Git.
+
+## Remaining tasks and known limits
+
+- Physical-phone camera/Photo Picker handoff, notification permission denial, thermal-paper image quality, biometric/PIN interaction and OEM reboot/transfer behavior need hands-on verification. Host API35 coverage is Robolectric; native device tests use an API26 software emulator.
+- OCR heuristics cannot guarantee every receipt is correct. Poor, very long or severely tilted receipts may need a better photo or manual entry. Non-MYR receipts require manual conversion. Tax/item-level extraction is optional and not implemented.
+- Normal deletion retains a receipt fingerprint to guard against accidental rescanning; Undo of an unchanged accepted receipt also removes its fingerprint. An edited transaction cannot be silently removed by Undo.
+- Captured past plans are immutable when rules/defaults change; historical months not captured earlier are reconstructions, not evidence of past settings. Explicit monthly allocation overrides remain editable.
+- Local reminders are approximate and may be delayed/disabled by Android. Reminder summaries currently cover the current and next month; inspect older unpaid occurrences by selecting a past month in Planner. No remote messaging, geocoding or toll pricing is used.
+- No known compilation errors remain. Lint has 0 errors and 3 advisory warnings (SQLite update and two optional KTX suggestions). Release APK is unsigned; the installable debug APK is for personal testing. Keep private release signing keys outside Git.
+
+## Exact instructions for resuming development
+
+```sh
+cd /workspace/ChatgptFuelConsumption
+git status --short --branch
+source /workspace/.tooling/fuel-ledger-env.sh
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew :app:assembleRelease
+./gradlew :app:lintDebug
+./gradlew -p buildSrc test
+```
+
+Keep the existing checkout, package `my.fuelledger` and signing identity. Never clear installed user data or add destructive migrations. Schema 4 is the new upgrade target. Preserve older APKs. Run release assembly and debug lint sequentially. For native tests use the helper in the previous report and require `OK (9 tests)` in instrumentation output; adb may return status 0 even when tests fail. Do not uninstall/clear user data to run tests. Review README.md, SECURITY.md and VALIDATION.md before making further architecture changes.
+
+## Files created or modified in this upgrade
+
+- [`PROGRESS.md`](PROGRESS.md)
+- [`README.md`](README.md)
+- [`SECURITY.md`](SECURITY.md)
+- [`VALIDATION.md`](VALIDATION.md)
+- [`app/build.gradle.kts`](app/build.gradle.kts)
+- [`app/schemas/my.fuelledger.data.LedgerDatabase/4.json`](app/schemas/my.fuelledger.data.LedgerDatabase/4.json)
+- [`app/src/androidTest/java/my/fuelledger/OfflinePrivacyTest.kt`](app/src/androidTest/java/my/fuelledger/OfflinePrivacyTest.kt)
+- [`app/src/androidTest/java/my/fuelledger/security/EncryptedStorageTest.kt`](app/src/androidTest/java/my/fuelledger/security/EncryptedStorageTest.kt)
+- [`app/src/main/AndroidManifest.xml`](app/src/main/AndroidManifest.xml)
+- [`app/src/main/java/my/fuelledger/FinanceViewModel.kt`](app/src/main/java/my/fuelledger/FinanceViewModel.kt)
+- [`app/src/main/java/my/fuelledger/JourneyViewModel.kt`](app/src/main/java/my/fuelledger/JourneyViewModel.kt)
+- [`app/src/main/java/my/fuelledger/LedgerViewModel.kt`](app/src/main/java/my/fuelledger/LedgerViewModel.kt)
+- [`app/src/main/java/my/fuelledger/MainActivity.kt`](app/src/main/java/my/fuelledger/MainActivity.kt)
+- [`app/src/main/java/my/fuelledger/data/Backup.kt`](app/src/main/java/my/fuelledger/data/Backup.kt)
+- [`app/src/main/java/my/fuelledger/data/Database.kt`](app/src/main/java/my/fuelledger/data/Database.kt)
+- [`app/src/main/java/my/fuelledger/data/FinanceData.kt`](app/src/main/java/my/fuelledger/data/FinanceData.kt)
+- [`app/src/main/java/my/fuelledger/data/FinanceRepository.kt`](app/src/main/java/my/fuelledger/data/FinanceRepository.kt)
+- [`app/src/main/java/my/fuelledger/data/JourneyData.kt`](app/src/main/java/my/fuelledger/data/JourneyData.kt)
+- [`app/src/main/java/my/fuelledger/data/LedgerRepository.kt`](app/src/main/java/my/fuelledger/data/LedgerRepository.kt)
+- [`app/src/main/java/my/fuelledger/data/MonthlyPlanner.kt`](app/src/main/java/my/fuelledger/data/MonthlyPlanner.kt)
+- [`app/src/main/java/my/fuelledger/data/ReceiptAutomation.kt`](app/src/main/java/my/fuelledger/data/ReceiptAutomation.kt)
+- [`app/src/main/java/my/fuelledger/data/ReceiptBackupArchive.kt`](app/src/main/java/my/fuelledger/data/ReceiptBackupArchive.kt)
+- [`app/src/main/java/my/fuelledger/data/SettingsStore.kt`](app/src/main/java/my/fuelledger/data/SettingsStore.kt)
+- [`app/src/main/java/my/fuelledger/finance/PlannerReminders.kt`](app/src/main/java/my/fuelledger/finance/PlannerReminders.kt)
+- [`app/src/main/java/my/fuelledger/finance/RecurringWorker.kt`](app/src/main/java/my/fuelledger/finance/RecurringWorker.kt)
+- [`app/src/main/java/my/fuelledger/receipts/ReceiptParser.kt`](app/src/main/java/my/fuelledger/receipts/ReceiptParser.kt)
+- [`app/src/main/java/my/fuelledger/receipts/ReceiptScanner.kt`](app/src/main/java/my/fuelledger/receipts/ReceiptScanner.kt)
+- [`app/src/main/java/my/fuelledger/receipts/ReceiptStore.kt`](app/src/main/java/my/fuelledger/receipts/ReceiptStore.kt)
+- [`app/src/main/java/my/fuelledger/ui/AppLockSettings.kt`](app/src/main/java/my/fuelledger/ui/AppLockSettings.kt)
+- [`app/src/main/java/my/fuelledger/ui/FinanceScreen.kt`](app/src/main/java/my/fuelledger/ui/FinanceScreen.kt)
+- [`app/src/main/java/my/fuelledger/ui/JourneyScreen.kt`](app/src/main/java/my/fuelledger/ui/JourneyScreen.kt)
+- [`app/src/main/java/my/fuelledger/ui/LedgerApp.kt`](app/src/main/java/my/fuelledger/ui/LedgerApp.kt)
+- [`app/src/main/java/my/fuelledger/ui/MonthlyPlannerScreen.kt`](app/src/main/java/my/fuelledger/ui/MonthlyPlannerScreen.kt)
+- [`app/src/main/java/my/fuelledger/ui/ReceiptAttachment.kt`](app/src/main/java/my/fuelledger/ui/ReceiptAttachment.kt)
+- [`app/src/main/java/my/fuelledger/ui/ReceiptCameraButton.kt`](app/src/main/java/my/fuelledger/ui/ReceiptCameraButton.kt)
+- [`app/src/main/java/my/fuelledger/ui/ScreenPreviews.kt`](app/src/main/java/my/fuelledger/ui/ScreenPreviews.kt)
+- [`app/src/main/java/my/fuelledger/ui/Screens.kt`](app/src/main/java/my/fuelledger/ui/Screens.kt)
+- [`app/src/main/java/my/fuelledger/ui/SettingsScreen.kt`](app/src/main/java/my/fuelledger/ui/SettingsScreen.kt)
+- [`app/src/main/java/my/fuelledger/ui/SmartReceiptScreen.kt`](app/src/main/java/my/fuelledger/ui/SmartReceiptScreen.kt)
+- [`app/src/main/res/xml/receipt_camera_paths.xml`](app/src/main/res/xml/receipt_camera_paths.xml)
+- [`app/src/test/java/my/fuelledger/data/PlannerRepositoryTest.kt`](app/src/test/java/my/fuelledger/data/PlannerRepositoryTest.kt)
+- [`app/src/test/java/my/fuelledger/data/PlanningCalculationsTest.kt`](app/src/test/java/my/fuelledger/data/PlanningCalculationsTest.kt)
+- [`app/src/test/java/my/fuelledger/data/RepositoryTest.kt`](app/src/test/java/my/fuelledger/data/RepositoryTest.kt)
+- [`app/src/test/java/my/fuelledger/data/SettingsStoreTest.kt`](app/src/test/java/my/fuelledger/data/SettingsStoreTest.kt)
+- [`app/src/test/java/my/fuelledger/receipts/ReceiptStoreTest.kt`](app/src/test/java/my/fuelledger/receipts/ReceiptStoreTest.kt)
+- [`app/src/test/java/my/fuelledger/testing/TestLedgerApplication.kt`](app/src/test/java/my/fuelledger/testing/TestLedgerApplication.kt)
+- [`app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt`](app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt)
+- [`downloads/Fuel-Expense-Tracker-v1.3.0-debug.apk`](downloads/Fuel-Expense-Tracker-v1.3.0-debug.apk)
+- [`downloads/SHA256SUMS`](downloads/SHA256SUMS)
+
+<details>
+<summary>Preserved v1.2.0 progress and earlier checkpoint history</summary>
+
 # Current progress — Fuel & Expense Tracker v1.2.0
 
 Updated **15 October 2026 (Asia/Kuala_Lumpur)** after development resumed from checkpoint `6be584c`. The paused-checkpoint document is preserved below; this current section supersedes its unfinished-work/build-error status.
@@ -424,5 +531,7 @@ Statuses: **A** new, **M** modified, **D** previously removed/replaced launcher 
 | M | `app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt` |
 
 Total: **65 changed files**, including this document.
+
+</details>
 
 </details>

@@ -16,7 +16,8 @@ data class ReceiptSuggestions(
     val date: String? = null,
     val time: String? = null,
     val rawText: String = "",
-    val suggestedCategoryId: String? = null
+    val suggestedCategoryId: String? = null,
+    val imageQualityIssue: String? = null, val currency: String = "MYR", val strictTotal: Boolean = false, val ambiguousTotals: Boolean = false, val ambiguousDates: Boolean = false
 )
 
 /** Conservative Malaysian receipt parsing, independent of Android and the OCR engine. */
@@ -128,7 +129,11 @@ fun parseReceipt(text: String): ReceiptSuggestions {
         litres = choose(litres), amount = choose(amounts), fuelType = fuels.singleOrNull(),
         station = stations.singleOrNull() ?: genericMerchant(lines), stationLocation = receiptLocation(lines),
         odometer = choose(odometers), date = choose(dates), time = choose(times), rawText = text,
-        suggestedCategoryId = suggestCategory(lines, fuels.isNotEmpty() || stations.isNotEmpty())
+        suggestedCategoryId = suggestCategory(lines, fuels.isNotEmpty() || stations.isNotEmpty()),
+        currency = if (Regex("(?i)\\b(?:SGD|USD|EUR|GBP|CNY|THB|IDR)\\b").containsMatchIn(text)) "OTHER" else "MYR",
+        strictTotal = amounts.any { it.priority >= 3 },
+        ambiguousTotals = amounts.map { it.value }.distinct().size > 1,
+        ambiguousDates = dates.map { it.value }.distinct().size > 1
     )
 }
 
@@ -148,7 +153,7 @@ private val volumeLabel = Regex("(?i)\\b(?:VOLUME|VOL\\.?|LITRES?|LITERS?|ISI\\s
 private val quantityLabel = Regex("(?i)\\b(?:QUANTITY|QTY|KUANTITI)\\b")
 private val unitPrice = Regex("(?i)\\b(?:UNIT\\s*PRICE|PRICE\\s*(?:PER|/|\\()?\\s*(?:L|LTR|LITRE|LITER)|HARGA\\s*(?:SELITER|SEUNIT|/L))\\b|(?:RM|MYR)\\s*/\\s*(?:L|LTR|LITRE|LITER)\\b")
 private val priceOrAmount = Regex("(?i)\\b(?:PRICE|AMOUNT|HARGA|JUMLAH)\\b")
-private val totalLabel = Regex("(?i)\\b(?:GRAND\\s+TOTAL|TOTAL(?:\\s+(?:AMOUNT|SALES?|DUE|PAYABLE))?|JUMLAH(?:\\s+(?:BESAR|KESELURUHAN|BAYARAN))?)\\b")
+private val totalLabel = Regex("(?i)\\b(?:GRAND\\s+TOTAL|NET\\s+TOTAL|AMOUNT\\s+PAID|TOTAL(?:\\s+(?:AMOUNT|SALES?|DUE|PAYABLE))?|JUMLAH(?:\\s+(?:BESAR|KESELURUHAN|BAYARAN))?)\\b")
 private val amountLabel = Regex("(?i)\\b(?:AMOUNT(?:\\s+(?:DUE|PAYABLE|PAID))?|BAYARAN)\\b")
 private val excludedAmount = Regex("(?i)\\b(?:SUB\\s*TOTAL|SUBTOTAL|TAX|SST|GST|CHANGE|BALANCE|DISCOUNT|SAVINGS?|POINTS?|LOYALTY|REWARD|REFUND|UNIT\\s*PRICE|VOLUME|LITRES?|LITERS?|QUANTITY|QTY|KUANTITI)\\b|(?:PRICE|HARGA)\\s*/\\s*L")
 private val odometerLabel = Regex("(?i)\\b(?:ODOMETER|ODO|MILEAGE|BACAAN\\s+(?:ODO|METER))\\b")
@@ -224,6 +229,7 @@ private fun receiptLocation(lines: List<String>): String? {
 }
 
 private val categoryRules = listOf(
+    "entertainment" to Regex("(?i)\\b(?:TGV|GSC|CINEMA|CINEMAS|GOLDEN\\s+SCREEN)\\b"),
     "groceries" to Regex("(?i)\\b(?:MYDIN|TESCO|LOTUS(?:['’]S)?|AEON|GIANT|JAYA\\s+GROCER|VILLAGE\\s+GROCER|99\\s*SPEED\\s*MART|99\\s*SPEEDMART|ECONSAVE|NSK|GROCER(?:Y|IES)?|SUPERMARKET|PASAR\\s*RAYA|7[- ]?ELEVEN)\\b"),
     "food" to Regex("(?i)\\b(?:RESTORAN|RESTAURANT|CAFE|CAFÉ|COFFEE|BAKERY|WARUNG|MAMAK|STARBUCKS|MCDONALD['’]?S?|KFC|TEALIVE|SECRET\\s+RECIPE|PIZZA|BURGER|FOOD\\s+COURT|KOPI)\\b"),
     "bills" to Regex("(?i)\\b(?:TENAGA\\s+NASIONAL|TNB|AIR\\s+SELANGOR|UNIFI|MAXIS|CELCOM|DIGI|U\\s+MOBILE|ASTRO|ELECTRICITY|UTILIT(?:Y|IES)|INTERNET\\s+BILL|WATER\\s+BILL|BIL\\s+(?:AIR|ELEKTRIK))\\b"),
@@ -245,6 +251,8 @@ private fun genericMerchant(lines: List<String>): String? {
     val explicit = Regex("(?i)^(?:MERCHANT|KEDAI|PENIAGA)\\s*[:=-]\\s*(.+)$")
     lines.take(8).forEach { line -> explicit.find(line)?.let { return it.groupValues[1].take(150) } }
     return lines.take(5).firstOrNull { line -> !receiptFooter.containsMatchIn(line) && categoryRules.any { it.second.containsMatchIn(line) } }?.take(150)
+        ?: lines.take(3).firstOrNull { line -> line.count(Char::isLetter) >= 4 && !receiptFooter.containsMatchIn(line) &&
+            !Regex("(?i)\\b(?:RECEIPT|INVOICE|DATE|TIME|TOTAL|TEL|FAX|SST|GST|JALAN|JLN|TAX|WELCOME|ADDRESS|ALAMAT)\\b").containsMatchIn(line) && line.length <= 150 }
 }
 
 private val receiptFooter = Regex("(?i)\\b(?:THANK(?:S|\\s+YOU)|TERIMA\\s+KASIH|COME\\s+AGAIN|PLEASE\\s+(?:COME|VISIT))\\b")

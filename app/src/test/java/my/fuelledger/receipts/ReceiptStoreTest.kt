@@ -72,6 +72,21 @@ class ReceiptStoreTest {
         assertEquals(cacheBefore, context.cacheDir.list().orEmpty().toSet())
     }
 
+    @Test fun longPortraitReceiptAndCropRotateRetainReadableDimensionsAndPreserveOriginal() = runBlocking {
+        val source = image(600, 3600, Bitmap.CompressFormat.PNG)
+        val name = store.importPhoto(Uri.fromFile(source))
+        val original = store.file(name).readBytes()
+        assertEquals(3600, bounds(store.readPhoto(name)).outHeight)
+        val edited = store.transformPhoto(name, true, 10, 10)
+        val size = bounds(store.readPhoto(edited))
+        assertEquals(2880, size.outWidth); assertEquals(600, size.outHeight)
+        assertArrayEquals(original, store.file(name).readBytes())
+        assertTrue(runCatching { store.transformPhoto(name, false, 50, 50) }.isFailure)
+    }
+    @Test fun flatBlurredImagesCannotPassAutomaticSaveQualityGate() {
+        val bitmap = Bitmap.createBitmap(500, 500, Bitmap.Config.ARGB_8888)
+        try { bitmap.eraseColor(android.graphics.Color.WHITE); assertNotNull(receiptImageQualityIssue(bitmap)) } finally { bitmap.recycle() }
+    }
     @Test fun importAppliesExifRotationWithoutPersistingPlaintextMetadata() = runBlocking {
         val source = image(320, 120)
         ExifInterface(source).apply {

@@ -110,6 +110,26 @@ class SettingsStoreTest {
         assertArrayEquals(tampered, encryptedFile.readBytes())
     }
 
+    @Test fun newInstallDefaultsToSystemAndAllThemeScannerPreferencesSurviveRestart() = runBlocking {
+        var active = scope()
+        var store = SettingsStore(context, vault, active)
+        assertEquals("System", store.settings.first().theme)
+        assertEquals("Review", store.settings.first().receiptSaveMode)
+        for (theme in listOf("Dark", "Light", "System")) {
+            val preferences = AppSettings("2.95", 6.75, theme, true, "Smart", false)
+            store.save(preferences)
+            active.coroutineContext[Job]?.cancelAndJoin()
+            active = scope(); store = SettingsStore(context, vault, active)
+            assertEquals(preferences, store.settings.first())
+        }
+    }
+    @Test fun oldEncryptedSettingsWithoutNewFieldsPreserveSelectedTheme() = runBlocking {
+        encryptedFile.parentFile!!.mkdirs()
+        encryptedFile.writeBytes(vault.encrypt("""{"petrolPrice":"2.05","consumption":7.0,"theme":"Dark"}""".toByteArray(), "settings:v1"))
+        val settings = SettingsStore(context, vault, scope()).settings.first()
+        assertEquals("Dark", settings.theme); assertEquals("Review", settings.receiptSaveMode)
+        assertFalse(settings.plannerReminders)
+    }
     @Test fun invalidLegacyValuesRemainAvailableForRecovery() = runBlocking {
         legacy(AppSettings("2.05", 7.0, "Unsupported theme"))
         val before = legacyFile.readBytes()

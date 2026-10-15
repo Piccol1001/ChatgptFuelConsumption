@@ -1,6 +1,8 @@
 package my.fuelledger
 
 import android.os.Bundle
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.view.WindowManager
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -33,7 +35,11 @@ class MainActivity : FragmentActivity() {
                 if (lockExpiredOnInput()) true else delegate.dispatchKeyEvent(event)
         }
         enableEdgeToEdge()
-        setContent { AppLockGate { LedgerApp(viewModel()) } }
+        setContent {
+            val vm: LedgerViewModel = viewModel(factory = ViewModelProvider.AndroidViewModelFactory(application))
+            val ledger by vm.state.collectAsStateWithLifecycle()
+            AppLockGate(theme = ledger.settings.theme) { LedgerApp(vm) }
+        }
     }
 
     override fun onStart() { super.onStart(); appLock.onForeground() }

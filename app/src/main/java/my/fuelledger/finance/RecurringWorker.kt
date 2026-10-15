@@ -13,6 +13,7 @@ class RecurringWorker(context: Context, parameters: WorkerParameters) : Coroutin
         val ledger = (applicationContext as LedgerApplication).repository
         ledger.initialize()
         FinanceRepository(ledger.database).reconcile()
+        PlannerReminders.update(applicationContext, ledger)
         Result.success()
     } catch (cancelled: CancellationException) { throw cancelled }
     catch (_: Exception) { Result.retry() }

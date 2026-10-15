@@ -28,13 +28,15 @@ import java.math.BigDecimal
 
 @Serializable
 data class AppSettings(val petrolPrice: String = "2.05", val consumption: Double = 7.0,
-    val theme: String = "Dark") {
+    val theme: String = "System", val plannerReminders: Boolean = false,
+    val receiptSaveMode: String = "Review", val keepReceiptPhotos: Boolean = true) {
     fun validate() {
         val price = petrolPrice.toBigDecimalOrNull()
         require(price != null && price > BigDecimal.ZERO && price <= BigDecimal("1000000") && price.scale() <= 4) {
             "Petrol price must be positive, with at most four decimal places."
         }
         require(consumption.isFinite() && consumption > 0 && consumption <= 1000) { "Consumption must be between 0 and 1000 L/100 km." }
+        require(receiptSaveMode in listOf("Review", "Smart")) { "Invalid receipt save mode." }
         require(theme in listOf("System", "Light", "Dark")) { "Invalid theme." }
     }
 }

@@ -37,6 +37,54 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
     val restorePreview = _restore.asStateFlow()
     private val _receiptWork = MutableStateFlow<ReceiptWork?>(null)
     val receiptWork = _receiptWork.asStateFlow()
+    private val _receiptSaved = MutableStateFlow<Expense?>(null)
+    val receiptSaved = _receiptSaved.asStateFlow()
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val receiptMerchants = _ready.flatMapLatest { if (it) repository.database.receiptAutomationDao().merchants() else flowOf(emptyList()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    fun clearReceiptSuccess() { _receiptSaved.value = null }
+    suspend fun receiptWasScanned(fingerprint: String): Boolean = withContext(Dispatchers.IO) {
+        repository.database.receiptAutomationDao().scan(fingerprint) != null
+    }
+    fun saveReceiptMerchant(name: String, category: String, done: () -> Unit) = perform("Merchant rule saved", done) {
+        val value = ReceiptMerchant(merchantKey(name), name.trim(), category)
+        validateReceiptMerchant(value)
+        require(repository.dao.allCategories().any { it.id == category }) { "Category no longer exists." }
+        repository.database.receiptAutomationDao().putMerchant(value)
+    }
+    fun deleteReceiptMerchant(key: String) = perform("Merchant rule removed") { repository.database.receiptAutomationDao().deleteMerchant(key) }
+    fun acceptReceipt(expense: Expense, suggestions: ReceiptSuggestions, fingerprint: String, remember: Boolean,
+        automatic: Boolean, duplicateReviewed: Boolean, sourceFile: String) = perform("Receipt expense saved") {
+        receiptWrites.withLock {
+            expense.receiptFile?.let { require(receipts.file(it).isFile) { "Receipt photo is missing. Scan it again." } }
+            repository.saveReceiptExpense(expense, suggestions, fingerprint, remember, automatic, duplicateReviewed)
+            _receiptWork.value = null
+            _receiptSaved.value = expense
+            if (expense.receiptFile == null) cleanupAfterCommit(sourceFile)
+        }
+    }
+    fun undoReceipt(expense: Expense) = perform("Receipt expense undone") {
+        receiptWrites.withLock {
+            repository.undoReceiptExpense(expense)
+            cleanupAfterCommit(expense.receiptFile)
+            _receiptSaved.value = null
+        }
+    }
+    fun attachScannedReceipt(expenseId: String, fileName: String, fingerprint: String, keep: Boolean) = perform("Receipt matched to the existing transaction") {
+        receiptWrites.withLock {
+            val previous = repository.dao.expense(expenseId)?.receiptFile
+            repository.attachScannedReceipt(expenseId, if (keep) fileName else null, fingerprint)
+            _receiptWork.value = null
+            if (keep) cleanupAfterCommit(previous) else cleanupAfterCommit(fileName)
+        }
+    }
+    fun transformReceipt(ownerId: String, fileName: String, rotate: Boolean, topPercent: Int, bottomPercent: Int) = perform("Receipt image adjusted") {
+        receiptWrites.withLock {
+            val adjusted = receipts.transformPhoto(fileName, rotate, topPercent, bottomPercent)
+            _receiptWork.value = ReceiptWork(ownerId, adjusted)
+            cleanupAfterCommit(fileName)
+        }
+    }
 
     // Database migration and key generation must never block composition.
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -62,8 +110,10 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
         perform(null) {
             repository.initialize()
             receipts.migrateLegacyPhotos()
+            File(app.cacheDir, "receipt-capture").listFiles().orEmpty().filter { System.currentTimeMillis() - it.lastModified() > 86_400_000L }.forEach { it.delete() }
             app.financeRepository.reconcile()
             app.scheduleRecurring()
+            my.fuelledger.finance.PlannerReminders.update(app, repository)
             receiptWrites.withLock { pruneUnusedReceipts() }
             _ready.value = true
         }
@@ -149,7 +199,7 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
     }
     fun saveCategory(category: Category, done: () -> Unit) = perform("Category saved", done) { repository.saveCategory(category) }
     fun deleteCategory(id: String, done: () -> Unit) = perform("Category deleted; transactions moved to Others", done) { repository.deleteCategory(id) }
-    fun saveSettings(settings: AppSettings, done: () -> Unit) = perform("Preferences saved", done) { repository.saveSettings(settings) }
+    fun saveSettings(settings: AppSettings, done: () -> Unit) = perform("Preferences saved", done) { repository.saveSettings(settings); my.fuelledger.finance.PlannerReminders.update(app, repository) }
 
     fun export(uri: Uri, kind: String, password: CharArray? = null) {
         if (_busy.value) { password?.fill('\u0000'); return }
@@ -200,6 +250,7 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
                     try {
                         app.financeRepository.reconcile()
                         app.scheduleRecurring()
+            my.fuelledger.finance.PlannerReminders.update(app, repository)
                         pruneUnusedReceipts()
                     } catch (cancelled: CancellationException) { throw cancelled }
                     catch (_: Exception) {
@@ -220,7 +271,12 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
     fun importReceipt(ownerId: String, uri: Uri) = perform("Receipt photo attached") {
-        _receiptWork.value = ReceiptWork(ownerId, receipts.importPhoto(uri))
+        try { _receiptWork.value = ReceiptWork(ownerId, receipts.importPhoto(uri)) }
+        finally {
+            if (uri.authority == "${app.packageName}.receipt-camera") {
+                uri.lastPathSegment?.takeIf { Regex("[0-9a-f-]{36}\\.jpg").matches(it) }?.let { File(app.cacheDir, "receipt-capture/$it").delete() }
+            }
+        }
     }
     fun scanReceipt(ownerId: String, fileName: String) = perform(null) {
         val bytes = receipts.readPhoto(fileName)

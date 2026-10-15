@@ -22,7 +22,10 @@ data class FinanceBudget(@PrimaryKey val id: String, val month: String, val cent
 @Entity(tableName = "finance_recurring")
 data class FinanceRecurring(@PrimaryKey val id: String, val name: String, val cents: Long,
     val categoryId: String, val frequency: String, val startDate: String, val nextDate: String,
-    val enabled: Boolean = true, val payment: String = "Cash", val notes: String = "")
+    val enabled: Boolean = true, val payment: String = "Cash", val notes: String = "",
+    @ColumnInfo(defaultValue = "'Expense'") val kind: String = "Expense",
+    @ColumnInfo(defaultValue = "0") val manualPayment: Boolean = false,
+    val endDate: String? = null)
 
 val financeFrequencies = listOf("Daily", "Weekly", "Monthly")
 
@@ -66,9 +69,11 @@ fun validateFinanceRecurring(value: FinanceRecurring) {
     validateFinanceId(value.id)
     require(value.name.isNotBlank() && value.name.length <= 200 && value.notes.length <= 2000) { "Enter a recurring expense name." }
     require(value.cents in 1..MAX_CENTS) { "Recurring payment must be a positive amount." }
-    require(value.categoryId.isNotBlank() && value.categoryId.length <= 100) { "Choose a category." }
+    require((value.kind == "Income" || value.categoryId.isNotBlank()) && value.categoryId.length <= 100) { "Choose a category." }
     require(value.frequency in financeFrequencies && value.payment in paymentMethods) { "Choose a valid frequency and payment method." }
+    require(value.kind in listOf("Expense", "Income")) { "Invalid recurring record type." }
     val start = LocalDate.parse(value.startDate)
+    value.endDate?.let { require(LocalDate.parse(it) >= start && LocalDate.parse(it).year <= 2999 && LocalDate.parse(it).toString() == it) { "Invalid end date." } }
     val next = LocalDate.parse(value.nextDate)
     require(start.year in 1970..2999 && next.year in 1970..3000 && next >= start) { "Invalid recurring expense dates." }
     require(start.toString() == value.startDate && next.toString() == value.nextDate) { "Use ISO dates for scheduled payments." }

@@ -88,6 +88,7 @@ fun ReceiptAttachment(ownerId: String, fileName: String?, vm: LedgerViewModel, b
                 Icon(Icons.Outlined.PhotoLibrary, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp))
                 Text(if (fileName == null) "Choose receipt photo" else "Change receipt photo")
             }
+            ReceiptCameraButton(enabled = !busy && !locked, onPhoto = { pendingPhoto = it }, onError = vm::showError)
             if (fileName != null) {
                 ReceiptImage(fileName, vm, Modifier.fillMaxWidth().height(150.dp))
                 Button(onClick = { vm.scanReceipt(ownerId, fileName) }, enabled = !busy && !locked, modifier = Modifier.fillMaxWidth()) {
@@ -129,7 +130,7 @@ fun ReceiptAttachment(ownerId: String, fileName: String?, vm: LedgerViewModel, b
 }
 
 @Composable
-private fun ReceiptImage(fileName: String, vm: LedgerViewModel, modifier: Modifier) {
+internal fun ReceiptImage(fileName: String, vm: LedgerViewModel, modifier: Modifier) {
     val bitmap by produceState<android.graphics.Bitmap?>(null, fileName) {
         value = withContext(Dispatchers.IO) {
             try {

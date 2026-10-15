@@ -121,7 +121,7 @@ class RepositoryTest {
             stationLocation = "Jalan Ampang, Kuala Lumpur", receiptFile = "12345678-abcd-1234-abcd-123456789abc.jpg")
         repo.saveRefuel(refuel)
         val saved = backupJson.decodeFromString<Backup>(backupJson.encodeToString(repo.backup()))
-        assertEquals(3, saved.version)
+        assertEquals(4, saved.version)
         saved.validate()
         repo.deleteRefuel(refuel.id)
         repo.restore(saved)
@@ -149,7 +149,7 @@ class RepositoryTest {
         assertEquals("", db.dao().allRefuels().single().fuelType)
         assertEquals("", db.dao().allRefuels().single().stationLocation)
         assertNull(db.dao().allRefuels().single().receiptFile)
-        assertEquals(3, repo.backup().version)
+        assertEquals(4, repo.backup().version)
     }
     @Test fun invalidReceiptNamesAndOversizedMetadataNeverChangeExistingRecords() = runBlocking {
         repo.saveRefuel(fuel())
@@ -180,6 +180,38 @@ class RepositoryTest {
         repo.deleteRefuel("b")
         assertEquals(15.0, fillEstimates(db.dao().allRefuels().map { it.point() }).single().kmPerLitre, 0.0)
         assertEquals(setOf("a", "c"), db.dao().allExpenses().map { it.fuelId }.toSet())
+    }
+    @Test fun schemaThreeUpgradePreservesActualIncomeRulesSettingsAndExpenseMetadata() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val name = "planner-v3-upgrade.db"
+        context.deleteDatabase(name)
+        val relative = "schemas/my.fuelledger.data.LedgerDatabase/3.json"
+        val schema = JSONObject(listOf(File(relative), File("app/$relative")).first { it.isFile }.readText()).getJSONObject("database")
+        SQLiteDatabase.openOrCreateDatabase(context.getDatabasePath(name), null).use { old ->
+            val entities = schema.getJSONArray("entities")
+            for (i in 0 until entities.length()) {
+                val entity = entities.getJSONObject(i); val table = entity.getString("tableName")
+                old.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}", table))
+                entity.optJSONArray("indices")?.let { indices ->
+                    for (j in 0 until indices.length()) old.execSQL(indices.getJSONObject(j).getString("createSql").replace("\${TABLE_NAME}", table))
+                }
+            }
+            val setup = schema.getJSONArray("setupQueries")
+            for (i in 0 until setup.length()) old.execSQL(setup.getString(i))
+            old.execSQL("INSERT INTO finance_income VALUES ('actual', 300000, 1000, 'Salary', 'Keep')")
+            old.execSQL("INSERT INTO finance_recurring VALUES ('rent', 'Rent', 95000, 'bills', 'Monthly', '2026-01-31', '2026-10-31', 1, 'Cash', 'Keep')")
+            old.execSQL("INSERT INTO pending_settings VALUES (1, 'preserved settings')")
+            old.version = 3
+        }
+        val migrated = Room.databaseBuilder(context, LedgerDatabase::class.java, name).addMigrations(LedgerDatabase.MIGRATION_3_4).build()
+        try {
+            assertEquals(300000L, migrated.financeDao().allIncome().single().cents)
+            val rule = migrated.financeDao().allRecurring().single()
+            assertEquals("2026-10-31", rule.nextDate); assertEquals("Expense", rule.kind); assertFalse(rule.manualPayment); assertNull(rule.endDate)
+            assertEquals("preserved settings", migrated.dao().pendingSettings()?.payload)
+            assertTrue(migrated.plannerDao().allAllocations().isEmpty()); assertTrue(migrated.journeyDao().allJourneys().isEmpty())
+            assertTrue(migrated.receiptAutomationDao().allScans().isEmpty()); assertEquals(4, migrated.openHelper.readableDatabase.version)
+        } finally { migrated.close(); context.deleteDatabase(name) }
     }
     @Test fun schemaOneMigrationRetainsRecordsLinksAndPendingSettings() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
@@ -220,13 +252,13 @@ class RepositoryTest {
         // Host tests deliberately use Room's platform helper. Production open() always requires
         // SQLCipher and the Android Keystore; it never falls back to plaintext for these tests.
         val migrated = Room.databaseBuilder(context, LedgerDatabase::class.java, databaseName)
-            .addMigrations(LedgerDatabase.MIGRATION_1_2, LedgerDatabase.MIGRATION_2_3).build()
+            .addMigrations(LedgerDatabase.MIGRATION_1_2, LedgerDatabase.MIGRATION_2_3, LedgerDatabase.MIGRATION_3_4).build()
         try {
             assertEquals(originalRefuel, migrated.dao().allRefuels().single())
             assertEquals(originalExpense, migrated.dao().allExpenses().single())
             assertEquals(defaultCategories.toSet(), migrated.dao().allCategories().toSet())
             assertEquals("pending preferences", migrated.dao().pendingSettings()?.payload)
-            assertEquals(3, migrated.openHelper.readableDatabase.version)
+            assertEquals(4, migrated.openHelper.readableDatabase.version)
             migrated.dao().deleteRefuel(originalRefuel.id)
             assertTrue(migrated.dao().allExpenses().isEmpty())
         } finally {
@@ -267,7 +299,7 @@ class RepositoryTest {
             recurringRuleId = "deleted-rule", recurringDate = "2026-10-01"))
         repo.saveRefuel(fuel().copy(receiptFile = receipt))
         val snapshot = backupJson.decodeFromString<Backup>(backupJson.encodeToString(repo.backup()))
-        assertEquals(3, snapshot.version)
+        assertEquals(4, snapshot.version)
         snapshot.validate()
         repo.restore(snapshot.copy(expenses = emptyList(), refuels = emptyList(), incomes = emptyList(),
             budgets = emptyList(), recurring = emptyList()))
@@ -298,7 +330,7 @@ class RepositoryTest {
             assertEquals(legacy.expenses, db.dao().allExpenses())
             assertTrue(db.financeDao().allIncome().isEmpty())
             assertTrue(db.financeDao().allBudgets().isEmpty())
-            assertEquals(3, repo.backup().version)
+            assertEquals(4, repo.backup().version)
         }
     }
     @Test fun invalidFinanceAndOccurrenceMetadataCannotReplaceAnyCurrentRecords() = runBlocking {

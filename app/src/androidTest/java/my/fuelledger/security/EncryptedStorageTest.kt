@@ -49,8 +49,8 @@ class EncryptedStorageTest {
         }
     }
 
-    @Test fun plaintextVersionsOneAndTwoBecomeEncryptedVersionThreeWithoutLosingRecords() = runBlocking {
-        for (version in 1..2) {
+    @Test fun plaintextVersionsOneThroughThreeBecomeEncryptedVersionFourWithoutLosingRecords() = runBlocking {
+        for (version in 1..3) {
             val name = name()
             val (refuel, linked) = createPlaintext(name, version)
             val encrypted = database(name)
@@ -59,7 +59,7 @@ class EncryptedStorageTest {
             assertEquals(2, encrypted.dao().allExpenses().size)
             assertEquals(defaultCategories.toSet(), encrypted.dao().allCategories().toSet())
             assertEquals("pending preferences preserved", encrypted.dao().pendingSettings()?.payload)
-            assertEquals(3, encrypted.openHelper.readableDatabase.version)
+            assertEquals(4, encrypted.openHelper.readableDatabase.version)
             assertTrue(encrypted.financeDao().allIncome().isEmpty())
             val income = FinanceIncome("income", 123456, 5000, "Private income marker")
             encrypted.financeDao().putIncome(income)
@@ -188,9 +188,9 @@ class EncryptedStorageTest {
             JSONObject(it.readText()).getJSONObject("database")
         }
         val refuel = Refuel("refuel", 1000, 12000.0, 25.0, 5125, false, "Private station", "Private notes",
-            fuelType = if (version == 2) "RON 95" else "",
-            stationLocation = if (version == 2) "Kuala Lumpur" else "",
-            receiptFile = if (version == 2) "12345678-abcd-1234-abcd-123456789abc.jpg" else null)
+            fuelType = if (version >= 2) "RON 95" else "",
+            stationLocation = if (version >= 2) "Kuala Lumpur" else "",
+            receiptFile = if (version >= 2) "12345678-abcd-1234-abcd-123456789abc.jpg" else null)
         val linked = Expense("linked", refuel.cents, FUEL_CATEGORY, refuel.timestamp,
             fuelDescription(refuel), refuel.notes, fuelId = refuel.id)
         val file = context.getDatabasePath(name).apply { parentFile?.mkdirs() }
@@ -214,15 +214,15 @@ class EncryptedStorageTest {
                 put("id", refuel.id); put("timestamp", refuel.timestamp); put("odometer", refuel.odometer)
                 put("litres", refuel.litres); put("cents", refuel.cents); put("fullTank", 0)
                 put("station", refuel.station); put("notes", refuel.notes)
-                if (version == 2) {
+                if (version >= 2) {
                     put("fuelType", refuel.fuelType); put("stationLocation", refuel.stationLocation)
                     put("receiptFile", refuel.receiptFile)
                 }
             })
-            old.execSQL("INSERT INTO expenses VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            old.execSQL("INSERT INTO expenses (id, cents, categoryId, timestamp, description, notes, payment, fuelId) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 arrayOf<Any?>(linked.id, linked.cents, linked.categoryId, linked.timestamp,
                     linked.description, linked.notes, linked.payment, linked.fuelId))
-            old.execSQL("INSERT INTO expenses VALUES ('manual', 500, 'food', 2000, 'Manual', '', 'Cash', NULL)")
+            old.execSQL("INSERT INTO expenses (id, cents, categoryId, timestamp, description, notes, payment, fuelId) VALUES ('manual', 500, 'food', 2000, 'Manual', '', 'Cash', NULL)")
             old.execSQL("INSERT INTO pending_settings VALUES (1, 'pending preferences preserved')")
             old.version = version
         }

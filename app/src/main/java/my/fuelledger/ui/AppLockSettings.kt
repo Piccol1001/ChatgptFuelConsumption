@@ -47,7 +47,7 @@ fun rememberAppLockInteraction(): () -> Boolean {
 
 /** Keep forms/picker callbacks alive while hiding and disabling all underlying UI. */
 @Composable
-fun AppLockGate(content: @Composable () -> Unit) {
+fun AppLockGate(theme: String = "System", content: @Composable () -> Unit) {
     val activity = LocalContext.current.mainActivity()
     val controller = activity?.appLock
     if (controller == null) { content(); return }
@@ -60,7 +60,7 @@ fun AppLockGate(content: @Composable () -> Unit) {
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (blocked) 0f else 1f }
             .focusProperties { canFocus = !blocked }
             .then(if (blocked) Modifier.clearAndSetSemantics { } else Modifier)) { content() }
-        if (blocked) MaterialTheme(colorScheme = LedgerDarkColors, typography = LedgerTypography, shapes = LedgerShapes) {
+        if (blocked) MaterialTheme(colorScheme = if (when (theme) { "Dark" -> true; "Light" -> false; else -> androidx.compose.foundation.isSystemInDarkTheme() }) LedgerDarkColors else LedgerLightColors, typography = LedgerTypography, shapes = LedgerShapes) {
             Surface(Modifier.fillMaxSize().pointerInput(Unit) {
                 // Register a hit target over blank space as well as the Unlock button.
                 // Underlying transparent ledger nodes must never receive a touch.

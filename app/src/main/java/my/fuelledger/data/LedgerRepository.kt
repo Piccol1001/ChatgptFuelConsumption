@@ -47,6 +47,58 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
             dao.putExpense(updated)
         }
     }
+    suspend fun saveReceiptExpense(expense: Expense, suggestions: my.fuelledger.receipts.ReceiptSuggestions,
+        fingerprint: String, rememberMerchant: Boolean, autoSave: Boolean, duplicateReviewed: Boolean = false) = writes.withLock {
+        validateExpense(expense)
+        require(expense.fuelId == null && expense.recurringRuleId == null && suggestions.currency == "MYR") { "Review the receipt in MYR before saving." }
+        database.withTransaction {
+            val automation = database.receiptAutomationDao()
+            require(automation.scan(fingerprint) == null && dao.expense(expense.id) == null) { "This receipt has already been saved. Review the existing transaction." }
+            require(duplicateReviewed || !possibleReceiptDuplicate(suggestions, dao.allExpenses())) { "A possible duplicate requires explicit review or linking to its existing transaction." }
+            require(fingerprint == receiptFingerprint(suggestions.rawText)) { "Receipt identity changed; scan it again." }
+            if (autoSave) {
+                require(preferences.settings.first().receiptSaveMode == "Smart") { "Smart Auto-Save is disabled." }
+                require(receiptAutoSaveIssues(suggestions, expense.categoryId,
+                    possibleReceiptDuplicate(suggestions, dao.allExpenses())).isEmpty()) { "This receipt requires review." }
+                val remembered = automation.allMerchants().firstOrNull { it.merchant == merchantKey(suggestions.station.orEmpty()) }
+                require(remembered == null || remembered.categoryId == expense.categoryId) { "A saved merchant category changed. Review this receipt." }
+                require(expense.cents == my.fuelledger.domain.Money.parse(suggestions.amount!!) &&
+                    java.time.Instant.ofEpochMilli(expense.timestamp).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString() == suggestions.date &&
+                    merchantKey(expense.description) == merchantKey(suggestions.station!!)) { "Edited receipt fields require review." }
+            }
+            require(dao.allCategories().any { it.id == expense.categoryId }) { "Category no longer exists." }
+            validateReceiptScan(ReceiptScan(fingerprint, expense.id))
+            dao.putExpense(expense)
+            automation.putScan(ReceiptScan(fingerprint, expense.id))
+            if (rememberMerchant) {
+                val value = ReceiptMerchant(merchantKey(expense.description), expense.description, expense.categoryId)
+                validateReceiptMerchant(value); automation.putMerchant(value)
+            }
+        }
+    }
+    suspend fun attachScannedReceipt(expenseId: String, photo: String?, fingerprint: String) = writes.withLock {
+        database.withTransaction {
+            val expense = requireNotNull(dao.expense(expenseId)) { "The selected expense no longer exists." }
+            val scans = database.receiptAutomationDao()
+            val prior = scans.scan(fingerprint)
+            require(prior == null || prior.expenseId == expenseId) { "This receipt already belongs to another transaction." }
+            if (photo != null) {
+                expense.fuelId?.let { id ->
+                    val fuel = requireNotNull(dao.allRefuels().firstOrNull { it.id == id })
+                    dao.putRefuel(fuel.copy(receiptFile = photo))
+                }
+                dao.putExpense(expense.copy(receiptFile = photo))
+            }
+            if (prior == null) scans.putScan(ReceiptScan(fingerprint, expenseId).also(::validateReceiptScan))
+        }
+    }
+    suspend fun undoReceiptExpense(expense: Expense) = writes.withLock {
+        database.withTransaction {
+            require(dao.expense(expense.id) == expense) { "The transaction has changed. Review it in Expenses before deleting." }
+            dao.deleteExpense(expense.id)
+            database.receiptAutomationDao().undoScan(expense.id)
+        }
+    }
     suspend fun deleteExpense(id: String) = writes.withLock {
         database.withTransaction {
             require(dao.expense(id)?.fuelId == null) { "Delete this transaction through its refuel record." }
@@ -82,6 +134,9 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
             require(dao.allCategories().firstOrNull { it.id == id }?.custom == true) { "Built-in categories cannot be deleted." }
             dao.reassignCategory(id, OTHER_CATEGORY)
             FinanceRepository(database).reassignCategory(id, OTHER_CATEGORY)
+            for (merchant in database.receiptAutomationDao().allMerchants().filter { it.categoryId == id }) {
+                database.receiptAutomationDao().putMerchant(merchant.copy(categoryId = OTHER_CATEGORY))
+            }
             dao.deleteCategory(id)
         }
     }
@@ -93,9 +148,9 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
         applyPendingSettings()
         database.withTransaction {
             val finance = database.financeDao()
-            Backup(format = "my.fuelledger.backup", version = 3, createdAt = System.currentTimeMillis(), categories = dao.allCategories(),
+            Backup(format = "my.fuelledger.backup", version = 4, createdAt = System.currentTimeMillis(), categories = dao.allCategories(),
                 expenses = dao.allExpenses(), refuels = dao.allRefuels(), settings = preferences.settings.first(),
-                incomes = finance.allIncome(), budgets = finance.allBudgets(), recurring = finance.allRecurring())
+                incomes = finance.allIncome(), budgets = finance.allBudgets(), recurring = finance.allRecurring(), plannerMonths = database.plannerDao().allMonths(), allocations = database.plannerDao().allAllocations(), journeys = database.journeyDao().allJourneys(), receiptMerchants = database.receiptAutomationDao().allMerchants(), receiptScans = database.receiptAutomationDao().allScans())
         }
     }
     suspend fun restore(backup: Backup) = writes.withLock {
@@ -103,6 +158,8 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
         database.withTransaction {
             val finance = database.financeDao()
             finance.clearIncome(); finance.clearBudgets(); finance.clearRecurring()
+            database.plannerDao().clearMonths(); database.plannerDao().clearAllocations(); database.journeyDao().clear()
+            database.receiptAutomationDao().clearMerchants(); database.receiptAutomationDao().clearScans()
             dao.clearExpenses(); dao.clearRefuels(); dao.clearCategories()
             backup.categories.forEach { dao.putCategory(it) }
             backup.refuels.forEach { dao.putRefuel(it) }
@@ -110,6 +167,11 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
             backup.incomes.forEach { finance.putIncome(it) }
             backup.budgets.forEach { finance.putBudget(it) }
             backup.recurring.forEach { finance.putRecurring(it) }
+            backup.plannerMonths.forEach { database.plannerDao().putMonth(it) }
+            backup.allocations.forEach { database.plannerDao().putAllocation(it) }
+            backup.journeys.forEach { database.journeyDao().put(it) }
+            backup.receiptMerchants.forEach { database.receiptAutomationDao().putMerchant(it) }
+            backup.receiptScans.forEach { database.receiptAutomationDao().putScan(it) }
             dao.putPendingSettings(PendingSettings(payload = backupJson.encodeToString(backup.settings)))
         }
         // If this write fails or the process stops, initialize() replays the committed intent.

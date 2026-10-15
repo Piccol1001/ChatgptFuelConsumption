@@ -47,6 +47,9 @@ fun LedgerApp(vm: LedgerViewModel) {
     val operationError by vm.operationError.collectAsStateWithLifecycle()
     val dark = when (state.settings.theme) { "Dark" -> true; "Light" -> false; else -> isSystemInDarkTheme() }
     val context = LocalContext.current
+    val financialViewModelFactory = remember(context.applicationContext) {
+        androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory(context.applicationContext as android.app.Application)
+    }
     val view = LocalView.current
     DisposableEffect(dark) {
         (context as? android.app.Activity)?.window?.let { window ->
@@ -63,6 +66,8 @@ fun LedgerApp(vm: LedgerViewModel) {
         LaunchedEffect(vm) { vm.messages.collect { snackbar.showSnackbar(it) } }
         var tab by rememberSaveable { mutableStateOf("Home") }
         var settingsOpen by rememberSaveable { mutableStateOf(false) }
+        var scannerOpen by rememberSaveable { mutableStateOf(false) }
+        var financeSection by rememberSaveable { mutableStateOf("Planner") }
         var financeOpen by rememberSaveable { mutableStateOf(false) }
         var expenseEditId by rememberSaveable { mutableStateOf<String?>(null) }
         var refuelEditId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -74,7 +79,7 @@ fun LedgerApp(vm: LedgerViewModel) {
         var addRefuel by rememberSaveable { mutableStateOf(false) }
         val newExpense: () -> Unit = { newExpenseId = UUID.randomUUID().toString(); addExpense = true }
         val newRefuel: () -> Unit = { newRefuelId = UUID.randomUUID().toString(); addRefuel = true }
-        BackHandler((settingsOpen || financeOpen) && !locked) { if (financeOpen) financeOpen = false else settingsOpen = false }
+        BackHandler((settingsOpen || financeOpen || scannerOpen) && !locked) { if (scannerOpen) scannerOpen = false else if (financeOpen) financeOpen = false else settingsOpen = false }
         // Picker callbacks can arrive while app lock is active. Keep only the URI until unlocked.
         var pendingCsv by remember { mutableStateOf<Pair<Uri, String>?>(null) }
         var pendingBackupOutput by remember { mutableStateOf<Uri?>(null) }
@@ -100,7 +105,8 @@ fun LedgerApp(vm: LedgerViewModel) {
         Scaffold(
             topBar = {
                 TopAppBar(title = {
-                    if (financeOpen) Text("Income & budgets")
+                    if (scannerOpen) Text("Receipt Scanner")
+                    else if (financeOpen) Text("Financial Planning")
                     else if (settingsOpen) Text("Settings")
                     else Column {
                         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium,
@@ -109,12 +115,12 @@ fun LedgerApp(vm: LedgerViewModel) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
-                    navigationIcon = { if (settingsOpen || financeOpen) IconButton(onClick = { if (financeOpen) financeOpen = false else settingsOpen = false }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
-                    actions = { if (!settingsOpen && !financeOpen) IconButton(onClick = { settingsOpen = true }) { Icon(ledgerSymbol("settings"), "Settings") } })
+                    navigationIcon = { if (settingsOpen || financeOpen || scannerOpen) IconButton(onClick = { if (scannerOpen) scannerOpen = false else if (financeOpen) financeOpen = false else settingsOpen = false }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
+                    actions = { if (!settingsOpen && !financeOpen) IconButton(onClick = { scannerOpen = false; settingsOpen = true }) { Icon(ledgerSymbol("settings"), "Settings") } })
             },
             bottomBar = { if (!settingsOpen && !financeOpen) NavigationBar {
-                listOf("Home" to "home", "Fuel" to "fuel", "Expenses" to "expenses", "Analytics" to "analytics").forEach { (title, symbol) ->
-                    NavigationBarItem(selected = tab == title, onClick = { tab = title }, icon = { Icon(ledgerSymbol(symbol), title) }, label = { Text(title) })
+                listOf("Home" to "home", "Fuel" to "fuel", "Journey" to "route", "Expenses" to "expenses", "Analytics" to "analytics").forEach { (title, symbol) ->
+                    NavigationBarItem(selected = tab == title, onClick = { scannerOpen = false; tab = title }, icon = { Icon(ledgerSymbol(symbol), title) }, label = { Text(title) })
                 }
             } },
             snackbarHost = { SnackbarHost(snackbar) }
@@ -125,21 +131,29 @@ fun LedgerApp(vm: LedgerViewModel) {
                         if (startupError == null) { CircularProgressIndicator(); Text("Opening your local ledger…") }
                         else { Text(startupError!!); Button(onClick = vm::initialize, enabled = !busy) { Text("Retry") } }
                     }
-                } else if (financeOpen) {
-                    val financeVm: FinanceViewModel = viewModel()
-                    FinanceScreen(financeVm)
+                } else if (scannerOpen) { SmartReceiptScreen(state, vm) } else if (financeOpen) {
+                    val financeVm: FinanceViewModel = viewModel(factory = financialViewModelFactory)
+                    FinanceScreen(financeVm, initialSection = financeSection)
                 } else if (settingsOpen) SettingsScreen(state, vm, busy,
                     { csvExpenses.launch("expenses.csv") }, { csvRefuels.launch("refuels.csv") },
                     { backup.launch("fuel-expense-backup.fuelbackup") },
                     { encryptedImport.launch(arrayOf("application/octet-stream", "*/*")) },
                     { legacyImport.launch(arrayOf("application/zip", "application/json", "text/*", "application/octet-stream")) },
-                    { financeOpen = true })
+                    { financeSection = "Planner"; financeOpen = true },
+                    { financeSection = "Monthly Allocation"; financeOpen = true })
                 else Crossfade(tab, label = "Navigation") { destination ->
                     when (destination) {
+                        "Journey" -> { val journeyVm: my.fuelledger.JourneyViewModel = viewModel(factory = financialViewModelFactory); JourneyScreen(state.settings, journeyVm) }
                         "Fuel" -> FuelScreen(state, newRefuel, { refuelEditId = it.id })
                         "Expenses" -> ExpensesScreen(state, newExpense, onExpense)
-                        "Analytics" -> AnalyticsScreen(state)
-                        else -> HomeScreen(state, newExpense, newRefuel, onExpense)
+                        "Analytics" -> { val financeVm: FinanceViewModel = viewModel(factory = financialViewModelFactory); val finance by financeVm.state.collectAsStateWithLifecycle(); AnalyticsScreen(state, finance) }
+                        else -> {
+                            val financeVm: FinanceViewModel = viewModel(factory = financialViewModelFactory)
+                            val financeState by financeVm.state.collectAsStateWithLifecycle()
+                            HomeScreen(state, newExpense, newRefuel, onExpense, planner = {
+                                MonthlyPlanner(financeState, financeVm)
+                            }, scanReceipt = { vm.clearReceiptWork(); vm.clearReceiptSuccess(); scannerOpen = true })
+                        }
                     }
                 }
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter))
@@ -176,7 +190,7 @@ fun LedgerApp(vm: LedgerViewModel) {
         }
         if (!locked) restore?.let { pending ->
             AlertDialog(onDismissRequest = { if (!busy) vm.cancelRestore() }, title = { Text("Replace data from backup?") },
-                text = { PrivacyDialogWindow(); Text("Validated backup: ${pending.backup.expenses.size} expenses, ${pending.backup.refuels.size} refuels, ${pending.backup.categories.size} categories, ${pending.receiptCount} receipt photos, ${pending.backup.incomes.size} income records, ${pending.backup.budgets.size} budgets and ${pending.backup.recurring.size} recurring rules. This replaces all current records, categories and preferences. Create an encrypted backup first if you want to keep your current data.") },
+                text = { PrivacyDialogWindow(); Text("Validated backup: ${pending.backup.expenses.size} expenses, ${pending.backup.refuels.size} refuels, ${pending.backup.categories.size} categories, ${pending.receiptCount} receipt photos, ${pending.backup.incomes.size} income records, ${pending.backup.budgets.size} budgets and ${pending.backup.recurring.size} recurring rules, ${pending.backup.plannerMonths.size} monthly plans, ${pending.backup.allocations.size} allocation plans, ${pending.backup.journeys.size} journeys and ${pending.backup.receiptMerchants.size} merchant rules. This replaces all current records, categories and preferences. Create an encrypted backup first if you want to keep your current data.") },
                 confirmButton = { Button(onClick = vm::confirmRestore, enabled = !busy) { Text("Replace data") } },
                 dismissButton = { TextButton(onClick = vm::cancelRestore, enabled = !busy) { Text("Cancel") } },
                 properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOn))

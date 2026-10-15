@@ -62,7 +62,7 @@ class ReceiptBackupArchive(
         try {
             withContext(Dispatchers.IO) {
                 require(password.size in 12..1024) { "Use a backup password containing 12–1024 characters." }
-                val prepared = prepareExport(backup.copy(version = 3))
+                val prepared = prepareExport(backup.copy(version = maxOf(3, backup.version)))
                 try {
                     BackupCrypto.encryptingStream(output.buffered(), password).use { encrypted ->
                         writeArchive(encrypted, prepared)
@@ -288,7 +288,7 @@ class ReceiptBackupArchive(
             }
         }
         val backup = parseManifest(staging, requireNotNull(manifest) { "Backup is missing manifest.json." })
-        require(backup.version in 2..3) { "A ZIP backup must use format version 2 or 3." }
+        require(backup.version in 2..4) { "A ZIP backup must use format version 2, 3 or 4." }
         val references = backup.receiptNames()
         require(photos.keys.containsAll(references)) { "Backup is missing one or more receipt photos." }
         require(references.containsAll(photos.keys)) { "Backup contains unreferenced receipt photos." }
@@ -399,8 +399,8 @@ class ReceiptBackupArchive(
         const val MAX_EXPANDED_BYTES = 256L * 1024 * 1024
         const val MAX_ENTRIES = 100_001
         // Matches ReceiptStore normalization and bounds full decode to roughly 10 MB ARGB.
-        const val MAX_PHOTO_SIDE = 1600
-        const val MAX_PHOTO_PIXELS = 1600L * 1600
+        const val MAX_PHOTO_SIDE = 4096
+        const val MAX_PHOTO_PIXELS = 4096L * 1600
         val PHOTO_ENTRY = Regex("receipts/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.jpg")
     }
 }

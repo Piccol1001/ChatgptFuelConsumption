@@ -14,6 +14,7 @@ import my.fuelledger.data.Refuel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -93,7 +94,10 @@ class AppSmokeTest {
         navigate("Fuel")
         waitFor("Fuel tracker")
         captureScreen("fuel-tracker")
-        scrollScreenTo(hasText("Trip cost estimator"))
+        compose.onAllNodesWithText("Trip cost estimator").assertCountEquals(0)
+        navigate("Journey")
+        waitFor("Journey Planner")
+        field("One-way / outbound distance (km)").performScrollTo().performTextInput("150")
         // The documented 150 km, 7 L/100 km and RM2.05/L example rounds to RM21.53.
         scrollScreenTo(hasText("RM 21.53"))
         compose.onNodeWithText("RM 21.53").assertExists()
@@ -107,6 +111,35 @@ class AppSmokeTest {
         compose.onNodeWithContentDescription("Settings").performClick()
         waitFor("Preferences")
         compose.onNodeWithText("Default petrol price (RM/L)").assertExists()
+    }
+
+    @Test fun journeySaveAndThemeChoiceUseExistingNavigationAndLocalStorage() {
+        waitFor("Dashboard")
+        navigate("Journey")
+        waitFor("Journey Planner")
+        field("Origin").performScrollTo().performTextInput("Kuala Lumpur")
+        field("Destination").performScrollTo().performTextInput("Penang")
+        field("One-way / outbound distance (km)").performScrollTo().performTextInput("150")
+        scrollScreenTo(hasText("Save journey"))
+        compose.onNodeWithText("Save journey").performClick()
+        waitFor("Journey saved locally.")
+        val repository = (compose.activity.application as LedgerApplication).repository
+        val snapshot = runBlocking(Dispatchers.IO) { repository.backup() }
+        val journeyVm = androidx.lifecycle.ViewModelProvider(compose.activity)[my.fuelledger.JourneyViewModel::class.java]
+        org.junit.Assert.assertSame("Journey ViewModel must belong to the visible activity application", compose.activity.application, journeyVm.getApplication<android.app.Application>())
+        assertEquals(1, snapshot.journeys.size)
+        assertEquals("Penang", snapshot.journeys.single().plan().destination)
+        assertTrue(snapshot.expenses.isEmpty()); assertTrue(snapshot.refuels.isEmpty())
+        compose.onNodeWithContentDescription("Settings").performClick()
+        waitFor("Preferences")
+        scrollScreenTo(hasText("Theme"))
+        compose.onNodeWithText("Theme").performClick()
+        compose.onNodeWithText("Dark", useUnmergedTree = true).performClick()
+        compose.waitUntil(10000) { runBlocking(Dispatchers.IO) { repository.backup().settings.theme == "Dark" } }
+        scrollScreenTo(hasText("Receipt Scanner"))
+        compose.onNodeWithText("Save Mode").performClick()
+        compose.onNodeWithText("Smart Auto-Save", useUnmergedTree = true).performClick()
+        compose.waitUntil(10000) { runBlocking(Dispatchers.IO) { repository.backup().settings.receiptSaveMode == "Smart" } }
     }
 
     @Test fun partialRefuelShowsPerFillEstimateAndCreatesOneLinkedExpense() {

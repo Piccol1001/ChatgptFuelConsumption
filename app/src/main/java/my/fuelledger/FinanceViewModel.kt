@@ -8,13 +8,17 @@ import kotlinx.coroutines.flow.*
 import my.fuelledger.data.*
 
 data class FinanceState(val income: List<FinanceIncome> = emptyList(), val budgets: List<FinanceBudget> = emptyList(),
-    val recurring: List<FinanceRecurring> = emptyList(), val expenses: List<Expense> = emptyList(), val categories: List<Category> = emptyList())
+    val recurring: List<FinanceRecurring> = emptyList(), val months: List<FinanceMonth> = emptyList(),
+    val allocations: List<AllocationPlan> = emptyList(), val expenses: List<Expense> = emptyList(), val categories: List<Category> = emptyList())
 
 class FinanceViewModel(application: Application) : AndroidViewModel(application) {
     private val ledger = (application as LedgerApplication).repository
     private val finance = FinanceRepository(ledger.database)
-    val state = combine(finance.income, finance.budgets, finance.recurring, ledger.expenses, ledger.categories) { i, b, r, e, c ->
-        FinanceState(i, b, r, e, c)
+    private val core = combine(finance.income, finance.budgets, finance.recurring, ledger.expenses, ledger.categories) { i, b, r, e, c ->
+        FinanceState(income = i, budgets = b, recurring = r, expenses = e, categories = c)
+    }
+    val state = combine(core, ledger.database.plannerDao().months(), ledger.database.plannerDao().allocations()) { value, months, allocations ->
+        value.copy(months = months, allocations = allocations)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FinanceState())
     private val _busy = MutableStateFlow(false)
     val busy = _busy.asStateFlow()
@@ -31,6 +35,17 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
             finally { _busy.value = false }
         }
     }
+    fun openMonth(month: java.time.YearMonth) {
+        viewModelScope.launch {
+            try { withContext(Dispatchers.IO) { finance.reconcile(); finance.ensureMonth(month) } }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (failure: Exception) { _error.value = failure.message ?: "Unable to reconcile the local monthly plan." }
+        }
+    }
+    fun saveAllocation(value: AllocationPlan, done: () -> Unit) = perform(done) { finance.saveAllocation(value) }
+    fun resetAllocation(scope: String, done: () -> Unit) = perform(done) { finance.resetAllocation(scope) }
+    fun markPaid(value: PlannedOccurrence, date: java.time.LocalDate, cents: Long, existingId: String?, done: () -> Unit) =
+        perform(done) { finance.markPaid(value, date, cents, existingId) }
     fun saveIncome(value: FinanceIncome, done: () -> Unit) = perform(done) { finance.saveIncome(value) }
     fun deleteIncome(id: String, done: () -> Unit) = perform(done) { finance.deleteIncome(id) }
     fun saveBudget(value: FinanceBudget, done: () -> Unit) = perform(done) { finance.saveBudget(value) }

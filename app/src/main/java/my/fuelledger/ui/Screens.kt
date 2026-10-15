@@ -36,7 +36,7 @@ private val monthFormat = DateTimeFormatter.ofPattern("MMMM yyyy", Malaysia)
 private val shortMonthFormat = DateTimeFormatter.ofPattern("MMM yy", Malaysia)
 
 @Composable
-fun HomeScreen(state: LedgerState, addExpense: () -> Unit, addRefuel: () -> Unit, edit: (Expense) -> Unit) {
+fun HomeScreen(state: LedgerState, addExpense: () -> Unit, addRefuel: () -> Unit, edit: (Expense) -> Unit, planner: (@Composable () -> Unit)? = null, scanReceipt: (() -> Unit)? = null) {
     val calendar = currentCalendar()
     val today = calendar.today
     val month = YearMonth.from(today)
@@ -53,6 +53,8 @@ fun HomeScreen(state: LedgerState, addExpense: () -> Unit, addRefuel: () -> Unit
             first = { LedgerAction("Add Expense", ledgerSymbol("add"), it, onClick = addExpense) },
             second = { LedgerAction("Add Refuel", ledgerSymbol("fuel"), it, secondary = true, onClick = addRefuel) }
         ) }
+        if (scanReceipt != null) item { LedgerAction("Scan Receipt", ledgerSymbol("receipt"), Modifier.fillMaxWidth(), onClick = scanReceipt) }
+        if (planner != null) item { planner() }
         item { SectionTitle("Recent transactions", "Your latest activity · tap to edit") }
         if (state.expenses.isEmpty()) item { EmptyState("Your ledger starts here", "Add an expense or a refuel to see your spending. Your records stay on your phone.") }
         items(state.expenses.sortedByDescending { it.timestamp }.take(10), key = { it.id }) { expense ->
@@ -135,8 +137,6 @@ fun FuelScreen(state: LedgerState, add: () -> Unit, edit: (Refuel) -> Unit) {
                 } else Text("Optional: mark two fills as full tanks to measure a complete cycle. Partial fills in between are included. Your per-fill estimates above work without this.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        item { SectionTitle("Plan your next journey", "Trip estimates are separate from your recorded fills") }
-        item { TripEstimator(state.settings) }
         item { SpendingBars("Fuel spending by month", (5L downTo 0L).map { offset ->
             val selected = month.minusMonths(offset)
             selected.format(shortMonthFormat) to state.refuels.filter { YearMonth.from(localDate(it.timestamp)) == selected }.sumOf { it.cents }
@@ -188,7 +188,7 @@ private fun RefuelHistoryCard(refuel: Refuel, estimate: FillEstimate?, measured:
 }
 
 @Composable
-fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit) {
+fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit, planner: (@Composable () -> Unit)? = null, scanReceipt: (() -> Unit)? = null) {
     val calendar = currentCalendar()
     val today = calendar.today
     val currentMonth = YearMonth.from(today)
@@ -279,7 +279,7 @@ private fun DayHeading(date: LocalDate, cents: Long) {
 }
 
 @Composable
-fun AnalyticsScreen(state: LedgerState) {
+fun AnalyticsScreen(state: LedgerState, finance: my.fuelledger.FinanceState? = null) {
     val calendar = currentCalendar()
     val today = calendar.today
     var monthString by rememberSaveable { mutableStateOf(YearMonth.from(today).toString()) }
@@ -303,6 +303,17 @@ fun AnalyticsScreen(state: LedgerState) {
         if (customRange) maxOf(m.atDay(1), start) to minOf(m.atEndOfMonth(), end) else m.atDay(1) to m.atEndOfMonth()
     LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item { ScreenHeading("Analytics", "Understand your spending, at your own pace.", ledgerSymbol("analytics")) }
+        if (finance != null && !customRange) item {
+            val plan = finance.months.find { it.month == month.toString() }?.occurrences() ?: plannedOccurrences(finance.recurring, month)
+            val money = monthlyMoney(month, plan, finance.income, state.expenses, calendar.zone)
+            LedgerCard {
+                Text("Monthly plan vs actual · $month", style = MaterialTheme.typography.titleMedium)
+                Text("Expected income ${Money.format(money.expected)} · fixed commitments ${Money.format(money.fixed)}")
+                Text("Planned available ${Money.format(money.plannedAvailable)}")
+                Text("Actual net cash flow ${Money.format(money.actualNet)} · remaining allowance ${Money.format(money.remainingAllowance)}")
+                Text("Charts below show actual recorded expenses, including paid fixed commitments.", style = MaterialTheme.typography.bodySmall)
+            }
+        }
         item {
             LedgerCard {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

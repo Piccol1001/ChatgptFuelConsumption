@@ -85,3 +85,19 @@ private fun AccessibleHomePreview() = PreviewLedger { HomeScreen(it, {}, {}, {})
 @Preview(name = "Empty dashboard", showBackground = true, widthDp = 393, heightDp = 852, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun EmptyHomePreview() = PreviewLedger { HomeScreen(LedgerState(categories = defaultCategories), {}, {}, {}) }
+
+@Preview(name = "Monthly Money Planner · dark", showBackground = true, widthDp = 393, heightDp = 900, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun MonthlyPlannerDarkPreview() = PreviewLedger { LedgerCard { MonthlyPlanSummary(my.fuelledger.data.MonthlyMoney(300000, 113000, 300000, 138000, 25000)) } }
+
+@Preview(name = "Monthly Money Planner · light / shortfall", showBackground = true, widthDp = 393, heightDp = 900)
+@Composable
+private fun MonthlyPlannerLightPreview() = PreviewLedger(dark = false) { LedgerCard { MonthlyPlanSummary(my.fuelledger.data.MonthlyMoney(100000, 113000, 0, 0, 0)) } }
+
+@Preview(name = "Journey Planner estimate · dark", showBackground = true, widthDp = 393, heightDp = 400, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun JourneyCostDarkPreview() = PreviewLedger { LedgerCard { JourneyCostSummary(my.fuelledger.data.journeyCost(my.fuelledger.data.JourneyPlan("KL", "Penang", 350.0, parkingCents = 500, people = 3))) } }
+
+@Preview(name = "Journey Planner estimate · light", showBackground = true, widthDp = 393, heightDp = 400)
+@Composable
+private fun JourneyCostLightPreview() = PreviewLedger(dark = false) { LedgerCard { JourneyCostSummary(my.fuelledger.data.journeyCost(my.fuelledger.data.JourneyPlan("KL", "Ipoh", 200.0))) } }
