@@ -4,7 +4,7 @@ A native Android app for personal spending and car fuel records. Kotlin, Jetpack
 
 ## Download the APK
 
-[**Download Fuel & Expense Tracker for Android**](https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/downloads/Fuel-Expense-Tracker-v1.4.0-minimal-header-debug.apk)
+[**Download Fuel & Expense Tracker for Android**](https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/downloads/Fuel-Expense-Tracker-v1.4.0-expense-entry-debug.apk)
 
 Version 1.4.0, signed debug build, Android 8.0 or later. Open this link on your phone, download the `.apk` file, then open it to install. If Android asks, allow installation for the browser or file manager you used. The APK is also available in this repository's `downloads` folder. Its SHA-256 checksum is in `downloads/SHA256SUMS`; build and test evidence is in [VALIDATION.md](VALIDATION.md).
 
@@ -58,6 +58,14 @@ For the primary historical measured-consumption value, first enter a **full tank
 The shared historical value is 100 × total valid-cycle litres ÷ total valid-cycle distance, rather than an average of interval ratios. It updates on refuel edits/deletions and excludes incomplete/invalid cycles. Settings and Journey show “Not enough fuel data” until a valid cycle exists; fallback consumption is used only after explicit entry/enablement. The estimator uses distance × consumption ÷ 100 and petrol price. The example 150 km, 7 L/100 km, RM2.05/L produces **10.50 L, RM21.53, RM0.1435/km and 14.29 km/L**. Estimated money uses decimal HALF_UP rounding; stored payments use exact integer sen. Overall measured efficiency is total valid-cycle km divided by total valid-cycle litres.
 
 Week totals use Monday–Sunday. Calendar totals and date filters use the phone's local time zone, including daylight saving changes; timestamps are stored as epoch milliseconds. Changing the device time zone can change the calendar day a transaction appears under. Daily averages include all calendar days in the selected range, even days without transactions.
+
+### Adding and editing expenses
+
+Tap **Add Expense**, choose an icon in the horizontal category row (custom categories are retained, Others stays last), and use the cents-first keypad. Starting at RM 0.00, digits 1 → 2 → 3 → 4 → 5 produce RM 0.01 → RM 0.12 → RM 1.23 → RM 12.34 → RM 123.45. Backspace removes the last digit; Clear resets to zero. There is no decimal key or software keyboard for the amount. Save requires a positive amount and a selected payment method; values are exact integer sen and limited to the existing RM1,000,000,000 maximum.
+
+Choose **Cash**, **Card** or **E-Wallet**. The last selected method is saved in encrypted local DataStore, including when cancelling the draft, and highlighted for the next new expense (initially Cash). Existing Credit Card/Debit Card payments display as Card but retain their original stored strings when edited within that group. Historical Not specified records remain intact and prompt for an explicit method before saving changes. Existing amounts initialize directly from their stored sen; untouched transaction timestamps retain their original precision.
+
+Open **Details & receipt** for date, time, description, notes, Photo Picker/camera and offline OCR review. Collapsing the section retains the attachment. The expense list's category filters now sit directly below **Transaction history**; their filtering, scrolling and ordering are unchanged. The app name/version metadata and prior header cleanup remain unchanged (1.4.0 / code 6).
 
 ## Receipt photos and offline scanning
 

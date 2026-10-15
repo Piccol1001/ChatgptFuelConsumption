@@ -200,7 +200,7 @@ fun ExpenseRow(expense: Expense, category: Category?, onClick: () -> Unit) {
                     Text(expense.description.ifBlank { category?.name ?: "Expense" }, style = MaterialTheme.typography.titleSmall)
                     Text(category?.name ?: "Expense", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(dateTime(expense.timestamp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(expense.payment + if (expense.fuelId != null) " · Linked refuel" else "", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                    Text((expensePaymentGroup(expense.payment) ?: expense.payment) + if (expense.fuelId != null) " · Linked refuel" else "", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                     if (stacked) Text(Money.format(expense.cents), style = MaterialTheme.typography.titleMedium)
                 }
                 if (!stacked) Text(Money.format(expense.cents), style = MaterialTheme.typography.titleSmall, modifier = Modifier.widthIn(max = 145.dp))

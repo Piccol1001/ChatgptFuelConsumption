@@ -43,6 +43,20 @@ class RepositoryTest {
         assertEquals(7, db.dao().allCategories().size)
         assertEquals(1, db.dao().allExpenses().size)
     }
+    @Test fun rememberingPaymentOnlyChangesThePreferenceAndBackupsPreserveLegacyRecords() = runBlocking {
+        repo.saveSettings(AppSettings(theme = "Dark", consumption = 8.5))
+        val records = listOf("Credit Card", "Debit Card", "Not specified", "Card").mapIndexed { index, payment ->
+            Expense("payment-$index", 12345 + index.toLong(), "food", 1000, payment = payment).also { repo.saveExpense(it) }
+        }
+        repo.rememberExpensePayment("E-wallet")
+        assertEquals("Dark", prefs.settings.first().theme); assertEquals(8.5, prefs.settings.first().consumption, 0.0)
+        assertEquals("E-wallet", prefs.settings.first().lastExpensePayment)
+        assertTrue(runCatching { repo.rememberExpensePayment("Not specified") }.isFailure)
+        val snapshot = repo.backup()
+        repo.restore(snapshot)
+        assertEquals(records, db.dao().allExpenses())
+        assertEquals("E-wallet", repo.backup().settings.lastExpensePayment)
+    }
     @Test fun addingRefuelCreatesExactlyOneLinkedExpenseAndRetryIsIdempotent() = runBlocking {
         val r = fuel()
         repo.saveRefuel(r); repo.saveRefuel(r)

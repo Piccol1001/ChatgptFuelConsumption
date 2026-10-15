@@ -44,7 +44,7 @@ import my.fuelledger.receipts.ReceiptSuggestions
 
 @Composable
 fun ReceiptAttachment(ownerId: String, fileName: String?, vm: LedgerViewModel, busy: Boolean,
-    change: (String?) -> Unit, categories: List<Category> = emptyList(), fuelReceipt: Boolean = true,
+    change: (String?) -> Unit, categories: List<Category> = emptyList(), fuelReceipt: Boolean = true, visible: Boolean = true,
     applySuggestions: (ReceiptSuggestions) -> Unit) {
     val work by vm.receiptWork.collectAsStateWithLifecycle()
     val locked = LocalAppLocked.current
@@ -75,7 +75,7 @@ fun ReceiptAttachment(ownerId: String, fileName: String?, vm: LedgerViewModel, b
         if (!locked && !busy) pendingPhoto?.let { pendingPhoto = null; vm.importReceipt(ownerId, it) }
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> pendingPhoto = uri }
-    OutlinedCard(Modifier.fillMaxWidth()) {
+    if (visible) OutlinedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Outlined.Receipt, null, tint = MaterialTheme.colorScheme.primary)

@@ -24,6 +24,7 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
     private val archives = ReceiptBackupArchive(application, receipts, app.vault)
     private val receiptWrites = Mutex()
     private val events = Channel<String>(Channel.BUFFERED)
+    private val paymentPreferences = Channel<String>(Channel.CONFLATED)
     val messages = events.receiveAsFlow()
     private val _busy = MutableStateFlow(false)
     val busy = _busy.asStateFlow()
@@ -98,7 +99,20 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
             }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LedgerState())
 
-    init { initialize() }
+    init {
+        initialize()
+        viewModelScope.launch {
+            for (payment in paymentPreferences) {
+                try { withContext(Dispatchers.IO) { repository.rememberExpensePayment(payment) } }
+                catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { _operationError.value = "The payment preference could not be saved. Please try selecting it again." }
+            }
+        }
+    }
+    fun rememberExpensePayment(payment: String) {
+        require(payment in expensePaymentOptions)
+        paymentPreferences.trySend(payment)
+    }
     fun dismissError() { _operationError.value = null }
     fun showError(message: String) { _operationError.value = message }
     fun clearReceiptWork() { _receiptWork.value = null }

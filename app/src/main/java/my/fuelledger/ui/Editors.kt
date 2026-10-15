@@ -21,23 +21,27 @@ import java.time.*
 
 @Composable
 fun EditorShell(title: String, busy: Boolean, error: String?, dismiss: () -> Unit, save: () -> Unit,
-    delete: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
+    delete: (() -> Unit)? = null, saveEnabled: Boolean = true, compact: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     val interaction = rememberAppLockInteraction()
     Dialog(onDismissRequest = { if (!busy) dismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, securePolicy = SecureFlagPolicy.SecureOn)) {
         PrivacyDialogWindow()
-        Surface(Modifier.fillMaxWidth().widthIn(max = 560.dp).padding(12.dp).heightIn(max = 720.dp), shape = MaterialTheme.shapes.large) {
-            Column(Modifier.imePadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(title, style = MaterialTheme.typography.titleLarge)
-                Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+        val width = if (compact) Modifier.widthIn(max = 560.dp).fillMaxWidth() else Modifier.fillMaxWidth().widthIn(max = 560.dp)
+        Surface(width.padding(if (compact) 8.dp else 12.dp).heightIn(max = if (compact) 860.dp else 720.dp), shape = MaterialTheme.shapes.large) {
+            Column(Modifier.imePadding().padding(if (compact) 16.dp else 20.dp), verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                    if (compact) TextButton(onClick = { if (interaction() && !busy) dismiss() }, enabled = !busy) { Text("Cancel") }
+                }
+                Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp), content = content)
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
-                Button(onClick = { if (interaction()) save() }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Button(onClick = { if (interaction()) save() }, enabled = !busy && saveEnabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                     Text(if (busy) "Saving…" else "Save")
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!compact || delete != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (delete != null) TextButton(onClick = { if (interaction()) delete() }, enabled = !busy, modifier = Modifier.weight(1f)) {
                         Text("Delete", color = MaterialTheme.colorScheme.error)
                     }
-                    TextButton(onClick = { if (interaction()) dismiss() }, enabled = !busy, modifier = Modifier.weight(1f)) { Text("Cancel") }
+                    if (!compact) TextButton(onClick = { if (interaction()) dismiss() }, enabled = !busy, modifier = Modifier.weight(1f)) { Text("Cancel") }
                 }
             }
         }
@@ -113,33 +117,48 @@ fun timestamp(date: String, time: String) = LocalDate.parse(date).atTime(LocalTi
 fun ExpenseEditor(seed: Expense?, id: String, categories: List<Category>, busy: Boolean, vm: LedgerViewModel, dismiss: () -> Unit,
     save: (Expense) -> Unit, delete: () -> Unit) {
     val initial = remember(id) { Instant.ofEpochMilli(seed?.timestamp ?: System.currentTimeMillis()).atZone(ZoneId.systemDefault()) }
-    var amount by rememberSaveable(id) { mutableStateOf(seed?.let { Money.decimal(it.cents) }.orEmpty()) }
-    var category by rememberSaveable(id) { mutableStateOf(seed?.categoryId ?: categories.first().id) }
+    var amount by rememberSaveable(id) { mutableLongStateOf(seed?.cents ?: 0L) }
+    var category by rememberSaveable(id) { mutableStateOf(seed?.categoryId ?: displayCategories(categories).first().id) }
     var date by rememberSaveable(id) { mutableStateOf(initial.toLocalDate().toString()) }
     var time by rememberSaveable(id) { mutableStateOf(initial.toLocalTime().withSecond(0).withNano(0).toString()) }
     var description by rememberSaveable(id) { mutableStateOf(seed?.description.orEmpty()) }
     var notes by rememberSaveable(id) { mutableStateOf(seed?.notes.orEmpty()) }
-    var payment by rememberSaveable(id) { mutableStateOf(seed?.payment ?: "Cash") }
+    var payment by rememberSaveable(id) { mutableStateOf(seed?.payment ?: vm.state.value.settings.lastExpensePayment) }
     var receiptFile by rememberSaveable(id) { mutableStateOf(seed?.receiptFile) }
     var error by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var details by rememberSaveable(id) { mutableStateOf(false) }
+    val interaction = rememberAppLockInteraction()
     EditorShell(if (seed == null) "Add expense" else "Edit expense", busy, error, dismiss, {
-        runCatching { Expense(id, Money.parse(amount), category, timestamp(date, time), description.trim(), notes.trim(), payment,
+        runCatching {
+            require(expensePaymentGroup(payment) != null) { "Choose a payment method." }
+            val savedTime = if (seed != null && date == initial.toLocalDate().toString() && time == initial.toLocalTime().withSecond(0).withNano(0).toString()) seed.timestamp else timestamp(date, time)
+            Expense(id, amount, category, savedTime, description.trim(), notes.trim(), payment,
             fuelId = seed?.fuelId, receiptFile = receiptFile, recurringRuleId = seed?.recurringRuleId, recurringDate = seed?.recurringDate).also(::validateExpense) }
             .onSuccess { error = null; save(it) }.onFailure { error = it.message }
-    }, if (seed != null) ({ confirmDelete = true }) else null) {
-        NumericField(amount, { amount = it }, "Amount (RM)")
-        Choice("Category", category, categories.map { it.id to it.name }) { category = it }
-        ReceiptAttachment(id, receiptFile, vm, busy, { receiptFile = it }, categories = categories, fuelReceipt = false) { scanned ->
-            scanned.amount?.let { amount = it }
+    }, if (seed != null) ({ confirmDelete = true }) else null,
+        saveEnabled = amount > 0 && expensePaymentGroup(payment) != null && categories.any { it.id == category }, compact = true) {
+        ExpenseAmount(amount)
+        ExpenseCategoryRow(categories, category, !busy) { category = it }
+        ExpensePaymentRow(payment, !busy) { selected ->
+            payment = selectExpensePayment(payment, selected)
+            vm.rememberExpensePayment(selected)
+        }
+        if (expensePaymentGroup(payment) == null) Text("This record has no payment method. Choose one to save changes.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        CentsKeypad(amount, !busy, { amount = it; error = null }, { error = "Maximum amount is ${Money.format(MAX_CENTS)}." })
+        TextButton(onClick = { if (interaction()) details = !details }, modifier = Modifier.fillMaxWidth()) { Text(if (details) "Hide details & receipt" else "Details & receipt") }
+        if (details) {
+            DateTimeFields(date, time, { date = it }, { time = it })
+            TextField(description, { description = it }, "Description (optional)", 200)
+            TextField(notes, { notes = it }, "Notes (optional)", 2000, true)
+        }
+        // Keep attachment ownership/cleanup composed when its controls are collapsed.
+        ReceiptAttachment(id, receiptFile, vm, busy, { receiptFile = it }, categories = categories, fuelReceipt = false, visible = details) { scanned ->
+            scanned.amount?.let { value -> runCatching { Money.parse(value) }.onSuccess { amount = it }.onFailure { error = "Check the scanned amount." } }
             scanned.station?.let { description = it }
             scanned.date?.let { date = it }; scanned.time?.let { time = it }
             scanned.suggestedCategoryId?.takeIf { suggested -> categories.any { it.id == suggested } }?.let { category = it }
         }
-        DateTimeFields(date, time, { date = it }, { time = it })
-        TextField(description, { description = it }, "Description (optional)", 200)
-        Choice("Payment method", payment, paymentMethods.map { it to it }) { payment = it }
-        TextField(notes, { notes = it }, "Notes (optional)", 2000, true)
     }
     if (confirmDelete) DeleteConfirmation("Delete expense?", "This permanently removes this expense.", busy, { confirmDelete = false }, delete)
 }

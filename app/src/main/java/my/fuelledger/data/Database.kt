@@ -55,7 +55,7 @@ val defaultCategories = listOf(
     Category("bills", "Bills", "bill", 0xFFBB9A48, false),
     Category(OTHER_CATEGORY, "Others", "other", 0xFF8B8C9B, false)
 )
-val paymentMethods = listOf("Cash", "Debit Card", "Credit Card", "E-wallet", "Not specified")
+val paymentMethods = listOf("Cash", "Card", "Debit Card", "Credit Card", "E-wallet", "Not specified")
 val categoryIcons = listOf("food", "basket", "movie", "fuel", "bag", "bill", "other", "health")
 val categoryColors = listOf(0xFFE98A57L, 0xFF629C77L, 0xFF9B80C5L, 0xFF449AADL, 0xFFD877A1L, 0xFFBB9A48L, 0xFF8B8C9BL, 0xFFB65E67L)
 

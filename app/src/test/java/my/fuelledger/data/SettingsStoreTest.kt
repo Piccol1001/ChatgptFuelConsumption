@@ -138,4 +138,16 @@ class SettingsStoreTest {
         assertArrayEquals(before, legacyFile.readBytes())
         assertFalse(encryptedFile.exists())
     }
+    @Test fun lastExpensePaymentSurvivesEncryptedStoreRestartWithOtherPreferencesIntact() = runBlocking {
+        var active = scope()
+        var store = SettingsStore(context, vault, active)
+        assertEquals("Cash", store.settings.first().lastExpensePayment)
+        for (payment in expensePaymentOptions) {
+            val settings = AppSettings(theme = "Dark", receiptSaveMode = "Smart", lastExpensePayment = payment)
+            store.save(settings)
+            active.coroutineContext[Job]?.cancelAndJoin()
+            active = scope(); store = SettingsStore(context, vault, active)
+            assertEquals(settings, store.settings.first())
+        }
+    }
 }

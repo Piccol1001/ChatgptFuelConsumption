@@ -47,11 +47,16 @@ class AppSmokeTest {
 
     private fun field(label: String) = compose.onNode(hasText(label) and hasSetTextAction())
 
+    private fun enterExpenseAmount(digits: String) {
+        compose.onNodeWithTag("expense-key-Clear").performScrollTo().performClick()
+        digits.forEach { compose.onNodeWithTag("expense-key-$it").performScrollTo().performClick() }
+    }
+
     private fun navigate(destination: String) {
         compose.onNode(hasText(destination) and hasClickAction() and isSelectable()).performClick()
     }
 
-    private fun captureScreen(name: String) {
+    private fun captureScreen(name: String, dialog: Boolean = false) {
         if (Build.VERSION.SDK_INT != 35) return
         runCatching {
             val workingDirectory = File(requireNotNull(System.getProperty("user.dir")))
@@ -59,7 +64,7 @@ class AppSmokeTest {
                 else File(workingDirectory, "app")
             val directory = File(appDirectory, "build/reports/ui-screenshots")
             check(directory.isDirectory || directory.mkdirs()) { "Cannot create screenshot directory." }
-            val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
+            val bitmap = (if (dialog) compose.onNode(isDialog()) else compose.onRoot()).captureToImage().asAndroidBitmap()
             File(directory, "$name-api35.png").outputStream().use {
                 check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) { "PNG encoding failed." }
             }
@@ -72,7 +77,8 @@ class AppSmokeTest {
         waitFor("Dashboard")
         scrollScreenTo(hasText("Add Expense"))
         compose.onNode(hasText("Add Expense") and hasClickAction()).performClick()
-        field("Amount (RM)").performScrollTo().performTextInput("12.34")
+        enterExpenseAmount("1234")
+        compose.onNodeWithText("Details & receipt").performScrollTo().performClick()
         field("Description (optional)").performScrollTo().performTextInput("Coffee smoke test")
         compose.onNodeWithText("Save").performClick()
         waitForEditorToClose("Add expense")
@@ -84,7 +90,7 @@ class AppSmokeTest {
         waitFor("Coffee smoke test")
         compose.onNodeWithText("Coffee smoke test").performClick()
         waitFor("Edit expense")
-        field("Amount (RM)").performScrollTo().performTextReplacement("14.67")
+        enterExpenseAmount("1467")
         compose.onNodeWithText("Save").performClick()
         waitForEditorToClose("Edit expense")
         waitFor("RM 14.67")
@@ -179,6 +185,96 @@ class AppSmokeTest {
         waitFor("5.00 L/100 km")
         compose.onAllNodesWithText("Other journey fees").assertCountEquals(0)
         compose.onAllNodesWithText("Passenger cost sharing").assertCountEquals(0)
+    }
+
+    @Test fun expenseCategoryAndPaymentSaveExactlyAndLastPaymentIsReused() {
+        waitFor("Dashboard")
+        val repository = (compose.activity.application as LedgerApplication).repository
+        val custom = my.fuelledger.data.Category("travel-custom", "Travel", "other", my.fuelledger.data.categoryColors.first())
+        runBlocking(Dispatchers.IO) { repository.saveCategory(custom) }
+        scrollScreenTo(hasText("Add Expense"))
+        compose.onNode(hasText("Add Expense") and hasClickAction()).performClick()
+        compose.onNodeWithText("Save").assertIsNotEnabled()
+        enterExpenseAmount("00012345")
+        compose.onNodeWithTag("expense-key-Backspace").performScrollTo().performClick()
+        compose.onNodeWithTag("expense-amount").performScrollTo().assertTextEquals("RM 12.34")
+        enterExpenseAmount("12345")
+        compose.onNodeWithContentDescription("Category Travel").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Payment method E-Wallet").performScrollTo().performClick()
+        captureScreen("add-expense", dialog = true)
+        compose.waitUntil(10_000) { runBlocking(Dispatchers.IO) { repository.backup().settings.lastExpensePayment == "E-wallet" } }
+        compose.onNodeWithText("Save").performClick()
+        waitForEditorToClose("Add expense")
+        val saved = runBlocking(Dispatchers.IO) { repository.backup().expenses.single() }
+        assertEquals(12345L, saved.cents); assertEquals(custom.id, saved.categoryId); assertEquals("E-wallet", saved.payment)
+        scrollScreenTo(hasText("Add Expense"))
+        compose.onNode(hasText("Add Expense") and hasClickAction()).performClick()
+        compose.onNodeWithTag("expense-amount").assertTextEquals("RM 0.00")
+        compose.onNodeWithContentDescription("Payment method E-Wallet").assertIsSelected()
+        compose.onNodeWithText("Cancel").performClick()
+    }
+
+    @Test fun legacyCardPaymentsAndExactTimestampsSurviveEditingAndUnknownNeedsExplicitChoice() {
+        waitFor("Dashboard")
+        val repository = (compose.activity.application as LedgerApplication).repository
+        val now = System.currentTimeMillis()
+        val legacy = listOf("Credit Card", "Debit Card", "Not specified").mapIndexed { index, payment ->
+            my.fuelledger.data.Expense("legacy-$index", 12345L + index, "food", now - index * 1000, "Legacy $index", "Original notes", payment)
+        }
+        runBlocking(Dispatchers.IO) { legacy.forEach { repository.saveExpense(it) } }
+        for (record in legacy.take(2)) {
+            scrollScreenTo(hasText(record.description))
+            compose.onNodeWithText(record.description).performClick()
+            compose.onNodeWithTag("expense-amount").assertTextEquals(my.fuelledger.domain.Money.format(record.cents))
+            compose.onNodeWithContentDescription("Payment method Card").performScrollTo().assertIsSelected().performClick()
+            compose.onNodeWithText("Save").performClick()
+            waitForEditorToClose("Edit expense")
+            assertEquals(record, runBlocking(Dispatchers.IO) { repository.backup().expenses.first { it.id == record.id } })
+            // Let the saved snackbar clear before tapping the next underlying history row.
+            compose.mainClock.advanceTimeBy(6_000)
+            compose.waitForIdle()
+            compose.waitUntil(10_000) { compose.onAllNodesWithText("Expense saved").fetchSemanticsNodes().isEmpty() }
+        }
+        val unknown = legacy.last()
+        scrollScreenTo(hasText(unknown.description)); compose.onNodeWithText(unknown.description).performClick()
+        compose.onNodeWithText("Save").assertIsNotEnabled()
+        assertEquals(unknown, runBlocking(Dispatchers.IO) { repository.backup().expenses.first { it.id == unknown.id } })
+        compose.onNodeWithContentDescription("Payment method Card").performScrollTo().performClick()
+        compose.onNodeWithText("Save").performClick(); waitForEditorToClose("Edit expense")
+        assertEquals(unknown.copy(payment = "Card"), runBlocking(Dispatchers.IO) { repository.backup().expenses.first { it.id == unknown.id } })
+    }
+
+    @Test fun collapsingDetailsRetainsAnUnsavedImportedReceiptUntilExpenseSave() {
+        waitFor("Dashboard")
+        val app = compose.activity.application as LedgerApplication
+        val record = my.fuelledger.data.Expense("receipt-draft", 199L, "food", System.currentTimeMillis(), "Receipt draft")
+        runBlocking(Dispatchers.IO) { app.repository.saveExpense(record) }
+        scrollScreenTo(hasText(record.description)); compose.onNodeWithText(record.description).performClick()
+        val photo = File(app.cacheDir, "expense-import.jpg")
+        val bitmap = Bitmap.createBitmap(200, 400, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(android.graphics.Color.WHITE)
+        photo.outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it)) }; bitmap.recycle()
+        val vm = androidx.lifecycle.ViewModelProvider(compose.activity)[my.fuelledger.LedgerViewModel::class.java]
+        org.junit.Assert.assertSame(app, vm.getApplication<android.app.Application>())
+        compose.runOnIdle { vm.importReceipt(record.id, android.net.Uri.fromFile(photo)) }
+        val receiptDirectory = File(app.filesDir, "receipts")
+        try {
+            compose.waitUntil(10_000) {
+                org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+                vm.operationError.value?.let { throw AssertionError("Receipt import failed: $it") }
+                !vm.busy.value && vm.receiptWork.value == null && receiptDirectory.listFiles().orEmpty().any { it.name.endsWith(".jpg.enc") }
+            }
+        } catch (failure: Throwable) {
+            throw AssertionError("Receipt wait: busy=${vm.busy.value}, owner=${vm.receiptWork.value?.ownerId}, files=${receiptDirectory.listFiles().orEmpty().size}", failure)
+        }
+        val retained = receiptDirectory.listFiles()!!.single { it.name.endsWith(".jpg.enc") }
+        compose.onNodeWithText("Details & receipt").performScrollTo().performClick()
+        compose.onNodeWithText("Hide details & receipt").performScrollTo().performClick()
+        compose.waitForIdle(); assertTrue(retained.isFile)
+        compose.onNodeWithText("Save").performClick(); waitForEditorToClose("Edit expense")
+        val saved = runBlocking(Dispatchers.IO) { app.repository.backup().expenses.single() }
+        assertEquals(record.cents, saved.cents); assertEquals(retained.name.removeSuffix(".enc"), saved.receiptFile)
+        assertTrue(my.fuelledger.receipts.ReceiptStore(app, app.vault).readPhoto(saved.receiptFile!!).isNotEmpty())
     }
 
     @Test fun unifiedPlannerKeepsReceivedIncomeAndAllocationSlidersSeparate() {

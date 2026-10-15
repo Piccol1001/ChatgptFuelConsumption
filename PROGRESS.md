@@ -1,3 +1,86 @@
+# Current progress — Expense entry and filter layout refresh
+
+Updated 16 October 2026 (Malaysia time). Both user requests are delivered separately: commit `69f0aa3` moves one existing heading above the unchanged Expenses filter row; the Add Expense redesign follows in its own checkpoint. Previous work and reports remain below.
+
+## Completed
+
+- Expenses order is Transaction history → horizontal category filters → existing search/date controls and records. One-tap filtering, custom categories, Others-last ordering, spacing and calculations are unchanged. This isolated move does not alter Add Expense controls.
+- Add/Edit Expense has one horizontal category icon row with short labels, accessible full names, animated selection and automatic visibility of the selected category. Existing category IDs are preserved.
+- Cents-first 0–9 keypad, Backspace, Clear and large formatted MYR amount, no decimal key or decimal input field. Exact integer-sen entry starts at zero, handles leading zeros, rejects values above the existing limit without overflow, disables Save at zero and loads existing amounts without rescaling.
+- Cash/Card/E-Wallet icon buttons, subtle selection haptics and animated highlights. Last selection is remembered locally in encrypted DataStore, without making the editor busy or overwriting unrelated preferences. New entries start with that visible selection (Cash on old/new installations until changed).
+- Historical Credit Card and Debit Card strings remain untouched by display grouping and same-group editing. Unknown historical payments are preserved until the user explicitly selects a method to save. The validator additionally accepts new Card records without removing legacy values.
+- Compact secure expense dialog; date/time, description, notes and all receipt capture/import/scan/review tools remain under Details & receipt. Attachment ownership remains composed while collapsed, so an unsaved photo is retained. Unchanged edit dates/times preserve original timestamp precision.
+- Existing Room schema/entities, category associations, financial/fuel calculations and offline security architecture are unchanged. No permission/dependency/network service added. App name/version remain 1.4.0 / code 6 as requested; previous header cleanup remains.
+
+## Verification / currently implementing
+
+All implementation is complete. **218 host tests pass**, 0 failures/errors/skipped, including 16 real-app Compose executions on APIs26/35 and three control-layout cases covering both themes, small/wide phones and 1.6 font scale. Debug/test APKs build. Debug and Android test APKs and the optimized unsigned release build successfully. Debug lint has 0 errors, 10 advisory warnings and 1 hint: six unused app-name/version resource entries left by the prior header cleanup, an SQLite update suggestion, a state-backed offset suggestion, two optional KTX suggestions and a primitive-state hint. The original name/version resources are intentionally preserved. Release vital lint and debug/release 16KiB ZIP alignment checks pass. All 3 native API26 integration tests pass in airplane mode (222.973 seconds), including bundled OCR, permissions, encrypted Card records, remembered payment preferences, complete receipt/finance backup/restore and database reopen. Instrumentation result: OK (3 tests).
+
+## APK
+
+- `downloads/Fuel-Expense-Tracker-v1.4.0-expense-entry-debug.apk` — 76,098,095 bytes, signed debug build, Android 8.0+.
+- SHA256 `ce011e110952c4674834ba520b2be19e6cea70359ad61d75b3acbd4928c4cb47`; same package and original signing certificate. Previous APK files/checksums are preserved.
+- Release output requires private signing; do not distribute the unsigned release as an installable APK.
+
+## Remaining tasks / known issues
+
+No known compilation errors or implementation work remain for these requests. Physical-phone haptics, camera/picker/OEM behavior, real TalkBack operation and the full range of device/font combinations still need hands-on testing. Basic entry is compact; smaller screens, long amounts and expanded details scroll while Save remains separate. Automatic OCR quality limitations from the prior implementation remain documented. Existing Gradle/compiler/lint advisories are recorded in VALIDATION.md; unrelated dependency upgrades are outside this UI task.
+
+## Files created or modified across the two changes
+
+- [`PROGRESS.md`](PROGRESS.md)
+- [`README.md`](README.md)
+- [`VALIDATION.md`](VALIDATION.md)
+- [`app/src/androidTest/java/my/fuelledger/OfflinePrivacyTest.kt`](app/src/androidTest/java/my/fuelledger/OfflinePrivacyTest.kt)
+- [`app/src/main/java/my/fuelledger/LedgerViewModel.kt`](app/src/main/java/my/fuelledger/LedgerViewModel.kt)
+- [`app/src/main/java/my/fuelledger/data/Database.kt`](app/src/main/java/my/fuelledger/data/Database.kt)
+- [`app/src/main/java/my/fuelledger/data/ExpenseEntry.kt`](app/src/main/java/my/fuelledger/data/ExpenseEntry.kt)
+- [`app/src/main/java/my/fuelledger/data/LedgerRepository.kt`](app/src/main/java/my/fuelledger/data/LedgerRepository.kt)
+- [`app/src/main/java/my/fuelledger/data/SettingsStore.kt`](app/src/main/java/my/fuelledger/data/SettingsStore.kt)
+- [`app/src/main/java/my/fuelledger/domain/CentsKeypad.kt`](app/src/main/java/my/fuelledger/domain/CentsKeypad.kt)
+- [`app/src/main/java/my/fuelledger/ui/Components.kt`](app/src/main/java/my/fuelledger/ui/Components.kt)
+- [`app/src/main/java/my/fuelledger/ui/Editors.kt`](app/src/main/java/my/fuelledger/ui/Editors.kt)
+- [`app/src/main/java/my/fuelledger/ui/ExpenseEntryControls.kt`](app/src/main/java/my/fuelledger/ui/ExpenseEntryControls.kt)
+- [`app/src/main/java/my/fuelledger/ui/ReceiptAttachment.kt`](app/src/main/java/my/fuelledger/ui/ReceiptAttachment.kt)
+- [`app/src/main/java/my/fuelledger/ui/Screens.kt`](app/src/main/java/my/fuelledger/ui/Screens.kt)
+- [`app/src/test/java/my/fuelledger/data/ExpenseEntryTest.kt`](app/src/test/java/my/fuelledger/data/ExpenseEntryTest.kt)
+- [`app/src/test/java/my/fuelledger/data/RepositoryTest.kt`](app/src/test/java/my/fuelledger/data/RepositoryTest.kt)
+- [`app/src/test/java/my/fuelledger/data/SettingsStoreTest.kt`](app/src/test/java/my/fuelledger/data/SettingsStoreTest.kt)
+- [`app/src/test/java/my/fuelledger/domain/CentsKeypadTest.kt`](app/src/test/java/my/fuelledger/domain/CentsKeypadTest.kt)
+- [`app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt`](app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt)
+- [`app/src/test/java/my/fuelledger/ui/ExpenseEntryControlsTest.kt`](app/src/test/java/my/fuelledger/ui/ExpenseEntryControlsTest.kt)
+- [`downloads/Fuel-Expense-Tracker-v1.4.0-expense-entry-debug.apk`](downloads/Fuel-Expense-Tracker-v1.4.0-expense-entry-debug.apk)
+- [`downloads/SHA256SUMS`](downloads/SHA256SUMS)
+
+## Exact resumption instructions
+
+```sh
+cd /workspace/ChatgptFuelConsumption
+git status --short --branch
+source /workspace/.tooling/fuel-ledger-env.sh
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew :app:assembleRelease
+./gradlew :app:lintDebug
+```
+
+Finish source edits before lint runs. Run release assembly and debug lint sequentially. Keep package `my.fuelledger`, schema 4, current name/version and signing identity. Do not clear user data or uninstall for testing. To exercise native offline integration on this instance:
+
+```sh
+ADB=/workspace/.tooling/fuel-adb.sh
+$ADB -s emulator-5556 shell settings put global airplane_mode_on 1
+$ADB -s emulator-5556 shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true
+$ADB -s emulator-5556 shell svc wifi disable
+$ADB -s emulator-5556 shell svc data disable
+$ADB -s emulator-5556 install -r app/build/outputs/apk/debug/app-debug.apk
+$ADB -s emulator-5556 install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+$ADB -s emulator-5556 shell am instrument -w -r -e class my.fuelledger.OfflinePrivacyTest my.fuelledger.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require `OK (3 tests)` in the instrumentation output; adb status alone is insufficient. Full native migration/security suite can be run by omitting `-e class ...`. Existing old WIP stash is a retained checkpoint from before this completed redesign; do not blindly reapply it. Keep passwords, signing keys, databases and caches outside Git. Preserve previous APKs and append new checksums using basenames.
+
+<details>
+<summary>Preserved reports before expense-entry redesign</summary>
+
 # Header cleanup — 16 October 2026 (Malaysia time)
 
 Completed a UI-only refinement of existing v1.4.0 / code 6, continuing from `6e4d932`. Removed the shared app-name/version top bar on Home, Fuel, Expenses, Journey and Analytics. Settings now appears beside each existing screen heading, eliminating the empty toolbar row. Secondary Settings, Monthly Money Planner and Receipt Scanner titles/Back navigation remain. Scaffold system-bar insets, status-bar appearance and bottom navigation are preserved.
@@ -643,6 +726,8 @@ Statuses: **A** new, **M** modified, **D** previously removed/replaced launcher 
 | M | `app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt` |
 
 Total: **65 changed files**, including this document.
+
+</details>
 
 </details>
 

@@ -1,3 +1,84 @@
+# Expense-entry refresh validation
+
+Verified 16 October 2026 (Malaysia time). Package `my.fuelledger`, unchanged version **1.4.0 / code 6**, schema **4**. Separate Expenses filter-only commit: `69f0aa3` (one heading moved, 10 existing Compose smoke executions passed, debug build passed before restoring the separate expense redesign work).
+
+## Final results
+
+- **218 host tests passed**, zero failures/errors/skipped. Full existing finance/fuel/receipt/security regression suites run alongside new entry/payment checks.
+- Debug and Android test APKs and the optimized unsigned release build successfully. Debug lint has 0 errors, 10 advisory warnings and 1 hint: six unused app-name/version resource entries left by the prior header cleanup, an SQLite update suggestion, a state-backed offset suggestion, two optional KTX suggestions and a primitive-state hint. The original name/version resources are intentionally preserved. Release vital lint and debug/release 16KiB ZIP alignment checks pass. All 3 native API26 integration tests pass in airplane mode (222.973 seconds), including bundled OCR, permissions, encrypted Card records, remembered payment preferences, complete receipt/finance backup/restore and database reopen. Instrumentation result: OK (3 tests).
+- Final debug APK signature verifies against original certificate SHA256 `4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8`. 16KiB debug ZIP alignment passes. Package/version/launcher metadata are preserved.
+- APK has no INTERNET, network-state, camera or public-storage permission. Final binary retains 21 bundled OCR model assets and reviewed no-op telemetry sinks, with no DataTransport runtime/CCT or Firebase Analytics/Crashlytics definitions. No new dependency or manifest change.
+- Published artifact: `Fuel-Expense-Tracker-v1.4.0-expense-entry-debug.apk`, 76,098,095 bytes, SHA256 `ce011e110952c4674834ba520b2be19e6cea70359ad61d75b3acbd4928c4cb47`. Previous APKs remain unchanged; `downloads/SHA256SUMS` verifies all artifacts.
+
+## Coverage
+
+- Digits 1/2/3/4/5 yield exactly 1/12/123/1234/12345 sen; ringgit formatting and parsing preserve sen. Leading zeros, zero/backspace, existing 12345-sen editing, inclusive maximum, rejected excessive digits and invalid numeric ranges.
+- Initial zero/Clear disables Save, keypad interaction, category/merchant custom IDs, one-tap Card/E-Wallet selection and last-selection reuse in new expense drafts.
+- Repository backup/restore retains Cash, Credit Card, Debit Card, Not specified and new Card values; local preference updates preserve theme/consumption. Encrypted DataStore restarts preserve all three default-payment selections and other settings. Old JSON defaults to Cash without changing stored amounts/theme.
+- Real Compose edits retain original Credit Card/Debit Card values, exact amounts/notes/timestamps; Not specified remains unchanged in storage until an explicit method is chosen. No bulk record rewrite or Room migration.
+- Receipt import into an unsaved draft, expanding/collapsing details, successful save and encrypted retained image readability. Attachment effects are not disposed by hiding their controls. OCR amount application still uses exact Money.parse conversion and existing suggestion handling.
+- Small 320×568dp, wide 600×960dp and 393×851dp with composed 1.6 font scale, each in light/dark schemes. System theme uses the existing shared theme implementation. Screenshots are local generated test evidence, not physical-device claims.
+
+Test diagnosis: the receipt test needed to drain Robolectric's paused main queue before asserting import completion. The repeated legacy-edit test needed to allow the transient saved snackbar to clear before tapping another underlying history row. Assertions and financial behavior are preserved; final full suite passes.
+
+## Host suites
+
+| Suite | Executions |
+| --- | ---: |
+| ExpenseEntryTest | 2 |
+| FinanceRepositoryTest | 12 |
+| PlannerRepositoryTest | 13 |
+| PlanningCalculationsTest | 18 |
+| ReceiptBackupArchiveTest | 23 |
+| RefinementTest | 12 |
+| RepositoryTest | 25 |
+| SettingsStoreTest | 14 |
+| CalculationsTest | 17 |
+| CentsKeypadTest | 3 |
+| ReceiptParserTest | 23 |
+| ReceiptReviewTest | 2 |
+| ReceiptStoreTest | 10 |
+| AppLockSessionTest | 7 |
+| AppLockStoreTest | 10 |
+| LocalVaultTest | 3 |
+| AppLockUiTest | 4 |
+| AppSmokeTest | 16 |
+| ExpenseEntryControlsTest | 3 |
+| RefinedControlsTest | 1 |
+
+## Commands / evidence
+
+```sh
+cd /workspace/ChatgptFuelConsumption
+git status --short --branch
+source /workspace/.tooling/fuel-ledger-env.sh
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew :app:assembleRelease
+./gradlew :app:lintDebug
+```
+
+Finish source edits before lint runs. Run release assembly and debug lint sequentially. Keep package `my.fuelledger`, schema 4, current name/version and signing identity. Do not clear user data or uninstall for testing. To exercise native offline integration on this instance:
+
+```sh
+ADB=/workspace/.tooling/fuel-adb.sh
+$ADB -s emulator-5556 shell settings put global airplane_mode_on 1
+$ADB -s emulator-5556 shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true
+$ADB -s emulator-5556 shell svc wifi disable
+$ADB -s emulator-5556 shell svc data disable
+$ADB -s emulator-5556 install -r app/build/outputs/apk/debug/app-debug.apk
+$ADB -s emulator-5556 install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+$ADB -s emulator-5556 shell am instrument -w -r -e class my.fuelledger.OfflinePrivacyTest my.fuelledger.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require `OK (3 tests)` in the instrumentation output; adb status alone is insufficient. Full native migration/security suite can be run by omitting `-e class ...`. Existing old WIP stash is a retained checkpoint from before this completed redesign; do not blindly reapply it. Keep passwords, signing keys, databases and caches outside Git. Preserve previous APKs and append new checksums using basenames.
+
+Local logs: `/tmp/fuel-expenses-filter-layout.log`, `/tmp/fuel-expense-validation.log`, `/tmp/fuel-expense-release.log`, `/tmp/fuel-expense-lint.log`, `/tmp/fuel-expense-native.log`. XML and screenshots are ignored generated files under `app/build/test-results` and `app/build/reports/ui-screenshots` (including actual add-expense dialog and small/wide/font-scale light/dark controls).
+
+No physical device was available; native coverage is an API26 software emulator with an in-place `install -r` update, not a fresh installation. Earlier full native migration/security results apply to their recorded builds below. Current changes do not alter Room schema or migrations. Physical haptics, Android picker/camera handoff, OEM and complete accessibility behavior remain manual checks.
+
+<details>
+<summary>Preserved validation before expense-entry redesign</summary>
+
 # Header cleanup — 16 October 2026 (Malaysia time)
 
 Completed a UI-only refinement of existing v1.4.0 / code 6, continuing from `6e4d932`. Removed the shared app-name/version top bar on Home, Fuel, Expenses, Journey and Analytics. Settings now appears beside each existing screen heading, eliminating the empty toolbar row. Secondary Settings, Monthly Money Planner and Receipt Scanner titles/Back navigation remain. Scaffold system-bar insets, status-bar appearance and bottom navigation are preserved.
@@ -379,6 +460,8 @@ The complete setup script was exercised, including wrapper activation, SDK setup
 ## Remaining verification
 
 No physical phone or hardware emulator was attached (`/dev/kvm` is absent). Robolectric tests are automated Android simulations, not physical-device tests. On your phone, verify the document picker, CSV export, backup/restore, keyboard behavior, accessibility/font scaling and updates with the same signing key before depending on it for irreplaceable records. The app supports one vehicle and MYR; backups replace existing data after confirmation and are not encrypted. CSV import is not provided.
+
+</details>
 
 </details>
 

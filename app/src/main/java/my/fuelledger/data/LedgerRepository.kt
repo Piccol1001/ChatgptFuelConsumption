@@ -144,6 +144,12 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
         applyPendingSettings()
         preferences.save(settings)
     }
+    suspend fun rememberExpensePayment(payment: String) = writes.withLock {
+        require(payment in expensePaymentOptions) { "Choose Cash, Card or E-Wallet." }
+        applyPendingSettings()
+        val current = preferences.settings.first()
+        if (current.lastExpensePayment != payment) preferences.save(current.copy(lastExpensePayment = payment))
+    }
     suspend fun backup(): Backup = writes.withLock {
         applyPendingSettings()
         database.withTransaction {

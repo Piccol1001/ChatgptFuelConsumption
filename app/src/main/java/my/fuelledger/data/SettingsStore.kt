@@ -30,7 +30,7 @@ import java.math.BigDecimal
 data class AppSettings(val petrolPrice: String = "2.05", val consumption: Double = 7.0,
     val theme: String = "System", val plannerReminders: Boolean = false,
     val receiptSaveMode: String = "Review", val keepReceiptPhotos: Boolean = true,
-    val consumptionFallbackEnabled: Boolean = false) {
+    val consumptionFallbackEnabled: Boolean = false, val lastExpensePayment: String = "Cash") {
     fun validate() {
         val price = petrolPrice.toBigDecimalOrNull()
         require(price != null && price > BigDecimal.ZERO && price <= BigDecimal("1000000") && price.scale() <= 4) {
@@ -39,6 +39,7 @@ data class AppSettings(val petrolPrice: String = "2.05", val consumption: Double
         require(consumption.isFinite() && consumption > 0 && consumption <= 1000) { "Consumption must be between 0 and 1000 L/100 km." }
         require(receiptSaveMode in listOf("Review", "Smart")) { "Invalid receipt save mode." }
         require(theme in listOf("System", "Light", "Dark")) { "Invalid theme." }
+        require(lastExpensePayment in expensePaymentOptions) { "Invalid expense payment preference." }
     }
 }
 interface PreferencesStore {
