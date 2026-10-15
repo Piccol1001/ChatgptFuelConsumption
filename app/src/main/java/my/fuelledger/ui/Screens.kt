@@ -196,6 +196,7 @@ fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit,
             second = { Stat("This week", Money.format(totals.week(today)), it, "Monday–Sunday") }
         ) }
         item { LedgerAction("Add Expense", ledgerSymbol("add"), Modifier.fillMaxWidth(), onClick = add) }
+        item { SectionTitle("Transaction history", "${dateLabel(start)} – ${dateLabel(end)}") }
         item {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = category.isEmpty(), onClick = { category = "" }, modifier = Modifier.heightIn(min = 48.dp), label = { Text("All") })
@@ -206,7 +207,6 @@ fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit,
                 }
             }
         }
-        item { SectionTitle("Transaction history", "${dateLabel(start)} – ${dateLabel(end)}") }
         item {
             LedgerCard {
                 TextField(query, { query = it }, "Search descriptions", 200)
