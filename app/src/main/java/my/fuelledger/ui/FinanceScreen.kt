@@ -25,7 +25,7 @@ import java.time.*
 import java.util.UUID
 
 @Composable
-fun FinanceScreen(vm: FinanceViewModel, initialSection: String = "Planner") {
+fun FinanceScreen(vm: FinanceViewModel, initialSection: String = "Expected Income") {
     val state by vm.state.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
     val operationError by vm.error.collectAsStateWithLifecycle()
@@ -33,6 +33,8 @@ fun FinanceScreen(vm: FinanceViewModel, initialSection: String = "Planner") {
     var monthText by rememberSaveable { mutableStateOf(YearMonth.now().toString()) }
     val month = YearMonth.parse(monthText)
     LaunchedEffect(monthText) { vm.openMonth(month) }
+    var incomeTab by rememberSaveable { mutableStateOf("Sources") }
+    val contentSection = if (section == "Expected Income" && incomeTab == "Received") "Income" else section
     var editor by rememberSaveable { mutableStateOf<String?>(null) }
     var editorId by rememberSaveable { mutableStateOf(UUID.randomUUID().toString()) }
     val incomeSeed = state.income.firstOrNull { it.id == editorId }
@@ -41,8 +43,7 @@ fun FinanceScreen(vm: FinanceViewModel, initialSection: String = "Planner") {
     var deleting by remember { mutableStateOf<Pair<String, String>?>(null) }
     val close = { editor = null }
     LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { ScreenHeading("Financial planning", "Your records, calculated locally. No bank connection is needed.", Icons.Outlined.AccountBalanceWallet) }
-        item {
+        if (section != "Planner") item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { monthText = month.minusMonths(1).toString() }, enabled = month > YearMonth.of(1970, 1)) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, "Previous finance month") }
                 Text(month.toString(), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
@@ -50,30 +51,39 @@ fun FinanceScreen(vm: FinanceViewModel, initialSection: String = "Planner") {
             }
         }
         item {
-            LedgerCard {
-                Text("Recorded income · $month", style = MaterialTheme.typography.labelLarge)
-                Text(Money.format(financeMonthlyIncome(state.income, month)), style = MaterialTheme.typography.headlineMedium)
-                Text("Actual spending: ${Money.format(Spending(state.expenses.map { it.point() }).month(month))}")
-                Text("These totals reflect your saved transactions. They do not represent a bank balance.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Expected Income", "Fixed Monthly Expenses", "Monthly Allocation").forEach { title ->
+                    FilterChip(selected = section == title, onClick = { section = title }, label = { Text(title) }, modifier = Modifier.heightIn(min = 48.dp))
+                }
             }
         }
         item {
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Planner", "Fixed Expenses", "Expected Income", "Monthly Allocation", "Income", "Budgets", "Recurring").forEach { title ->
-                    FilterChip(selected = section == title, onClick = { section = title }, label = { Text(title) }, modifier = Modifier.heightIn(min = 48.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TextButton({ section = "Planner" }) { Text("Overview & payments") }
+                TextButton({ section = "Budgets" }) { Text("Budgets") }
+            }
+        }
+        if (section == "Expected Income") item {
+            LedgerCard {
+                val forecast = state.months.find { it.month == monthText }?.occurrences() ?: plannedOccurrences(state.recurring, month)
+                Text("Expected this month", style = MaterialTheme.typography.labelLarge)
+                Text(Money.format(forecast.filter { it.kind == "Income" }.sumOf { it.cents }), style = MaterialTheme.typography.headlineMedium)
+                Text("Received: ${Money.format(financeMonthlyIncome(state.income, month))}", style = MaterialTheme.typography.bodyMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("Sources", "Received").forEach { name -> FilterChip(incomeTab == name, { incomeTab = name }, label = { Text(name) }, modifier = Modifier.heightIn(min = 48.dp)) }
                 }
             }
         }
         if (section !in listOf("Planner", "Monthly Allocation")) item {
             Button(onClick = {
                 editorId = UUID.randomUUID().toString()
-                editor = section
+                editor = contentSection
             }, modifier = Modifier.fillMaxWidth(), enabled = !busy && state.categories.isNotEmpty()) {
                 Icon(Icons.Outlined.Add, null); Spacer(Modifier.width(8.dp))
-                Text(when (section) { "Budgets" -> "Add monthly budget"; "Recurring" -> "Add recurring expense"; "Fixed Expenses" -> "Add fixed expense"; "Expected Income" -> "Add expected income source"; else -> "Add income" })
+                Text(when (contentSection) { "Budgets" -> "Add monthly budget"; "Fixed Monthly Expenses" -> "Add fixed expense"; "Expected Income" -> "Add expected income source"; else -> "Record received income" })
             }
         }
-        when (section) {
+        when (contentSection) {
             "Planner" -> item { MonthlyPlanner(state, vm, monthText, { monthText = it }) }
             "Monthly Allocation" -> item { MonthlyAllocationSettings(state, vm, month) }
             "Income" -> {
@@ -88,7 +98,7 @@ fun FinanceScreen(vm: FinanceViewModel, initialSection: String = "Planner") {
             }
             "Budgets" -> {
                 val budgets = state.budgets.filter { it.month == monthText }
-                item { Text("Set one overall budget and optional category budgets. Category limits are compared separately; they are not added to the overall limit.", style = MaterialTheme.typography.bodySmall) }
+                item { ExpandableHelp("Budget limits") { Text("Overall and category budgets are checked separately against actual expenses.", style = MaterialTheme.typography.bodySmall) } }
                 if (budgets.isEmpty()) item { Text("No budgets for this month.") }
                 items(budgets, key = { "budget-${it.id}" }) { value ->
                     val spent = financeBudgetSpending(value, state.expenses)
@@ -100,15 +110,14 @@ fun FinanceScreen(vm: FinanceViewModel, initialSection: String = "Planner") {
                 }
             }
             else -> {
-                item { Text(when (section) {
-                    "Expected Income" -> "Set your default monthly salary or other recurring sources once. Expected income repeats in each plan but is never posted as money received. Record actual receipts under Income."
-                    "Fixed Expenses" -> "Manage the same rules as recurring expenses. New fixed payments wait for confirmation in Planner. Existing automatic rules keep their behavior; edit one and enable manual confirmation to stop automatic posting. View upcoming, paid and overdue payments in Planner."
-                    else -> "Automatic payments are reconciled locally when the app opens. Manual fixed rules wait for confirmation in Planner. Monthly dates keep their original day after shorter months."
-                }, style = MaterialTheme.typography.bodySmall) }
-                if (state.recurring.isEmpty()) item { Text("No recurring expenses. Add a daily, weekly or monthly payment.") }
-                items(state.recurring.filter { if (section == "Expected Income") it.kind == "Income" else if (section == "Fixed Expenses") it.kind == "Expense" else it.kind == "Expense" }, key = { "recurring-${it.id}" }) { value ->
-                    FinanceRecord(value.name, Money.format(value.cents), "${value.frequency} · ${if (value.enabled) "Next ${value.nextDate}" else "Paused"}") {
-                        editorId = value.id; editor = section
+                item { ExpandableHelp(if (contentSection == "Expected Income") "Expected vs received" else "Fixed payment rules") {
+                    Text(if (contentSection == "Expected Income") "Active sources contribute estimates only. Record money actually received under Received. An optional investment estimate may be left blank."
+                        else "Manual commitments wait for payment confirmation in Overview. Existing automatic rules keep posting when due. Monthly dates on the 29th–31st use the last valid day.", style = MaterialTheme.typography.bodySmall)
+                } }
+                if (state.recurring.none { it.kind == if (contentSection == "Expected Income") "Income" else "Expense" }) item { Text("No sources or commitments yet.") }
+                items(state.recurring.filter { it.kind == if (contentSection == "Expected Income") "Income" else "Expense" }, key = { "recurring-${it.id}" }) { value ->
+                    FinanceRecord(value.name, if (value.cents == 0L) "No estimate" else Money.format(value.cents), "${if (value.kind == "Income") incomeSourceType(value) + " · " else ""}${value.frequency} · ${if (value.enabled) "Active" else "Inactive"}") {
+                        editorId = value.id; editor = contentSection
                     }
                 }
             }
@@ -120,8 +129,8 @@ fun FinanceScreen(vm: FinanceViewModel, initialSection: String = "Planner") {
             { vm.saveIncome(it, close) }, incomeSeed?.let { { deleting = "Income" to it.id } })
         "Budgets" -> FinanceBudgetEditor(budgetSeed, editorId, monthText, state.categories, busy, close,
             { vm.saveBudget(it, close) }, budgetSeed?.let { { deleting = "Budgets" to it.id } })
-        "Recurring", "Fixed Expenses", "Expected Income" -> FinanceRecurringEditor(recurringSeed, editorId, state.categories, busy, close,
-            { vm.saveRecurring(it, close) }, recurringSeed?.let { { deleting = "Recurring" to it.id } }, editor == "Expected Income", editor == "Fixed Expenses")
+        "Fixed Monthly Expenses", "Expected Income" -> FinanceRecurringEditor(recurringSeed, editorId, state.categories, busy, close,
+            { vm.saveRecurring(it, close) }, recurringSeed?.let { { deleting = "Recurring" to it.id } }, editor == "Expected Income", editor == "Fixed Monthly Expenses")
     }
     deleting?.let { (kind, id) ->
         DeleteConfirmation("Delete this ${if (kind == "Budgets") "budget" else kind.lowercase()}?",
@@ -195,6 +204,7 @@ private fun FinanceRecurringEditor(seed: FinanceRecurring?, id: String, categori
     var name by rememberSaveable(id) { mutableStateOf(seed?.name.orEmpty()) }
     var amount by rememberSaveable(id) { mutableStateOf(seed?.let { Money.decimal(it.cents) }.orEmpty()) }
     var category by rememberSaveable(id) { mutableStateOf(seed?.categoryId ?: categories.firstOrNull()?.id.orEmpty()) }
+    var sourceType by rememberSaveable(id) { mutableStateOf(seed?.let(::incomeSourceType) ?: "Salary") }
     var frequency by rememberSaveable(id) { mutableStateOf(seed?.frequency ?: "Monthly") }
     var start by rememberSaveable(id) { mutableStateOf(seed?.startDate ?: LocalDate.now().toString()) }
     var enabled by rememberSaveable(id) { mutableStateOf(seed?.enabled ?: true) }
@@ -206,12 +216,13 @@ private fun FinanceRecurringEditor(seed: FinanceRecurring?, id: String, categori
     EditorShell(if (income) "Expected income source" else if (fixed) "Fixed expense" else if (seed == null) "Add recurring expense" else "Edit recurring expense", busy, error, dismiss, {
         runCatching {
             val next = if (seed != null && seed.startDate == start && seed.frequency == frequency) seed.nextDate else start
-            FinanceRecurring(id, name.trim(), Money.parse(amount), category, frequency, start, next, enabled, payment, notes.trim(), if (income) "Income" else "Expense", manual || income, end.trim().ifBlank { null })
+            FinanceRecurring(id, name.trim(), if (income && (amount.isBlank() || amount.toBigDecimalOrNull()?.signum() == 0)) 0L else Money.parse(amount), if (income) "income:$sourceType" else category, frequency, start, next, enabled, payment, notes.trim(), if (income) "Income" else "Expense", manual || income, end.trim().ifBlank { null })
                 .also(::validateFinanceRecurring)
         }.onSuccess(save).onFailure { error = it.message ?: "Check the recurring payment details." }
     }, delete) {
         TextField(name, { name = it }, if (income) "Income source name" else "Fixed / recurring expense name", 200)
-        NumericField(amount, { amount = it }, "Recurring payment (RM)")
+        if (income) Choice("Source category", sourceType, incomeSourceTypes.map { it to it }) { sourceType = it }
+        NumericField(amount, { amount = it }, if (income) "Expected amount (RM, optional estimate)" else "Fixed payment (RM)")
         if (!income) Choice("Category", category, categories.map { it.id to it.name }) { category = it }
         Choice("Frequency", frequency, financeFrequencies.map { it to it }) { frequency = it }
         DateButton(LocalDate.parse(start), "Start / expected payment date", { start = it.toString() }, Modifier.fillMaxWidth())
@@ -221,9 +232,9 @@ private fun FinanceRecurringEditor(seed: FinanceRecurring?, id: String, categori
             Text("Confirm payments manually", Modifier.weight(1f)); Switch(manual, { manual = it })
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Scheduled payments enabled", Modifier.weight(1f)); Switch(enabled, { enabled = it })
+            Text(if (income) "Active source" else "Active commitment", Modifier.weight(1f)); Switch(enabled, { enabled = it })
         }
         TextField(notes, { notes = it }, "Recurring notes (optional)", 2000, true)
-        Text("Expected income is a forecast: record money received separately under Income. Manual fixed payments stay unpaid until confirmed or linked to an expense. Automatic expenses catch up missed dates. Monthly billing dates on the 29th–31st use the last day of shorter months, then return to the original day. Pause excludes the rule from new plans; saved past monthly plans stay unchanged.", style = MaterialTheme.typography.bodySmall)
+        ExpandableHelp("Schedule details") { Text("Income estimates never create received transactions. Manual payments need confirmation; automatic rules catch up missed dates. Pausing changes new plans, while saved past months stay unchanged.", style = MaterialTheme.typography.bodySmall) }
     }
 }

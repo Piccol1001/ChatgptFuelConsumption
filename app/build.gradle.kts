@@ -10,7 +10,7 @@ plugins {
 }
 
 val ledgerAppName = "Fuel & Expense Tracker"
-val ledgerVersionName = "1.3.0"
+val ledgerVersionName = "1.4.0"
 
 android {
     namespace = "my.fuelledger"
@@ -19,7 +19,7 @@ android {
         applicationId = "my.fuelledger"
         minSdk = 26
         targetSdk = 37
-        versionCode = 5
+        versionCode = 6
         versionName = ledgerVersionName
         resValue("string", "app_name", ledgerAppName)
         resValue("string", "app_version", "v$ledgerVersionName")

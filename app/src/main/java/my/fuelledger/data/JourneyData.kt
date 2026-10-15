@@ -18,7 +18,11 @@ data class JourneyPlan(val origin: String, val destination: String, val outbound
     val returnTolls: List<JourneyFee> = emptyList(), val parkingCents: Long = 0,
     val otherFees: List<JourneyFee> = emptyList(), val people: Int = 1,
     val shareFuel: Boolean = true, val shareTolls: Boolean = true, val shareParking: Boolean = true,
-    val shareOther: Boolean = true)
+    val shareOther: Boolean = true,
+    // Absent in old JSON: preserve historical totals. New/refined entries explicitly use 2.
+    val costVersion: Int = 1,
+    // Missing in legacy records: keep their explicit saved consumption when editing.
+    val consumptionSource: String = "Legacy")
 @Serializable
 @Entity(tableName = "journey_plans")
 data class SavedJourney(@PrimaryKey val id: String, val timestamp: Long, val payload: String) {
@@ -30,6 +34,8 @@ data class JourneyCost(val distanceKm: Double, val fuelCents: Long, val tollCent
     val perPersonCents get() = BigDecimal(sharedCents).divide(BigDecimal(people), 0, RoundingMode.HALF_UP).longValueExact()
 }
 fun journeyCost(plan: JourneyPlan): JourneyCost {
+    require(plan.costVersion in 1..2) { "Unsupported journey calculation version." }
+    require(plan.consumptionSource in setOf("Legacy", "History", "Fallback", "Override")) { "Unsupported consumption source." }
     require(plan.outboundKm.isFinite() && plan.outboundKm > 0 && plan.outboundKm <= 1e9 && plan.returnKm.isFinite() && plan.returnKm >= 0 && plan.returnKm <= 1e9) { "Enter valid outbound and return distances." }
     require(plan.people in 1..1000) { "Number of people must be 1–1,000." }
     require(plan.parkingCents in 0..MAX_CENTS) { "Invalid parking amount." }
@@ -40,9 +46,9 @@ fun journeyCost(plan: JourneyPlan): JourneyCost {
     val distance = plan.outboundKm + if (plan.roundTrip) plan.returnKm else 0.0
     val fuel = estimateTrip(distance, plan.consumption, plan.petrolPrice.toBigDecimal()).costCents
     val tolls = plan.outboundTolls.sumOf { it.cents } + if (plan.roundTrip) plan.returnTolls.sumOf { it.cents } else 0
-    val other = plan.otherFees.sumOf { it.cents }
+    val other = if (plan.costVersion == 1) plan.otherFees.sumOf { it.cents } else 0L
     require(fuel + tolls + plan.parkingCents + other <= MAX_CENTS) { "Journey cost exceeds the supported amount." }
-    val shared = (if (plan.shareFuel) fuel else 0) + (if (plan.shareTolls) tolls else 0) +
+    val shared = if (plan.costVersion == 2) 0L else (if (plan.shareFuel) fuel else 0) + (if (plan.shareTolls) tolls else 0) +
         (if (plan.shareParking) plan.parkingCents else 0) + (if (plan.shareOther) other else 0)
     return JourneyCost(distance, fuel, tolls, plan.parkingCents, other, shared, plan.people)
 }

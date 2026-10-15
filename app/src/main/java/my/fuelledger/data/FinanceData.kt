@@ -68,7 +68,7 @@ fun validateFinanceBudget(value: FinanceBudget) {
 fun validateFinanceRecurring(value: FinanceRecurring) {
     validateFinanceId(value.id)
     require(value.name.isNotBlank() && value.name.length <= 200 && value.notes.length <= 2000) { "Enter a recurring expense name." }
-    require(value.cents in 1..MAX_CENTS) { "Recurring payment must be a positive amount." }
+    require(value.cents in (if (value.kind == "Income") 0L else 1L)..MAX_CENTS) { "Enter a valid expected amount or positive fixed payment." }
     require((value.kind == "Income" || value.categoryId.isNotBlank()) && value.categoryId.length <= 100) { "Choose a category." }
     require(value.frequency in financeFrequencies && value.payment in paymentMethods) { "Choose a valid frequency and payment method." }
     require(value.kind in listOf("Expense", "Income")) { "Invalid recurring record type." }

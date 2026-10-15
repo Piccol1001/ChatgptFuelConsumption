@@ -64,35 +64,10 @@ fun HomeScreen(state: LedgerState, addExpense: () -> Unit, addRefuel: () -> Unit
 }
 
 @Composable
-fun TripEstimator(settings: AppSettings) {
-    var distance by rememberSaveable { mutableStateOf("150") }
-    var consumption by rememberSaveable(settings.consumption) { mutableStateOf(settings.consumption.toString()) }
-    var price by rememberSaveable(settings.petrolPrice) { mutableStateOf(settings.petrolPrice) }
-    val calculation = remember(distance, consumption, price) {
-        runCatching { estimateTrip(measurement(distance, "Distance"), measurement(consumption, "Consumption"), price.toBigDecimal()) }
-    }
-    LedgerCard {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Icon(ledgerSymbol("route"), null, tint = MaterialTheme.colorScheme.primary)
-            Text("Trip cost estimator", style = MaterialTheme.typography.titleMedium)
-        }
-        Text("Plan a journey using your own inputs. Estimates do not change your refuelling records.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        NumericField(distance, { distance = it }, "Trip distance (km)")
-        NumericField(consumption, { consumption = it }, "Consumption (L/100 km)")
-        NumericField(price, { price = it }, "Petrol price (RM/L)")
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        calculation.getOrNull()?.let { estimate ->
-            Text("Estimated trip cost", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(Money.format(estimate.costCents), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
-            Text("${number(estimate.litres)} L of fuel · ${number(estimate.kmPerLitre)} km/L", style = MaterialTheme.typography.bodyMedium)
-            Text("RM ${number(estimate.costPerKm, 4)} per km", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } ?: Text("Enter positive distance, consumption and price to calculate.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-    }
-}
-
-@Composable
 fun FuelScreen(state: LedgerState, add: () -> Unit, edit: (Refuel) -> Unit) {
-    val month = YearMonth.from(currentCalendar().today)
+    val calendar = currentCalendar()
+    val month = YearMonth.from(calendar.today)
+    var chartMonths by rememberSaveable { mutableStateOf(3) }
     val current = state.refuels.filter { YearMonth.from(localDate(it.timestamp)) == month }
     val estimates = remember(state.refuels) { fillEstimates(state.refuels.map { it.point() }) }
     val latest = estimates.lastOrNull()
@@ -102,7 +77,7 @@ fun FuelScreen(state: LedgerState, add: () -> Unit, edit: (Refuel) -> Unit) {
     val newest = state.refuels.maxByOrNull { it.timestamp }
     val records = state.refuels.sortedByDescending { it.timestamp }
     LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { ScreenHeading("Fuel tracker", "Every fill. A clearer view of every kilometre.", ledgerSymbol("fuel")) }
+        item { ScreenHeading("Fuel tracker", "Refuelling records and statistics", ledgerSymbol("fuel")) }
         item {
             LedgerCard(emphasized = true) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -113,8 +88,7 @@ fun FuelScreen(state: LedgerState, add: () -> Unit, edit: (Refuel) -> Unit) {
                 Text(latest?.let { "${number(it.litresPer100Km)} L/100 km · RM ${number(it.costPerKm, 4)}/km" } ?: "Add two fills with odometer readings to begin.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = .18f))
                 Text("ODO-BASED · PER-FILL ESTIMATE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                Text(latest?.let { "${number(it.distance, 1)} km since the previous fill ÷ ${number(it.litres)} L purchased. Tank levels can vary, so this is an estimate." }
-                    ?: "Use your odometer and litres purchased at every fill. A full tank is optional.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                ExpandableHelp("Per-fill estimates") { Text("Distance since the previous fill ÷ litres purchased. Tank levels vary; journey planning uses complete full-tank cycles instead.", style = MaterialTheme.typography.bodySmall) }
             }
         }
         item { ResponsivePair(
@@ -128,19 +102,23 @@ fun FuelScreen(state: LedgerState, add: () -> Unit, edit: (Refuel) -> Unit) {
         }) }
         item {
             LedgerCard {
-                Text("Full-tank reference", style = MaterialTheme.typography.titleMedium)
+                Text("Historical consumption", style = MaterialTheme.typography.titleMedium)
+                Text(historicalConsumption(state.refuels.map { it.point() })?.let { "${number(it)} L/100 km" } ?: "Not enough fuel data", style = MaterialTheme.typography.headlineSmall)
                 if (measuredLast != null) {
                     Text("${number(measuredLast.kmPerLitre)} km/L", style = MaterialTheme.typography.headlineSmall)
                     Text("Latest measured cycle · ${number(measuredLast.litresPer100Km)} L/100 km · RM ${number(measuredLast.costPerKm, 4)}/km", style = MaterialTheme.typography.bodySmall)
                     Text("Average ${number(measuredAverage!!)} km/L across ${measured.size} valid cycles", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-                    Text("Total measured distance ÷ total measured litres. Partial fills between full tanks are included; the baseline tank's fuel is excluded.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else Text("Optional: mark two fills as full tanks to measure a complete cycle. Partial fills in between are included. Your per-fill estimates above work without this.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                ExpandableHelp("Full-tank calculation") { Text("Two full-tank records close a cycle. Partial fills between them are included; the first tank's purchase is excluded. The historical average weights cycles by distance.", style = MaterialTheme.typography.bodySmall) }
             }
         }
-        item { SpendingBars("Fuel spending by month", (5L downTo 0L).map { offset ->
-            val selected = month.minusMonths(offset)
-            selected.format(shortMonthFormat) to state.refuels.filter { YearMonth.from(localDate(it.timestamp)) == selected }.sumOf { it.cents }
-        }, MaterialTheme.colorScheme.secondary) }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(3, 6, 12).forEach { count -> FilterChip(chartMonths == count, { chartMonths = count },
+                    label = { Text("$count months") }, modifier = Modifier.heightIn(min = 48.dp)) }
+            }
+        }
+        item { SpendingBars("Fuel spending by month", fuelSpendingMonths(state.refuels, calendar.today, chartMonths, calendar.zone), MaterialTheme.colorScheme.secondary) }
         item { SectionTitle("Refuelling history", "Newest first · tap a fill to edit or view its receipt") }
         if (records.isEmpty()) item { EmptyState("Ready for your first fill", "Record the odometer, litres and cost. Your next fill unlocks the first consumption estimate.") }
         items(records, key = { it.id }) { refuel -> RefuelHistoryCard(refuel, estimates.find { it.endId == refuel.id }, measured.find { it.endId == refuel.id }) { edit(refuel) } }
@@ -211,7 +189,7 @@ fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit,
         if (sort == "Oldest") entries.sortedBy { it.key } else entries.sortedByDescending { it.key }
     }
     LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { ScreenHeading("Expenses", "Small details. A complete spending picture.", ledgerSymbol("expenses")) }
+        item { ScreenHeading("Expenses", "Recorded transactions", ledgerSymbol("expenses")) }
         item { HeroAmount("This month's expenditure", Money.format(totals.month(currentMonth)), "${currentMonth.format(monthFormat)} · fuel counted once") }
         item { ResponsivePair(
             first = { Stat("Today", Money.format(totals.today(today)), it) },
@@ -221,7 +199,7 @@ fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit,
         item {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = category.isEmpty(), onClick = { category = "" }, modifier = Modifier.heightIn(min = 48.dp), label = { Text("All") })
-                state.categories.forEach { item ->
+                displayCategories(state.categories).forEach { item ->
                     val label = when (item.id) { "food" -> "Food"; FUEL_CATEGORY -> "Fuel"; else -> item.name }
                     FilterChip(selected = category == item.id, onClick = { category = item.id }, modifier = Modifier.heightIn(min = 48.dp),
                         leadingIcon = { Icon(categoryIcon(item.icon), null, Modifier.size(17.dp)) }, label = { Text(label) })

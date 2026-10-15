@@ -1,3 +1,80 @@
+# Current progress — Fuel & Expense Tracker v1.4.0
+
+Updated 15 October 2026 (Malaysia time). Continues the existing application from commit `22fabb5`. Earlier progress reports are retained below.
+
+## Completed features
+
+- Settings and Journey use one weighted historical fuel value: 100 × complete-cycle litres / complete-cycle distance. Partial fills within full/full cycles count; incomplete, invalid and zero-distance cycles do not. No valid history displays “Not enough fuel data”. Optional fallback requires explicit entry/enablement; the old stored numeric preference remains preserved.
+- Settings → Financial Planning now has one Monthly Money Planner entry, containing Expected Income, Fixed Monthly Expenses and Monthly Allocation. Overview/payments and existing budgets remain accessible. The home card shows planned Available After Fixed Commitments, Expected Income and Fixed Expenses, with details/help on demand.
+- Expected Income supports the six requested source types, multiple active/inactive sources, schedules and optional zero/blank irregular estimates. The Received subview retains actual income CRUD and totals. Forecasts never become received transactions.
+- Allocation sliders and a live accessible donut show percentages/RM values. Only the selected category and named flexible remainder change; total stays exactly 100%, with no negative allocation. Custom categories, mappings, reserves, defaults and per-month overrides remain supported.
+- Home/Fuel/Expenses/Journey/Analytics navigation; Others always last with stable custom-category sorting. Fuel charts offer 3/6/12 rolling months including the current month, using recorded spending, local-zone dates, zero gaps and labels such as Aug 26 / Sep 26.
+- Journey has an animated accessible tap/drag binary pill. Live historical consumption updates new and reopened history-based plans. Explicit overrides, saved fallback and legacy recorded values retain their distinct source. New totals are fuel + tolls + parking. Other-fee and passenger-sharing UI is removed; legacy fields/totals remain in JSON until an explicit edit/save uses the new calculation version.
+- Redundant descriptions/headings moved into expandable help, preserving essential warnings and distinctions. Existing light/dark/system appearance, scanner, encrypted storage, backups, reminders and transaction functionality remain intact.
+- Version 1.4.0 / code 6. No new dependency, permission, Room entity/table/schema change, migration, destructive reset or encryption-format change. Optional new serialized fields decode old JSON with compatible defaults.
+
+## Current implementation and verification
+
+Implementation is complete. 201 host tests pass (0 failures/errors/skipped), including real Compose navigation and entry on Robolectric API26/35. All 9 native Android tests pass in airplane mode; the final APK also passes all 3 offline integration rechecks. Debug/test/optimized unsigned release APKs build; lint has 0 errors, 4 advisory warnings and 1 hint. Details are recorded in VALIDATION.md. No known compilation errors remain.
+
+## Updated APK
+
+- `downloads/Fuel-Expense-Tracker-v1.4.0-debug.apk` — 76,096,099 bytes, Android 8.0+, signed debug build.
+- SHA256: `180d4f2f7cc92c9c099774cec03e171da62fa312d4ea4494c225ec1cbf4a90ce`.
+- Original package and signing certificate preserved for in-place updates. Older APK files remain unchanged. Optimized release output requires private signing and is not the installable download.
+
+## Remaining tasks and known issues
+
+- Physical-phone camera/picker handoff, permission denial, biometric/PIN interaction, OEM behavior, large accessibility font sizes and RTL gestures need hands-on testing. Host API35 tests are Robolectric; native tests use an API26 software emulator.
+- OCR cannot guarantee every thermal receipt parses correctly; review ambiguous receipts. Optional tax/item extraction remains unimplemented from the earlier scanner scope.
+- Old journeys retain their historical total until explicitly updated; saving an edit applies fuel + tolls + parking. Their hidden legacy metadata is retained for backup compatibility. New saved lists show the recorded estimate; reopening a history-based route uses the latest average.
+- New zero-estimate income sources do not contribute planned occurrences. Existing captured past monthly snapshots remain unchanged, so historical forecasts reflect the settings captured then.
+- Lint advisory details are in VALIDATION.md. Gradle reports existing deprecation/configuration-cache advice; no version bump of unrelated dependencies is needed for this refinement.
+
+## Exact instructions for resuming development
+
+```sh
+cd /workspace/ChatgptFuelConsumption
+git status --short --branch
+source /workspace/.tooling/fuel-ledger-env.sh
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew :app:assembleRelease
+./gradlew :app:lintDebug
+./gradlew -p buildSrc test
+```
+
+Keep the existing checkout, package `my.fuelledger`, schema 4 and signing identity. Do not clear installed data or uninstall to run checks. Run release assembly and debug lint sequentially and finish source edits before launching lint/analysis. Use `/workspace/.tooling/fuel-adb.sh -s emulator-5556` for this environment's API26 software emulator. Enable airplane mode and disable Wi-Fi/data, then install both generated APKs with `install -r`. Run `shell am instrument -w -r my.fuelledger.test/androidx.test.runner.AndroidJUnitRunner` and inspect the final `OK (9 tests)` result; adb's exit status alone does not establish test success. Hardware interaction and physical-phone checks remain separate.
+
+For a future version, increment both version name/code, create a new versioned APK filename, append its basename-only SHA256 entry to `downloads/SHA256SUMS`, and preserve all prior APKs. Check checksum, signing certificate, permissions and bundled model/telemetry policy before publishing. Keep passwords, databases, signing keys and caches out of Git.
+
+## Files created or modified in this refinement
+
+- [`PROGRESS.md`](PROGRESS.md)
+- [`README.md`](README.md)
+- [`VALIDATION.md`](VALIDATION.md)
+- [`app/build.gradle.kts`](app/build.gradle.kts)
+- [`app/src/main/java/my/fuelledger/data/FinanceData.kt`](app/src/main/java/my/fuelledger/data/FinanceData.kt)
+- [`app/src/main/java/my/fuelledger/data/JourneyData.kt`](app/src/main/java/my/fuelledger/data/JourneyData.kt)
+- [`app/src/main/java/my/fuelledger/data/MonthlyPlanner.kt`](app/src/main/java/my/fuelledger/data/MonthlyPlanner.kt)
+- [`app/src/main/java/my/fuelledger/data/Refinement.kt`](app/src/main/java/my/fuelledger/data/Refinement.kt)
+- [`app/src/main/java/my/fuelledger/data/SettingsStore.kt`](app/src/main/java/my/fuelledger/data/SettingsStore.kt)
+- [`app/src/main/java/my/fuelledger/domain/Calculations.kt`](app/src/main/java/my/fuelledger/domain/Calculations.kt)
+- [`app/src/main/java/my/fuelledger/ui/FinanceScreen.kt`](app/src/main/java/my/fuelledger/ui/FinanceScreen.kt)
+- [`app/src/main/java/my/fuelledger/ui/JourneyScreen.kt`](app/src/main/java/my/fuelledger/ui/JourneyScreen.kt)
+- [`app/src/main/java/my/fuelledger/ui/LedgerApp.kt`](app/src/main/java/my/fuelledger/ui/LedgerApp.kt)
+- [`app/src/main/java/my/fuelledger/ui/MonthlyPlannerScreen.kt`](app/src/main/java/my/fuelledger/ui/MonthlyPlannerScreen.kt)
+- [`app/src/main/java/my/fuelledger/ui/RefinedControls.kt`](app/src/main/java/my/fuelledger/ui/RefinedControls.kt)
+- [`app/src/main/java/my/fuelledger/ui/Screens.kt`](app/src/main/java/my/fuelledger/ui/Screens.kt)
+- [`app/src/main/java/my/fuelledger/ui/SettingsScreen.kt`](app/src/main/java/my/fuelledger/ui/SettingsScreen.kt)
+- [`app/src/test/java/my/fuelledger/data/RefinementTest.kt`](app/src/test/java/my/fuelledger/data/RefinementTest.kt)
+- [`app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt`](app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt)
+- [`app/src/test/java/my/fuelledger/ui/RefinedControlsTest.kt`](app/src/test/java/my/fuelledger/ui/RefinedControlsTest.kt)
+- [`downloads/Fuel-Expense-Tracker-v1.4.0-debug.apk`](downloads/Fuel-Expense-Tracker-v1.4.0-debug.apk)
+- [`downloads/SHA256SUMS`](downloads/SHA256SUMS)
+
+<details>
+<summary>Preserved progress reports through version 1.3.0</summary>
+
 # Current progress — Fuel & Expense Tracker v1.3.0
 
 Updated 15 October 2026. This update extends the existing application from commit `2725b51`; the complete prior progress report is preserved below.
@@ -531,6 +608,8 @@ Statuses: **A** new, **M** modified, **D** previously removed/replaced launcher 
 | M | `app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt` |
 
 Total: **65 changed files**, including this document.
+
+</details>
 
 </details>
 

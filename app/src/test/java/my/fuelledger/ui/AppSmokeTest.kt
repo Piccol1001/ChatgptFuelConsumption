@@ -98,6 +98,7 @@ class AppSmokeTest {
         navigate("Journey")
         waitFor("Journey Planner")
         field("One-way / outbound distance (km)").performScrollTo().performTextInput("150")
+        field("Fallback consumption (L/100 km)").performScrollTo().performTextInput("7")
         // The documented 150 km, 7 L/100 km and RM2.05/L example rounds to RM21.53.
         scrollScreenTo(hasText("RM 21.53"))
         compose.onNodeWithText("RM 21.53").assertExists()
@@ -109,7 +110,7 @@ class AppSmokeTest {
         waitFor("Understand your spending, at your own pace.")
         captureScreen("analytics")
         compose.onNodeWithContentDescription("Settings").performClick()
-        waitFor("Preferences")
+        waitFor("Fuel settings")
         compose.onNodeWithText("Default petrol price (RM/L)").assertExists()
     }
 
@@ -120,6 +121,7 @@ class AppSmokeTest {
         field("Origin").performScrollTo().performTextInput("Kuala Lumpur")
         field("Destination").performScrollTo().performTextInput("Penang")
         field("One-way / outbound distance (km)").performScrollTo().performTextInput("150")
+        field("Fallback consumption (L/100 km)").performScrollTo().performTextInput("7")
         scrollScreenTo(hasText("Save journey"))
         compose.onNodeWithText("Save journey").performClick()
         waitFor("Journey saved locally.")
@@ -129,9 +131,10 @@ class AppSmokeTest {
         org.junit.Assert.assertSame("Journey ViewModel must belong to the visible activity application", compose.activity.application, journeyVm.getApplication<android.app.Application>())
         assertEquals(1, snapshot.journeys.size)
         assertEquals("Penang", snapshot.journeys.single().plan().destination)
+        assertEquals("Fallback", snapshot.journeys.single().plan().consumptionSource)
         assertTrue(snapshot.expenses.isEmpty()); assertTrue(snapshot.refuels.isEmpty())
         compose.onNodeWithContentDescription("Settings").performClick()
-        waitFor("Preferences")
+        waitFor("Fuel settings")
         scrollScreenTo(hasText("Theme"))
         compose.onNodeWithText("Theme").performClick()
         compose.onNodeWithText("Dark", useUnmergedTree = true).performClick()
@@ -140,6 +143,76 @@ class AppSmokeTest {
         compose.onNodeWithText("Save Mode").performClick()
         compose.onNodeWithText("Smart Auto-Save", useUnmergedTree = true).performClick()
         compose.waitUntil(10000) { runBlocking(Dispatchers.IO) { repository.backup().settings.receiptSaveMode == "Smart" } }
+    }
+
+    @Test fun historicalFuelUpdatesJourneyAutomaticallyAndAllowsExplicitOverride() {
+        waitFor("Dashboard")
+        val repository = (compose.activity.application as LedgerApplication).repository
+        navigate("Journey")
+        waitFor("Journey Planner")
+        scrollScreenTo(hasText("Not enough fuel data"))
+        compose.onNodeWithText("Not enough fuel data").assertExists()
+        val now = System.currentTimeMillis()
+        runBlocking(Dispatchers.IO) {
+            repository.saveRefuel(Refuel("h1", now - 3 * 86400000L, 1000.0, 40.0, 8000, true))
+            repository.saveRefuel(Refuel("hp", now - 2 * 86400000L, 1100.0, 10.0, 2000, false))
+            repository.saveRefuel(Refuel("h2", now - 86400000L, 1200.0, 10.0, 2000, true))
+        }
+        waitFor("10.00 L/100 km")
+        compose.onAllNodesWithText("Fallback consumption (L/100 km)").assertCountEquals(0)
+        runBlocking(Dispatchers.IO) { repository.saveRefuel(Refuel("h3", now, 1500.0, 15.0, 3000, true)) }
+        waitFor("7.00 L/100 km")
+        field("Origin").performScrollTo().performTextInput("KL")
+        field("Destination").performScrollTo().performTextInput("Ipoh")
+        field("One-way / outbound distance (km)").performScrollTo().performTextInput("100")
+        scrollScreenTo(hasText("Save journey"))
+        compose.onNodeWithText("Save journey").performClick()
+        waitFor("Journey saved locally.")
+        assertEquals("History", runBlocking(Dispatchers.IO) { repository.backup().journeys.single().plan().consumptionSource })
+        scrollScreenTo(hasText("Edit / load route"))
+        compose.onNodeWithText("Edit / load route").performClick()
+        scrollScreenTo(hasText("Override this journey"))
+        compose.onNode(hasText("Override this journey").not() and isToggleable()).assertIsOff()
+        runBlocking(Dispatchers.IO) { repository.saveRefuel(Refuel("h3", now, 1700.0, 15.0, 3000, true)) }
+        waitFor("5.00 L/100 km")
+        compose.onAllNodesWithText("Other journey fees").assertCountEquals(0)
+        compose.onAllNodesWithText("Passenger cost sharing").assertCountEquals(0)
+    }
+
+    @Test fun unifiedPlannerKeepsReceivedIncomeAndAllocationSlidersSeparate() {
+        waitFor("Dashboard")
+        val repository = (compose.activity.application as LedgerApplication).repository
+        val first = java.time.YearMonth.now().atDay(1).toString()
+        runBlocking(Dispatchers.IO) {
+            my.fuelledger.data.FinanceRepository(repository.database).saveRecurring(my.fuelledger.data.FinanceRecurring(
+                "expected-salary", "Salary", 300000, "income:Salary", "Monthly", first, first, kind = "Income", manualPayment = true))
+        }
+        compose.onNodeWithContentDescription("Settings").performClick()
+        waitFor("Fuel settings")
+        compose.onAllNodesWithText("Monthly Allocation").assertCountEquals(0)
+        scrollScreenTo(hasText("Monthly Money Planner"))
+        compose.onNodeWithText("Monthly Money Planner").performClick()
+        waitFor("Expected Income")
+        compose.onNodeWithText("Received").performScrollTo().performClick()
+        compose.onNodeWithText("Record received income").performScrollTo().performClick()
+        waitFor("Add income")
+        field("Income amount (RM)").performScrollTo().performTextInput("2500")
+        compose.onNodeWithText("Save").performClick()
+        waitForEditorToClose("Add income")
+        compose.onNodeWithText("Monthly Allocation").performScrollTo().performClick()
+        waitFor("Flexible remainder")
+        compose.onNodeWithContentDescription("Savings allocation").performScrollTo()
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(3000f) }
+        compose.onNodeWithText("Save allocations · 100%").performScrollTo().performClick()
+        compose.waitUntil(10000) { runBlocking(Dispatchers.IO) { repository.backup().allocations.any { it.scope == "default" } } }
+        val snapshot = runBlocking(Dispatchers.IO) { repository.backup() }
+        assertEquals(250000L, snapshot.incomes.single().cents)
+        assertEquals(300000L, snapshot.recurring.single().cents)
+        val allocations = snapshot.allocations.single { it.scope == "default" }.categories()
+        assertEquals(3000, allocations.first { it.id == "savings" }.basisPoints)
+        assertEquals(2500, allocations.first { it.id == "general" }.basisPoints)
+        assertEquals(10000, allocations.sumOf { it.basisPoints })
+        assertTrue(snapshot.expenses.isEmpty())
     }
 
     @Test fun partialRefuelShowsPerFillEstimateAndCreatesOneLinkedExpense() {

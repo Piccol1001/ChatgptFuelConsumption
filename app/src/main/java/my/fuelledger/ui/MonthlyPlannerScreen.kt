@@ -23,10 +23,14 @@ import java.math.BigDecimal
 import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.UUID
+import kotlin.math.roundToInt
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
 
 @Composable
 fun MonthlyPlanner(state: FinanceState, vm: FinanceViewModel, selectedMonth: String? = null,
-    selectMonth: ((String) -> Unit)? = null) {
+    selectMonth: ((String) -> Unit)? = null, compact: Boolean = false, openDetails: () -> Unit = {}) {
     val plannerBusy by vm.busy.collectAsStateWithLifecycle()
     val operationError by vm.error.collectAsStateWithLifecycle()
     val calendar = currentCalendar()
@@ -49,6 +53,13 @@ fun MonthlyPlanner(state: FinanceState, vm: FinanceViewModel, selectedMonth: Str
             Text(month.format(DateTimeFormatter.ofPattern("MMMM yyyy")), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
             IconButton({ setMonth(month.plusMonths(1).toString()) }, enabled = month < YearMonth.of(2999, 12)) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "Next planning month") }
         }
+        if (compact) {
+            MonthlyAvailableSummary(money)
+            ExpandableHelp("Planning details") {
+                Text("Planned from expected income less fixed commitments; not a bank balance. Savings allocations are reserves, not transfers.", style = MaterialTheme.typography.bodySmall)
+            }
+            TextButton(openDetails) { Text("View monthly details") }
+        } else {
         MonthlyPlanSummary(money)
         Text("Monthly allocations", style = MaterialTheme.typography.titleMedium)
         allocations.forEach {
@@ -62,7 +73,7 @@ fun MonthlyPlanner(state: FinanceState, vm: FinanceViewModel, selectedMonth: Str
         val mappedIds = categories.flatMap { it.categoryIds }.toSet()
         val unmapped = variableExpensesForMonth(month, occurrences, state.expenses, calendar.zone).filter { it.categoryId !in mappedIds }.sumOf { it.cents }
         if (unmapped > 0) MoneyLine("Variable spending without allocation", unmapped)
-        Text("Savings is a planned reserve. Allocation percentages never create transactions. Configure defaults or a month override in Settings → Financial Planning → Monthly Allocation.", style = MaterialTheme.typography.bodySmall)
+        ExpandableHelp("Allocation details") { Text("Savings is a reserve, not a transfer. Edit allocation defaults or a month override inside Monthly Money Planner.", style = MaterialTheme.typography.bodySmall) }
         Text("Fixed payments", style = MaterialTheme.typography.titleMedium)
         val fixed = occurrences.filter { it.kind == "Expense" }.sortedBy { it.date }
         if (fixed.isEmpty()) Text("No commitments. Add fixed expenses and expected income under Financial Planning.")
@@ -75,7 +86,8 @@ fun MonthlyPlanner(state: FinanceState, vm: FinanceViewModel, selectedMonth: Str
             else Text("Edit the linked transaction in Expenses to update the actual payment.", style = MaterialTheme.typography.bodySmall)
         }
         operationError?.let { Text(it, color = MaterialTheme.colorScheme.error); TextButton(vm::dismissError) { Text("Dismiss planning error") } }
-        Text("Past saved plans stay unchanged. Future months are forecasts using active rules. Monthly dates on the 29th–31st use the month's last valid day.", style = MaterialTheme.typography.bodySmall)
+        ExpandableHelp("History and dates") { Text("Saved past plans stay unchanged; future months use active rules. Dates on the 29th–31st use a shorter month's last day.", style = MaterialTheme.typography.bodySmall) }
+        }
     }
     payment?.let { due -> PaymentEditor(due, state, plannerBusy, operationError, { payment = null }) { date, amount, existing -> vm.markPaid(due, date, amount, existing) { payment = null } } }
 }
@@ -117,57 +129,94 @@ fun MonthlyAllocationSettings(state: FinanceState, vm: FinanceViewModel, month: 
     var scope by rememberSaveable(month.toString()) { mutableStateOf("default") }
     val stored = state.allocations.find { it.scope == scope }
     val fallback = state.allocations.find { it.scope == "default" }?.categories() ?: defaultAllocations
-    var encoded by rememberSaveable(scope, stored?.payload) { mutableStateOf(backupJson.encodeToString(stored?.categories() ?: fallback)) }
+    var encoded by rememberSaveable(scope, stored?.payload) {
+        val seed = stored?.categories() ?: fallback
+        val flexible = flexibleAllocationId(seed)
+        mutableStateOf(backupJson.encodeToString(seed.map { it.copy(remainder = it.id == flexible) }))
+    }
     val draft = backupJson.decodeFromString<List<AllocationCategory>>(encoded)
     fun update(value: List<AllocationCategory>) { encoded = backupJson.encodeToString(value) }
+    val flexible = flexibleAllocationId(draft)
+    val interaction = rememberAppLockInteraction()
+    var editingId by rememberSaveable(scope) { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val occurrences = state.months.find { it.month == month.toString() }?.occurrences() ?: plannedOccurrences(state.recurring, month)
     val money = monthlyMoney(month, occurrences, state.income, state.expenses)
-    val exactAmounts = runCatching { allocationAmounts(money.plannedAvailable, draft, emptyList(), month) }.getOrNull()
+    val exact = allocationAmounts(money.plannedAvailable, draft, emptyList(), month)
+    val busy by vm.busy.collectAsStateWithLifecycle()
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text("Monthly Allocation", style = MaterialTheme.typography.titleLarge)
-        Choice("Apply to", scope, listOf("default" to "Default for each new month", month.toString() to "Override $month only")) { scope = it; error = null }
-        Text("Available for allocation · $month", style = MaterialTheme.typography.labelLarge)
+        Choice("Apply to", scope, listOf("default" to "Default allocations", month.toString() to "$month only")) { scope = it; error = null }
+        Text("Available for allocation", style = MaterialTheme.typography.labelLarge)
         Text(Money.format(money.plannedAvailable), style = MaterialTheme.typography.headlineMedium)
-        Text("Expected income − fixed commitments. Zero or negative available amounts allocate RM 0.00. Savings is a reserve, never an expense. Defaults apply to new months; month overrides stay independent.", style = MaterialTheme.typography.bodySmall)
+        if (money.plannedAvailable <= 0) Text("No positive amount to allocate.", color = MaterialTheme.colorScheme.error)
+        AllocationDonut(draft)
+        Choice("Flexible remainder", flexible, draft.map { it.id to it.name }) { selected -> update(draft.map { it.copy(remainder = it.id == selected) }) }
+        Text("Sliders exchange percentages only with the flexible remainder.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         draft.forEach { item ->
             key(item.id) {
-                LedgerCard {
-                    TextField(item.name, { name -> update(draft.map { if (it.id == item.id) it.copy(name = name) else it }) }, "Allocation name", 100)
-                    var percent by rememberSaveable(scope, item.id) { mutableStateOf(percentText(item.basisPoints)) }
-                    NumericField(percent, { value ->
-                        percent = value
-                        val points = runCatching { value.toBigDecimal().movePointRight(2).intValueExact() }.getOrDefault(-1)
-                        update(draft.map { if (it.id == item.id) it.copy(basisPoints = points) else it })
-                    }, "Percentage (%)")
-                    Text("Planned ${Money.format(exactAmounts?.firstOrNull { it.category.id == item.id }?.allocated ?: if (item.basisPoints in 0..10000) BigDecimal(maxOf(0, money.plannedAvailable)).multiply(BigDecimal(item.basisPoints)).divideToIntegralValue(BigDecimal(10000)).longValueExact() else 0)}")
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Savings reserve", Modifier.weight(1f))
-                        Switch(item.savings, { reserve -> update(draft.map { if (it.id == item.id) it.copy(savings = reserve, categoryIds = if (reserve) emptyList() else it.categoryIds) else it }) })
-                    }
-                    if (!item.savings) {
-                        Text("Track spending from these categories:", style = MaterialTheme.typography.bodySmall)
-                        state.categories.forEach { category ->
-                            val checked = category.id in item.categoryIds
-                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(checked, { selected -> update(draft.map { if (it.id == item.id) it.copy(categoryIds = if (selected) it.categoryIds + category.id else it.categoryIds - category.id) else it }) })
-                                Text(category.name, Modifier.weight(1f))
-                            }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(item.name, style = MaterialTheme.typography.titleSmall)
+                            Text(Money.format(exact.first { it.category.id == item.id }.allocated), style = MaterialTheme.typography.bodySmall)
                         }
+                        Text("${percentText(item.basisPoints)}%", style = MaterialTheme.typography.titleMedium)
                     }
-                    TextButton({ update(draft.filterNot { it.id == item.id }) }) { Text("Remove allocation") }
+                    Slider(item.basisPoints.toFloat(), { if (interaction()) update(moveAllocation(draft, item.id, it.roundToInt())) },
+                        enabled = !busy && item.id != flexible, valueRange = 0f..10000f,
+                        modifier = Modifier.fillMaxWidth().semantics {
+                            contentDescription = "${item.name} allocation"
+                            stateDescription = "${percentText(item.basisPoints)} percent" + if (item.id == flexible) ", flexible remainder" else ""
+                        })
+                    if (item.id == flexible) Text("Automatic remainder", style = MaterialTheme.typography.labelSmall)
+                    TextButton({ editingId = item.id }, enabled = !busy) { Text("Edit ${item.name}") }
                 }
             }
         }
-        OutlinedButton({ if (draft.size < 50) update(draft + AllocationCategory(UUID.randomUUID().toString(), "Custom allocation", 0)) }, modifier = Modifier.fillMaxWidth()) { Text("Add allocation category") }
-        Text("Total: ${percentText(draft.sumOf { it.basisPoints })}% · required 100%", style = MaterialTheme.typography.titleMedium)
-        val valid = runCatching { allocationPlan(scope, draft) }
-        val busy by vm.busy.collectAsState()
+        OutlinedButton({ if (draft.size < 50) update(draft + AllocationCategory(UUID.randomUUID().toString(), "Custom allocation", 0)) }, enabled = !busy && draft.size < 50, modifier = Modifier.fillMaxWidth()) { Text("Add allocation category") }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        if (valid.isFailure) Text(valid.exceptionOrNull()?.message.orEmpty(), color = MaterialTheme.colorScheme.error)
-        Button({ valid.onSuccess { vm.saveAllocation(it) { error = null } }.onFailure { error = it.message } }, enabled = !busy && valid.isSuccess, modifier = Modifier.fillMaxWidth()) { Text("Save allocation percentages") }
-        if (scope != "default" && stored != null) TextButton({ vm.resetAllocation(scope) {} }, enabled = !busy) { Text("Remove month override · use default") }
+        Button({ runCatching { allocationPlan(scope, draft) }.onSuccess { vm.saveAllocation(it) {} }.onFailure { error = it.message } }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Save allocations · 100%") }
+        if (scope != "default" && stored != null) TextButton({ vm.resetAllocation(scope) {} }, enabled = !busy) { Text("Use default allocations") }
+        ExpandableHelp("Allocation rules") { Text("Expected income minus fixed commitments is distributed to 100%. No money is allocated when available is zero or negative. Savings is a planned reserve. Overrides change only their selected month.", style = MaterialTheme.typography.bodySmall) }
     }
+    draft.find { it.id == editingId }?.let { seed ->
+        AllocationCategoryEditor(seed, draft, state.categories, busy, { editingId = null }, { updated ->
+            val next = draft.map { if (it.id == updated.id) updated else it }
+            runCatching { allocationPlan(scope, next) }.onSuccess { update(next); editingId = null }.onFailure { error = it.message }
+        }, if (seed.id == flexible) null else ({ update(removeAllocation(draft, seed.id)); editingId = null }))
+    }
+}
+
+@Composable
+private fun AllocationCategoryEditor(seed: AllocationCategory, all: List<AllocationCategory>, categories: List<Category>, busy: Boolean,
+    close: () -> Unit, save: (AllocationCategory) -> Unit, delete: (() -> Unit)?) {
+    var name by rememberSaveable(seed.id) { mutableStateOf(seed.name) }
+    var savings by rememberSaveable(seed.id) { mutableStateOf(seed.savings) }
+    var mapped by rememberSaveable(seed.id) { mutableStateOf(seed.categoryIds) }
+    var error by remember { mutableStateOf<String?>(null) }
+    EditorShell("Allocation category", busy, error, close, {
+        if (name.isBlank()) error = "Enter a name." else save(seed.copy(name = name.trim(), savings = savings, categoryIds = if (savings) emptyList() else mapped))
+    }, delete) {
+        TextField(name, { name = it }, "Category name", 100)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text("Savings reserve", Modifier.weight(1f)); Switch(savings, { savings = it; if (it) mapped = emptyList() }) }
+        if (!savings) displayCategories(categories).forEach { category ->
+            val elsewhere = all.any { it.id != seed.id && category.id in it.categoryIds }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(category.id in mapped, { checked -> mapped = if (checked) mapped + category.id else mapped - category.id }, enabled = !elsewhere)
+                Text(category.name, Modifier.weight(1f))
+            }
+        }
+        if (seed.remainder) Text("Choose another flexible remainder to remove this category.", style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+internal fun MonthlyAvailableSummary(money: MonthlyMoney) {
+    Text("Available After Fixed Commitments", style = MaterialTheme.typography.labelLarge)
+    Text(Money.format(money.plannedAvailable), style = MaterialTheme.typography.headlineLarge,
+        color = if (money.plannedAvailable < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+    ResponsivePair(first = { Stat("Expected Income", Money.format(money.expected), it) },
+        second = { Stat("Fixed Expenses", Money.format(money.fixed), it) })
 }
 
 @Composable
@@ -186,6 +235,6 @@ internal fun MonthlyPlanSummary(money: MonthlyMoney) {
         MoneyLine("Variable / unreserved spending", money.variableExpenses)
         MoneyLine("Remaining spending allowance", money.remainingAllowance)
         LinearProgressIndicator(progress = { if (money.plannedAvailable <= 0) 0f else (money.variableExpenses.toDouble() / money.plannedAvailable).coerceIn(0.0, 1.0).toFloat() }, modifier = Modifier.fillMaxWidth())
-        Text("Allowance uses the original expected income minus fixed commitments and recorded variable spending. Paid fixed bills reserved in this month stay in actual expenditure and are not deducted again. Payments for other months count as unreserved spending here. These are plans, not a bank balance.", style = MaterialTheme.typography.bodySmall)
+        ExpandableHelp("Calculation details") { Text("These are plans, not a bank balance. Allowance uses expected income minus fixed commitments and variable spending. Reserved fixed payments are excluded from variable spending; payments for other months count as unreserved spending here.", style = MaterialTheme.typography.bodySmall) }
     }
 }

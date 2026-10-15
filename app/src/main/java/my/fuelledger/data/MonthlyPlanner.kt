@@ -18,7 +18,7 @@ data class FinanceMonth(@PrimaryKey val month: String, val payload: String) {
 }
 @Serializable
 data class AllocationCategory(val id: String, val name: String, val basisPoints: Int,
-    val categoryIds: List<String> = emptyList(), val savings: Boolean = false)
+    val categoryIds: List<String> = emptyList(), val savings: Boolean = false, val remainder: Boolean = false)
 @Serializable
 @Entity(tableName = "finance_allocations")
 data class AllocationPlan(@PrimaryKey val scope: String, val payload: String) {
@@ -36,6 +36,7 @@ fun validateAllocationPlan(plan: AllocationPlan) {
     val categories = plan.categories()
     require(categories.size in 1..50 && categories.map { it.id }.distinct().size == categories.size) { "Use 1–50 unique allocation categories." }
     require(categories.all { it.id.isNotBlank() && it.id.length <= 64 && it.name.isNotBlank() && it.name.length <= 100 && it.basisPoints in 0..10000 && it.categoryIds.size <= 500 && it.categoryIds.all { id -> id.isNotBlank() && id.length <= 100 } && (!it.savings || it.categoryIds.isEmpty()) }) { "Check allocation names, percentages and spending categories." }
+    require(categories.count { it.remainder } <= 1) { "Choose one flexible allocation category." }
     require(categories.sumOf { it.basisPoints } == 10000) { "Total allocation must equal 100%." }
     val mapped = categories.flatMap { it.categoryIds }
     require(mapped.distinct().size == mapped.size) { "Each spending category can belong to only one allocation." }
@@ -50,7 +51,7 @@ fun validateFinanceMonth(value: FinanceMonth) {
     }
 }
 /** Same anchored recurrence used by automatic posting. The posting cursor never alters the plan. */
-fun plannedOccurrences(rules: List<FinanceRecurring>, month: YearMonth): List<PlannedOccurrence> = rules.filter { it.enabled }.flatMap { rule ->
+fun plannedOccurrences(rules: List<FinanceRecurring>, month: YearMonth): List<PlannedOccurrence> = rules.filter { it.enabled && it.cents > 0 }.flatMap { rule ->
     validateFinanceRecurring(rule)
     val anchor = LocalDate.parse(rule.startDate)
     val first = month.atDay(1)

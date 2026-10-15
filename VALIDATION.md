@@ -1,3 +1,82 @@
+# Version 1.4.0 validation
+
+Verified 15 October 2026 (Malaysia time). Package `my.fuelledger`, version **1.4.0 / code 6**, min API26, target/compile API37. Existing schema remains **4**. Previous reports are preserved below.
+
+## Results
+
+- **201 host tests pass**, 0 failures/errors/skipped. Compose tests exercise API26 and API35 via Robolectric; the pill control test uses API35.
+- **9 native API26 tests passed** in airplane mode (356.196 seconds), including offline OCR/permissions, encrypted complete backups, receipt deduplication/Undo, schema upgrades and wrong/missing-key preservation. This full run preceded the final saved-journey source metadata fix; **all three OfflinePrivacyTest cases passed again on the final APK** (222.755 seconds) after in-place installation, covering bundled OCR, permissions and encrypted finance/receipt backup/restore.
+- Signed debug APK, Android test APK and optimized unsigned release all build successfully. Final debug lint: **0 errors, 4 advisory warnings, 1 hint** (SQLite version, state-backed offset overload, two optional KTX suggestions and primitive-state boxing). Release vital lint passes. Debug and unsigned release 16KiB ZIP alignment checks pass.
+- **4 build-policy tests pass** (cached successful suite; preBuild policy runs also pass). No dependency or telemetry policy changed.
+- Final APK audit: 21 bundled OCR model assets, no DataTransport runtime/CCT or Firebase Analytics/Crashlytics definitions, all four reviewed telemetry sinks no-ops. No INTERNET, network-state, camera or public-storage permission. Automatic cloud backup remains disabled.
+- Signature verifies with original certificate SHA256 `4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8`. Final debug ZIP alignment passes with 16KiB native alignment.
+- Versioned signed debug download: **76,096,099 bytes**, SHA256 **`180d4f2f7cc92c9c099774cec03e171da62fa312d4ea4494c225ec1cbf4a90ce`**. Older artifacts are preserved and all entries in `downloads/SHA256SUMS` verify.
+
+## New and expanded coverage
+
+- Unequal-distance full-tank cycles verify weighting rather than averaging ratios; partial fills, missing/invalid cycles, changes/deletions, recovery after invalid intervals and incomplete trailing purchases.
+- 3/6/12-month chart ranges, current-month inclusion, zero gaps, year boundaries, Malaysian local-zone boundary and exact English short labels (en-MY can produce “Sept”; chart deliberately uses “Sep”).
+- Deterministic category ordering independent of query order, with custom categories retained and Others last.
+- Active income aggregation, optional zero estimates, excluded inactive sources, named source types and rejected negative amounts. Received-income Compose entry stays separate from forecasts.
+- Slider exchanges affect only the target and remainder, totals remain 10,000 basis points, removal transfers the percentage, custom additions keep the remainder selection, and old allocation payloads decode unchanged.
+- Old journey JSON retains calculation version 1 and recorded values, new version 2 uses only fuel/tolls/parking, and hidden old fields survive serialization. Compose tests save fallback/history sources and reopen a history-based route, then verify live history updates without automatically enabling override.
+- Tap and drag both directions on the pill, selected semantics, actual planner navigation, salary forecast versus received income, live slider/save persistence, retained theme/scanner settings, existing Room/backup/crypto/receipt regressions.
+
+## Fuel chart diagnosis
+
+The previous production code already generated six rolling months from `YearMonth.now()` and grouped real refuels by local calendar month. May/June/July were not hardcoded sample labels. A six-month view in October begins in May; without the original device screenshot/state, the exact reason those three appeared cannot be established. The new default is a readable rolling three months with explicit 3/6/12 selection and year-bearing labels.
+
+## Data compatibility
+
+No Room schema diff or migration is needed. `consumptionFallbackEnabled` defaults false, preserving the old stored number without silently using it. Allocation `remainder` defaults false for old payloads; the existing last category becomes the draft remainder with unchanged percentages. Journey `costVersion` defaults 1 and `consumptionSource` defaults Legacy when absent. Existing expected-income records retain their rule IDs/amounts/schedules; the already-existing income-only category string stores a namespaced source type when saved. These are local encrypted payload/preferences changes. Existing backups, databases, transaction associations, actual received income, fixed-payment deduplication and past captured months remain intact.
+
+## Host suites
+
+| Suite | Executions |
+| --- | ---: |
+| FinanceRepositoryTest | 12 |
+| PlannerRepositoryTest | 13 |
+| PlanningCalculationsTest | 18 |
+| ReceiptBackupArchiveTest | 23 |
+| RefinementTest | 12 |
+| RepositoryTest | 24 |
+| SettingsStoreTest | 12 |
+| CalculationsTest | 17 |
+| ReceiptParserTest | 23 |
+| ReceiptReviewTest | 2 |
+| ReceiptStoreTest | 10 |
+| AppLockSessionTest | 7 |
+| AppLockStoreTest | 10 |
+| LocalVaultTest | 3 |
+| AppLockUiTest | 4 |
+| AppSmokeTest | 10 |
+| RefinedControlsTest | 1 |
+
+## Commands and evidence
+
+```sh
+cd /workspace/ChatgptFuelConsumption
+git status --short --branch
+source /workspace/.tooling/fuel-ledger-env.sh
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew :app:assembleRelease
+./gradlew :app:lintDebug
+./gradlew -p buildSrc test
+```
+
+Keep the existing checkout, package `my.fuelledger`, schema 4 and signing identity. Do not clear installed data or uninstall to run checks. Run release assembly and debug lint sequentially and finish source edits before launching lint/analysis. Use `/workspace/.tooling/fuel-adb.sh -s emulator-5556` for this environment's API26 software emulator. Enable airplane mode and disable Wi-Fi/data, then install both generated APKs with `install -r`. Run `shell am instrument -w -r my.fuelledger.test/androidx.test.runner.AndroidJUnitRunner` and inspect the final `OK (9 tests)` result; adb's exit status alone does not establish test success. Hardware interaction and physical-phone checks remain separate.
+
+For a future version, increment both version name/code, create a new versioned APK filename, append its basename-only SHA256 entry to `downloads/SHA256SUMS`, and preserve all prior APKs. Check checksum, signing certificate, permissions and bundled model/telemetry policy before publishing. Keep passwords, databases, signing keys and caches out of Git.
+
+Local logs: `/tmp/fuel-refinement-final-host.log`, `/tmp/fuel-refinement-final-release.log`, `/tmp/fuel-refinement-final-lint.log`, `/tmp/fuel-refinement-policy.log`, `/tmp/fuel-refinement-native.log`. Final native log: `/tmp/fuel-refinement-final-native.log`. Generated host XML/reports are under `app/build/test-results/testDebugUnitTest` and `app/build/reports`; these are ignored build products.
+
+## Limitations
+
+No physical device was available. Emulator coverage does not establish camera/picker/OEM/biometric behavior, all TalkBack/RTL/large-font layouts or first-install behavior on every device. This run preserves the existing emulator install with `install -r`; it does not erase user data or claim a fresh installation. Earlier OCR/privacy limitations remain documented in README.md and SECURITY.md.
+
+<details>
+<summary>Preserved validation reports through version 1.3.0</summary>
+
 # Version 1.3.0 validation
 
 Verified 15 October 2026. Package `my.fuelledger`; version **1.3.0 / code 5**, min API26, target/compile API37. Previous reports are preserved below.
@@ -265,5 +344,7 @@ The complete setup script was exercised, including wrapper activation, SDK setup
 ## Remaining verification
 
 No physical phone or hardware emulator was attached (`/dev/kvm` is absent). Robolectric tests are automated Android simulations, not physical-device tests. On your phone, verify the document picker, CSV export, backup/restore, keyboard behavior, accessibility/font scaling and updates with the same signing key before depending on it for irreplaceable records. The app supports one vehicle and MYR; backups replace existing data after confirmation and are not encrypted. CSV import is not provided.
+
+</details>
 
 </details>

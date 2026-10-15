@@ -27,9 +27,11 @@ import java.util.UUID
 @Composable
 fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, exportExpenses: () -> Unit,
     exportRefuels: () -> Unit, backup: () -> Unit, restore: () -> Unit,
-    restoreLegacy: () -> Unit = {}, openFinance: () -> Unit = {}, openAllocations: () -> Unit = openFinance) {
+    restoreLegacy: () -> Unit = {}, openFinance: () -> Unit = {}) {
     var price by rememberSaveable(state.settings.petrolPrice) { mutableStateOf(state.settings.petrolPrice) }
+    val historical = my.fuelledger.domain.historicalConsumption(state.refuels.map { it.point() })
     var consumption by rememberSaveable(state.settings.consumption) { mutableStateOf(state.settings.consumption.toString()) }
+    var fallbackEnabled by rememberSaveable(state.settings.consumptionFallbackEnabled) { mutableStateOf(state.settings.consumptionFallbackEnabled) }
     val context = LocalContext.current
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) vm.saveSettings(state.settings.copy(plannerReminders = true)) {}
@@ -41,29 +43,33 @@ fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, expor
     var addCategory by remember { mutableStateOf(false) }
     var editCategory by remember { mutableStateOf<Category?>(null) }
     LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { SectionTitle("Make it yours", "MYR · kilometres · litres · English (Malaysia)") }
         item {
             OutlinedCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Preferences", style = MaterialTheme.typography.titleMedium)
+                    Text("Fuel settings", style = MaterialTheme.typography.titleMedium)
                     NumericField(price, { price = it }, "Default petrol price (RM/L)")
-                    NumericField(consumption, { consumption = it }, "Estimated consumption (L/100 km)")
+                    Text("Historical consumption", style = MaterialTheme.typography.labelLarge)
+                    Text(historical?.let { "${number(it)} L/100 km" } ?: "Not enough fuel data", style = MaterialTheme.typography.titleLarge)
+                    if (historical == null) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Use a fallback for journey estimates", Modifier.weight(1f)); Switch(fallbackEnabled, { fallbackEnabled = it })
+                        }
+                        if (fallbackEnabled) NumericField(consumption, { consumption = it }, "Fallback consumption (L/100 km)")
+                    }
+                    ExpandableHelp("Fuel calculation") { Text("Total litres consumed ÷ total distance × 100 across complete full-tank cycles, including partial fills between them. An enabled fallback is used only while history is insufficient.", style = MaterialTheme.typography.bodySmall) }
                     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     Button(onClick = {
-                        runCatching { state.settings.copy(petrolPrice = price.trim(), consumption = consumption.toDouble()).also { it.validate() } }
+                        runCatching { state.settings.copy(petrolPrice = price.trim(), consumption = if (historical == null && fallbackEnabled) consumption.toDouble() else state.settings.consumption, consumptionFallbackEnabled = fallbackEnabled).also { it.validate() } }
                             .onSuccess { error = null; vm.saveSettings(it) {} }.onFailure { error = it.message ?: "Invalid preferences." }
-                    }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Save preferences") }
+                    }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Save fuel settings") }
                 }
             }
         }
-        item { SectionTitle("Financial Planning", "Monthly Money Planner · Fixed Expenses · Monthly Allocation") }
+        item { Text("Financial Planning", style = MaterialTheme.typography.titleMedium) }
         item {
             OutlinedButton(onClick = openFinance, modifier = Modifier.fillMaxWidth(), enabled = !busy) {
                 Icon(ledgerSymbol("wallet"), null); Spacer(Modifier.width(8.dp)); Text("Monthly Money Planner")
             }
-        }
-        item {
-            OutlinedButton(onClick = openAllocations, modifier = Modifier.fillMaxWidth(), enabled = !busy) { Text("Monthly Allocation") }
         }
         item {
             LedgerCard {
@@ -71,7 +77,6 @@ fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, expor
                 Choice("Theme", state.settings.theme, listOf("System" to "System Default", "Light" to "Light", "Dark" to "Dark")) {
                     if (!busy) vm.saveSettings(state.settings.copy(theme = it)) {}
                 }
-                Text("Applies immediately and stays selected after reopening.", style = MaterialTheme.typography.bodySmall)
             }
         }
         item {
@@ -85,7 +90,7 @@ fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, expor
                         else vm.saveSettings(state.settings.copy(plannerReminders = enabled)) {}
                     })
                 }
-                Text("Optional on-device checks when the app opens and about every 12 hours. Android may delay reminders; no exact alarm or internet service is used. Alerts hide financial details. Enable notifications in Android settings if previously blocked.", style = MaterialTheme.typography.bodySmall)
+                ExpandableHelp("Reminder details") { Text("Checked on app opening and about every 12 hours. Android may delay or block notifications; alerts hide financial details.", style = MaterialTheme.typography.bodySmall) }
             }
         }
         item {
@@ -98,7 +103,7 @@ fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, expor
                     Text("Keep encrypted receipt photos by default", Modifier.weight(1f))
                     Switch(state.settings.keepReceiptPhotos, { vm.saveSettings(state.settings.copy(keepReceiptPhotos = it)) {} }, enabled = !busy)
                 }
-                Text("Use Scan Receipt on the dashboard. Smart mode saves only a known category, clear merchant, unique final total and valid date. Petrol receipts, foreign currencies and possible duplicates require review. Attachments inside an existing expense/refuel form always remain under your control.", style = MaterialTheme.typography.bodySmall)
+                ExpandableHelp("Scanner safeguards") { Text("Smart mode requires validated merchant, total, date and category. Ambiguous or duplicate receipts and petrol purchases require review. Existing entry forms always wait for Save.", style = MaterialTheme.typography.bodySmall) }
                 OutlinedButton({ addMerchantRule = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Add merchant → category rule") }
             }
         }
@@ -107,21 +112,20 @@ fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, expor
                 Column(Modifier.padding(16.dp)) {
                     Text(rule.displayName)
                     Text(state.categories.find { it.id == rule.categoryId }?.name ?: "Others", style = MaterialTheme.typography.bodySmall)
-                    Text("Tap to edit or remove", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
         item { AppLockSettings() }
-        item { SectionTitle("Categories", "Built-in categories stay available. Custom categories can be changed.") }
-        items(state.categories, key = { it.id }) { category ->
+        item { Text("Categories", style = MaterialTheme.typography.titleMedium) }
+        items(displayCategories(state.categories), key = { it.id }) { category ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 CategoryBadge(category)
-                Column(Modifier.weight(1f)) { Text(category.name); Text(if (category.custom) "Custom" else "Built-in", style = MaterialTheme.typography.bodySmall) }
+                Column(Modifier.weight(1f)) { Text(category.name) }
                 if (category.custom) IconButton(onClick = { editCategory = category }, enabled = !busy) { Icon(Icons.Outlined.Edit, "Edit ${category.name}") }
             }
         }
         item { OutlinedButton(onClick = { addCategory = true }, modifier = Modifier.fillMaxWidth(), enabled = !busy) { Icon(ledgerSymbol("add"), null); Text(" Create category") } }
-        item { SectionTitle("Your data", "Choose a local folder in the system picker. Password-protected backups include all records and retained receipt photos.") }
+        item { Text("Your data", style = MaterialTheme.typography.titleMedium) }
         item {
             OutlinedCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -130,14 +134,14 @@ fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, expor
                     Button(onClick = backup, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Icon(ledgerSymbol("receipt"), null); Spacer(Modifier.width(8.dp)); Text("Create encrypted backup") }
                     OutlinedButton(onClick = restore, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Restore encrypted backup…") }
                     OutlinedButton(onClick = restoreLegacy, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Import old unencrypted JSON / ZIP…") }
-                    Text("Backups include expenses, fuel records, income, budgets, recurring rules, categories, preferences and retained receipts. A password is required for new encrypted backups and is never stored. Losing it can make the backup unrecoverable.", style = MaterialTheme.typography.bodySmall)
-                    Text("Old JSON/ZIP imports are unencrypted compatibility files. Restore validates a complete file and asks before replacing your records. CSV exports are unencrypted spreadsheet files and cannot be restored.", style = MaterialTheme.typography.bodySmall)
+                    Text("Encrypted backups include all records and retained photos. Keep your password safe: it is not stored and cannot be recovered.", style = MaterialTheme.typography.bodySmall)
+                    Text("Restore replaces existing records after confirmation. Legacy JSON/ZIP and CSV are unencrypted; CSV cannot be restored.", style = MaterialTheme.typography.bodySmall)
                     Text("Cloud-synced folders and sharing with another app are outside this app's local-storage protection. Choose a private local folder.", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
         item {
-            Text(stringResource(R.string.app_display_name) + "\nOffline by design. No account, ads or tracking.\nDates use your device's local time zone. Week totals run Monday to Sunday.\nBack up before uninstalling: Android removes the local database when you uninstall.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.app_display_name) + "\nOffline · MYR · Local dates\nBack up before uninstalling: uninstalling removes local records.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
     if (addMerchantRule || merchantRule != null) {

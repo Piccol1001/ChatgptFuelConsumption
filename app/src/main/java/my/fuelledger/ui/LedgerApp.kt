@@ -106,7 +106,7 @@ fun LedgerApp(vm: LedgerViewModel) {
             topBar = {
                 TopAppBar(title = {
                     if (scannerOpen) Text("Receipt Scanner")
-                    else if (financeOpen) Text("Financial Planning")
+                    else if (financeOpen) Text("Monthly Money Planner")
                     else if (settingsOpen) Text("Settings")
                     else Column {
                         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium,
@@ -119,7 +119,7 @@ fun LedgerApp(vm: LedgerViewModel) {
                     actions = { if (!settingsOpen && !financeOpen) IconButton(onClick = { scannerOpen = false; settingsOpen = true }) { Icon(ledgerSymbol("settings"), "Settings") } })
             },
             bottomBar = { if (!settingsOpen && !financeOpen) NavigationBar {
-                listOf("Home" to "home", "Fuel" to "fuel", "Journey" to "route", "Expenses" to "expenses", "Analytics" to "analytics").forEach { (title, symbol) ->
+                listOf("Home" to "home", "Fuel" to "fuel", "Expenses" to "expenses", "Journey" to "route", "Analytics" to "analytics").forEach { (title, symbol) ->
                     NavigationBarItem(selected = tab == title, onClick = { scannerOpen = false; tab = title }, icon = { Icon(ledgerSymbol(symbol), title) }, label = { Text(title) })
                 }
             } },
@@ -139,11 +139,10 @@ fun LedgerApp(vm: LedgerViewModel) {
                     { backup.launch("fuel-expense-backup.fuelbackup") },
                     { encryptedImport.launch(arrayOf("application/octet-stream", "*/*")) },
                     { legacyImport.launch(arrayOf("application/zip", "application/json", "text/*", "application/octet-stream")) },
-                    { financeSection = "Planner"; financeOpen = true },
-                    { financeSection = "Monthly Allocation"; financeOpen = true })
+                    { financeSection = "Expected Income"; financeOpen = true })
                 else Crossfade(tab, label = "Navigation") { destination ->
                     when (destination) {
-                        "Journey" -> { val journeyVm: my.fuelledger.JourneyViewModel = viewModel(factory = financialViewModelFactory); JourneyScreen(state.settings, journeyVm) }
+                        "Journey" -> { val journeyVm: my.fuelledger.JourneyViewModel = viewModel(factory = financialViewModelFactory); JourneyScreen(state.settings, journeyVm, state.refuels) { value -> vm.saveSettings(state.settings.copy(consumption = value, consumptionFallbackEnabled = true)) {} } }
                         "Fuel" -> FuelScreen(state, newRefuel, { refuelEditId = it.id })
                         "Expenses" -> ExpensesScreen(state, newExpense, onExpense)
                         "Analytics" -> { val financeVm: FinanceViewModel = viewModel(factory = financialViewModelFactory); val finance by financeVm.state.collectAsStateWithLifecycle(); AnalyticsScreen(state, finance) }
@@ -151,7 +150,7 @@ fun LedgerApp(vm: LedgerViewModel) {
                             val financeVm: FinanceViewModel = viewModel(factory = financialViewModelFactory)
                             val financeState by financeVm.state.collectAsStateWithLifecycle()
                             HomeScreen(state, newExpense, newRefuel, onExpense, planner = {
-                                MonthlyPlanner(financeState, financeVm)
+                                MonthlyPlanner(financeState, financeVm, compact = true, openDetails = { financeSection = "Planner"; financeOpen = true })
                             }, scanReceipt = { vm.clearReceiptWork(); vm.clearReceiptSuccess(); scannerOpen = true })
                         }
                     }

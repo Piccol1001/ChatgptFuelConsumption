@@ -117,6 +117,15 @@ fun efficiencies(points: List<FuelPoint>): List<Efficiency> {
     return result
 }
 
+/** Distance-weighted, complete full-tank cycles only; purchases at the baseline are excluded. */
+fun historicalConsumption(points: List<FuelPoint>): Double? {
+    val cycles = efficiencies(points).filter { it.distance.isFinite() && it.distance > 0 && it.litres.isFinite() && it.litres > 0 }
+    if (cycles.isEmpty()) return null
+    val distance = cycles.sumOf { it.distance }
+    val litres = cycles.sumOf { it.litres }
+    return (litres / distance * 100).takeIf { it.isFinite() && it > 0 }
+}
+
 data class SpendingPoint(val timestamp: Long, val cents: Long, val categoryId: String)
 class Spending(private val points: List<SpendingPoint>, val zone: ZoneId = ZoneId.systemDefault()) {
     fun date(timestamp: Long): LocalDate = Instant.ofEpochMilli(timestamp).atZone(zone).toLocalDate()

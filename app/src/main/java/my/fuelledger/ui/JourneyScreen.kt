@@ -32,41 +32,46 @@ private fun zeroMoney(text: String): Long {
 }
 @Serializable
 private data class JourneyInput(val origin: String = "", val destination: String = "", val outbound: String = "",
-    val roundTrip: Boolean = false, val returnDistance: String = "", val consumption: String = "7.0", val price: String = "2.05",
+    val roundTrip: Boolean = false, val returnDistance: String = "", val consumption: String = "", val price: String = "2.05",
     val outboundTolls: List<FeeInput> = emptyList(), val returnTolls: List<FeeInput> = emptyList(),
     val parking: String = "0.00", val others: List<FeeInput> = emptyList(), val people: String = "1",
-    val shareFuel: Boolean = true, val shareTolls: Boolean = true, val shareParking: Boolean = true, val shareOther: Boolean = true) {
-    fun plan() = JourneyPlan(origin.trim(), destination.trim(), measurement(outbound, "Outbound distance"), roundTrip,
-        measurement(if (roundTrip) returnDistance else outbound, "Return distance", allowZero = true), measurement(consumption, "Consumption"), price.trim(),
+    val shareFuel: Boolean = true, val shareTolls: Boolean = true, val shareParking: Boolean = true, val shareOther: Boolean = true,
+    val consumptionOverride: Boolean = false) {
+    fun plan(effectiveConsumption: String, source: String) = JourneyPlan(origin.trim(), destination.trim(), measurement(outbound, "Outbound distance"), roundTrip,
+        measurement(if (roundTrip) returnDistance else outbound, "Return distance", allowZero = true), measurement(effectiveConsumption, "Consumption"), price.trim(),
         outboundTolls.map { it.fee() }, returnTolls.map { it.fee() }, zeroMoney(parking), others.map { it.fee() },
-        people.toIntOrNull() ?: throw IllegalArgumentException("Enter the number of people."), shareFuel, shareTolls, shareParking, shareOther)
+        people.toIntOrNull() ?: 1, shareFuel, shareTolls, shareParking, shareOther, costVersion = 2, consumptionSource = source)
 }
 private fun journeyInput(plan: JourneyPlan) = JourneyInput(plan.origin, plan.destination, plan.outboundKm.toString(), plan.roundTrip,
-    plan.returnKm.toString(), plan.consumption.toString(), plan.petrolPrice,
+    plan.returnKm.toString(), if (plan.consumptionSource == "History") "" else plan.consumption.toString(), plan.petrolPrice,
     plan.outboundTolls.map { FeeInput(name = it.name, amount = Money.decimal(it.cents), notes = it.notes) },
     plan.returnTolls.map { FeeInput(name = it.name, amount = Money.decimal(it.cents), notes = it.notes) }, Money.decimal(plan.parkingCents),
     plan.otherFees.map { FeeInput(name = it.name, amount = Money.decimal(it.cents), notes = it.notes) }, plan.people.toString(),
-    plan.shareFuel, plan.shareTolls, plan.shareParking, plan.shareOther)
+    plan.shareFuel, plan.shareTolls, plan.shareParking, plan.shareOther, consumptionOverride = plan.consumptionSource in setOf("Legacy", "Override"))
 
 @Composable
-fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel) {
+fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel, refuels: List<Refuel> = emptyList(), saveFallback: ((Double) -> Unit)? = null) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val journeys by vm.journeys.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
     val operationError by vm.error.collectAsStateWithLifecycle()
     var id by rememberSaveable { mutableStateOf(UUID.randomUUID().toString()) }
-    var encoded by rememberSaveable { mutableStateOf(backupJson.encodeToString(JourneyInput(consumption = settings.consumption.toString(), price = settings.petrolPrice))) }
+    var encoded by rememberSaveable { mutableStateOf(backupJson.encodeToString(JourneyInput(price = settings.petrolPrice))) }
     val input = backupJson.decodeFromString<JourneyInput>(encoded)
     fun update(value: JourneyInput) { encoded = backupJson.encodeToString(value) }
     var error by remember { mutableStateOf<String?>(null) }
     var notice by rememberSaveable { mutableStateOf<String?>(null) }
     var deleting by remember { mutableStateOf<SavedJourney?>(null) }
     val saved = journeys.find { it.id == id }
-    val estimate = runCatching { journeyCost(input.plan()) }
+    val historical = remember(refuels) { historicalConsumption(refuels.map { it.point() }) }
+    val fallback = input.consumption.ifBlank { if (settings.consumptionFallbackEnabled) settings.consumption.toString() else "" }
+    val effectiveConsumption = if (input.consumptionOverride) input.consumption else historical?.toString() ?: fallback
+    val consumptionSource = if (input.consumptionOverride) "Override" else if (historical != null) "History" else "Fallback"
+    val estimate = runCatching { journeyCost(input.plan(effectiveConsumption, consumptionSource)) }
     val locations = journeys.flatMap { listOf(it.plan().origin, it.plan().destination) }.distinct().sorted()
     LazyColumn(state = listState, contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { ScreenHeading("Journey Planner", "Offline estimates for your next journey. Your fuel records stay separate.", ledgerSymbol("route")) }
+        item { ScreenHeading("Journey Planner", "Offline journey estimates", ledgerSymbol("route")) }
         item {
             LedgerCard {
                 Text(if (saved != null) "Edit saved journey" else "Plan a journey", style = MaterialTheme.typography.titleLarge)
@@ -74,23 +79,38 @@ fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel) {
                 LocationSuggestions(input.origin, locations) { update(input.copy(origin = it)) }
                 TextField(input.destination, { update(input.copy(destination = it)) }, "Destination", 200)
                 LocationSuggestions(input.destination, locations) { update(input.copy(destination = it)) }
-                Text("Enter driving distance manually or load a saved journey. Place names do not calculate a route.", style = MaterialTheme.typography.bodySmall)
+                Text("Enter distance manually or load a saved route.", style = MaterialTheme.typography.bodySmall)
                 NumericField(input.outbound, { update(input.copy(outbound = it)) }, "One-way / outbound distance (km)")
-                Choice("Journey type", if (input.roundTrip) "round" else "one", listOf("one" to "One-way", "round" to "Round-trip")) {
-                    update(input.copy(roundTrip = it == "round", returnDistance = if (it == "round" && !input.roundTrip) input.outbound else input.returnDistance))
+                JourneyTypeToggle(input.roundTrip) { round ->
+                    update(input.copy(roundTrip = round, returnDistance = input.returnDistance.ifBlank { input.outbound }))
                 }
                 if (input.roundTrip) {
                     NumericField(input.returnDistance, { update(input.copy(returnDistance = it)) }, "Return distance (km)")
-                    Text("Return distance starts with the outbound distance and can be edited. Return tolls are entered separately.", style = MaterialTheme.typography.bodySmall)
+                    Text("Return distance and tolls are independent.", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
         item {
             LedgerCard {
                 Text("Fuel settings", style = MaterialTheme.typography.titleMedium)
-                NumericField(input.consumption, { update(input.copy(consumption = it)) }, "Consumption (L/100 km)")
+                Text("Historical consumption", style = MaterialTheme.typography.labelLarge)
+                Text(historical?.let { "${number(it)} L/100 km" } ?: "Not enough fuel data", style = MaterialTheme.typography.titleLarge)
+                if (historical != null || input.consumptionOverride) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Override this journey", Modifier.weight(1f))
+                        Switch(input.consumptionOverride, { enabled -> update(input.copy(consumptionOverride = enabled, consumption = if (enabled) effectiveConsumption else "")) })
+                    }
+                }
+                if (historical == null || input.consumptionOverride) {
+                    NumericField(if (input.consumptionOverride) input.consumption else fallback, { update(input.copy(consumption = it)) },
+                        if (input.consumptionOverride) "Journey override (L/100 km)" else "Fallback consumption (L/100 km)")
+                    if (historical == null && saveFallback != null) TextButton({
+                        runCatching { measurement(if (input.consumptionOverride) input.consumption else fallback, "Fallback consumption").also { require(it <= 1000) } }
+                            .onSuccess(saveFallback).onFailure { error = "Enter a fallback between 0 and 1000 L/100 km." }
+                    }, enabled = !busy) { Text("Save fallback for new journeys") }
+                }
                 NumericField(input.price, { update(input.copy(price = it)) }, "Petrol price (RM/L)")
-                Text("Starts with your saved defaults. Changes apply to this journey only.", style = MaterialTheme.typography.bodySmall)
+                ExpandableHelp("Fuel estimate") { Text("Uses the distance-weighted full-tank average. Overrides affect only this journey. An enabled fallback is used only while history is insufficient.", style = MaterialTheme.typography.bodySmall) }
             }
         }
         item { FeeSection("Outbound toll fees", input.outboundTolls, "Toll", { update(input.copy(outboundTolls = it)) }) }
@@ -99,18 +119,7 @@ fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel) {
             LedgerCard {
                 Text("Parking", style = MaterialTheme.typography.titleMedium)
                 NumericField(input.parking, { update(input.copy(parking = it)) }, "Total parking for the journey (RM)")
-                Text("Fees are totals for the journey; they are never doubled automatically.", style = MaterialTheme.typography.bodySmall)
-            }
-        }
-        item { FeeSection("Other journey fees", input.others, "Fee", { update(input.copy(others = it)) }) }
-        item {
-            LedgerCard {
-                Text("Passenger cost sharing", style = MaterialTheme.typography.titleMedium)
-                NumericField(input.people, { update(input.copy(people = it)) }, "People sharing (including you)")
-                ShareToggle("Share fuel", input.shareFuel) { update(input.copy(shareFuel = it)) }
-                ShareToggle("Share tolls", input.shareTolls) { update(input.copy(shareTolls = it)) }
-                ShareToggle("Share parking", input.shareParking) { update(input.copy(shareParking = it)) }
-                ShareToggle("Share other fees", input.shareOther) { update(input.copy(shareOther = it)) }
+                Text("Journey total; not doubled for return travel.", style = MaterialTheme.typography.bodySmall)
             }
         }
         item {
@@ -119,17 +128,18 @@ fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel) {
                 estimate.getOrNull()?.let { cost ->
                     JourneyCostSummary(cost)
                 } ?: Text(estimate.exceptionOrNull()?.message ?: "Check the journey inputs.", color = MaterialTheme.colorScheme.error)
+                if (saved?.plan()?.costVersion == 1) Text("Saving uses fuel + tolls + parking; legacy fields are retained.", style = MaterialTheme.typography.bodySmall)
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 notice?.let { Text(it) }
                 Button({
-                    runCatching { savedJourney(id, input.plan()) }.onSuccess {
+                    runCatching { savedJourney(id, input.plan(effectiveConsumption, consumptionSource)) }.onSuccess {
                         vm.save(it) { error = null; notice = "Journey saved locally." }
                     }.onFailure { error = it.message }
                 }, enabled = !busy && estimate.isSuccess, modifier = Modifier.fillMaxWidth()) { Text(if (saved != null) "Update saved journey" else "Save journey") }
-                OutlinedButton({ id = UUID.randomUUID().toString(); update(JourneyInput(consumption = settings.consumption.toString(), price = settings.petrolPrice)); error = null; notice = null }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Start new journey") }
+                OutlinedButton({ id = UUID.randomUUID().toString(); update(JourneyInput(price = settings.petrolPrice)); error = null; notice = null }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Start new journey") }
             }
         }
-        item { SectionTitle("Saved journey history", "Tap Edit to load a route. Duplicate keeps the route and fees and uses your latest default petrol price.") }
+        item { Text("Saved journeys", style = MaterialTheme.typography.titleLarge) }
         if (journeys.isEmpty()) item { EmptyState("No saved journeys", "Save a plan to reuse its locations, distance and fees offline.") }
         items(journeys, key = { it.id }) { journey ->
             val plan = journey.plan()
@@ -137,8 +147,9 @@ fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel) {
                 Text("${plan.origin} → ${plan.destination}", style = MaterialTheme.typography.titleMedium)
                 Text("${dateTime(journey.timestamp)} · ${if (plan.roundTrip) "Round-trip" else "One-way"}", style = MaterialTheme.typography.bodySmall)
                 Text(Money.format(journeyCost(plan).totalCents), style = MaterialTheme.typography.titleLarge)
+                if (plan.costVersion == 1 && plan.otherFees.any { it.cents > 0 }) Text("Historical total includes legacy fees ${Money.format(plan.otherFees.sumOf { it.cents })}", style = MaterialTheme.typography.bodySmall)
                 Button({ id = journey.id; update(journeyInput(plan)); notice = "Saved journey loaded."; error = null; scope.launch { listState.scrollToItem(0) } }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Edit / load route") }
-                OutlinedButton({ id = UUID.randomUUID().toString(); update(journeyInput(plan.copy(petrolPrice = settings.petrolPrice))); notice = "Duplicate loaded. Review fees and save as a new journey."; error = null; scope.launch { listState.scrollToItem(0) } }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Duplicate with current petrol price") }
+                OutlinedButton({ id = UUID.randomUUID().toString(); update(journeyInput(plan.copy(petrolPrice = settings.petrolPrice)).copy(consumptionOverride = false, consumption = "")); notice = "Duplicate loaded. Review fees and save as a new journey."; error = null; scope.launch { listState.scrollToItem(0) } }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Duplicate with current petrol price") }
                 TextButton({ deleting = journey }, enabled = !busy) { Text("Delete journey") }
             }
         }
@@ -158,14 +169,10 @@ private fun LocationSuggestions(value: String, locations: List<String>, choose: 
     }
 }
 @Composable
-private fun ShareToggle(label: String, checked: Boolean, change: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Checkbox(checked, change); Text(label, Modifier.weight(1f)) }
-}
-@Composable
 private fun FeeSection(title: String, entries: List<FeeInput>, defaultName: String, update: (List<FeeInput>) -> Unit) {
     LedgerCard {
         Text(title, style = MaterialTheme.typography.titleMedium)
-        Text("Enter a total as one entry, or add named segments. No online prices are fetched.", style = MaterialTheme.typography.bodySmall)
+        ExpandableHelp("Toll entries") { Text("Enter one total or named segments. Return tolls are entered separately.", style = MaterialTheme.typography.bodySmall) }
         entries.forEach { entry -> key(entry.id) {
             TextField(entry.name, { value -> update(entries.map { if (it.id == entry.id) it.copy(name = value) else it }) }, "$defaultName name", 100)
             NumericField(entry.amount, { value -> update(entries.map { if (it.id == entry.id) it.copy(amount = value) else it }) }, "Amount (RM)")
@@ -183,8 +190,7 @@ internal fun JourneyCostSummary(cost: JourneyCost) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(Money.format(cost.totalCents), style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary)
                     Text("${number(cost.distanceKm)} km total · Fuel ${Money.format(cost.fuelCents)}")
-                    Text("Tolls ${Money.format(cost.tollCents)} · Parking ${Money.format(cost.parkingCents)} · Other ${Money.format(cost.otherCents)}")
-                    Text("Shared ${Money.format(cost.sharedCents)} ÷ ${cost.people} = ${Money.format(cost.perPersonCents)} per person", style = MaterialTheme.typography.titleMedium)
-                    Text("Per-person amounts are rounded to the nearest sen. These estimates do not record expenses or transfers.", style = MaterialTheme.typography.bodySmall)
+                    Text("Tolls ${Money.format(cost.tollCents)} · Parking ${Money.format(cost.parkingCents)}")
+                    Text("Estimate only", style = MaterialTheme.typography.labelSmall)
     }
 }

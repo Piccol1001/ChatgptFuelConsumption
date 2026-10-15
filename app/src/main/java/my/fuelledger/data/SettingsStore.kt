@@ -29,7 +29,8 @@ import java.math.BigDecimal
 @Serializable
 data class AppSettings(val petrolPrice: String = "2.05", val consumption: Double = 7.0,
     val theme: String = "System", val plannerReminders: Boolean = false,
-    val receiptSaveMode: String = "Review", val keepReceiptPhotos: Boolean = true) {
+    val receiptSaveMode: String = "Review", val keepReceiptPhotos: Boolean = true,
+    val consumptionFallbackEnabled: Boolean = false) {
     fun validate() {
         val price = petrolPrice.toBigDecimalOrNull()
         require(price != null && price > BigDecimal.ZERO && price <= BigDecimal("1000000") && price.scale() <= 4) {
