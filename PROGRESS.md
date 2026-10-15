@@ -1,3 +1,38 @@
+# Header cleanup — 16 October 2026 (Malaysia time)
+
+Completed a UI-only refinement of existing v1.4.0 / code 6, continuing from `6e4d932`. Removed the shared app-name/version top bar on Home, Fuel, Expenses, Journey and Analytics. Settings now appears beside each existing screen heading, eliminating the empty toolbar row. Secondary Settings, Monthly Money Planner and Receipt Scanner titles/Back navigation remain. Scaffold system-bar insets, status-bar appearance and bottom navigation are preserved.
+
+The application ID, launcher name, version name/code, build configuration, manifest, database and calculations are unchanged. No dependencies, permissions or migrations were added. Existing data and APKs are preserved.
+
+Verification: all 10 existing AppSmokeTest executions pass on Robolectric API26/35 (0 failures/errors/skipped); signed debug APK builds. Existing test interactions now scroll to Settings in the screen heading. Visually inspected the API35 dashboard screenshot: no branding header or blank row, with aligned content and Settings icon. Signature matches the prior APK and 16KiB ZIP alignment passes. APK metadata still reports `my.fuelledger`, `1.4.0`, code `6`, launcher label `Fuel & Expense Tracker v1.4.0`. No native/full-suite/release/lint rerun was needed for this UI-only change; prior results below belong to their stated builds. Physical-device status-bar/large-font/OEM checks remain unperformed.
+
+Updated APK: `downloads/Fuel-Expense-Tracker-v1.4.0-minimal-header-debug.apk` (76,096,099 bytes), SHA256 `ea6f3d9b937ea98f000e1f569a15e2b9862bd5ad415c71ac982d4825af022ec1`. All older APKs retain their original checksums. Install this variant over the existing app; the package, version and signing key are unchanged.
+
+Files changed:
+
+- `PROGRESS.md`
+- `README.md`
+- `VALIDATION.md`
+- `app/src/main/java/my/fuelledger/ui/Components.kt`
+- `app/src/main/java/my/fuelledger/ui/JourneyScreen.kt`
+- `app/src/main/java/my/fuelledger/ui/LedgerApp.kt`
+- `app/src/main/java/my/fuelledger/ui/Screens.kt`
+- `app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt`
+- `downloads/Fuel-Expense-Tracker-v1.4.0-minimal-header-debug.apk`
+- `downloads/SHA256SUMS`
+
+Resume using the existing checkout/toolchain; do not change the app version/name for this cleanup, clear app data or overwrite old APKs:
+
+```sh
+cd /workspace/ChatgptFuelConsumption
+source /workspace/.tooling/fuel-ledger-env.sh
+./gradlew :app:testDebugUnitTest --tests my.fuelledger.ui.AppSmokeTest :app:assembleDebug
+```
+
+Local verification log: `/tmp/fuel-header-cleanup.log`. Screenshots: `app/build/reports/ui-screenshots`. No known compilation errors or implementation tasks remain for this request.
+
+---
+
 # Current progress — Fuel & Expense Tracker v1.4.0
 
 Updated 15 October 2026 (Malaysia time). Continues the existing application from commit `22fabb5`. Earlier progress reports are retained below.

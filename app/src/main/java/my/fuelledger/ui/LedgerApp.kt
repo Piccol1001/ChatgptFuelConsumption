@@ -18,10 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.SecureFlagPolicy
@@ -31,7 +29,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.view.WindowCompat
 import my.fuelledger.LedgerViewModel
 import my.fuelledger.FinanceViewModel
-import my.fuelledger.R
 import my.fuelledger.data.*
 import java.util.UUID
 
@@ -69,6 +66,7 @@ fun LedgerApp(vm: LedgerViewModel) {
         var scannerOpen by rememberSaveable { mutableStateOf(false) }
         var financeSection by rememberSaveable { mutableStateOf("Planner") }
         var financeOpen by rememberSaveable { mutableStateOf(false) }
+        val openSettings = { scannerOpen = false; settingsOpen = true }
         var expenseEditId by rememberSaveable { mutableStateOf<String?>(null) }
         var refuelEditId by rememberSaveable { mutableStateOf<String?>(null) }
         val expenseEditor = state.expenses.firstOrNull { it.id == expenseEditId }
@@ -104,19 +102,13 @@ fun LedgerApp(vm: LedgerViewModel) {
         }
         Scaffold(
             topBar = {
-                TopAppBar(title = {
+                if (settingsOpen || financeOpen || scannerOpen) TopAppBar(title = {
                     if (scannerOpen) Text("Receipt Scanner")
                     else if (financeOpen) Text("Monthly Money Planner")
-                    else if (settingsOpen) Text("Settings")
-                    else Column {
-                        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(stringResource(R.string.app_version), style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    else Text("Settings")
                 },
                     navigationIcon = { if (settingsOpen || financeOpen || scannerOpen) IconButton(onClick = { if (scannerOpen) scannerOpen = false else if (financeOpen) financeOpen = false else settingsOpen = false }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
-                    actions = { if (!settingsOpen && !financeOpen) IconButton(onClick = { scannerOpen = false; settingsOpen = true }) { Icon(ledgerSymbol("settings"), "Settings") } })
+                    actions = { if (!settingsOpen && !financeOpen) IconButton(onClick = openSettings) { Icon(ledgerSymbol("settings"), "Settings") } })
             },
             bottomBar = { if (!settingsOpen && !financeOpen) NavigationBar {
                 listOf("Home" to "home", "Fuel" to "fuel", "Expenses" to "expenses", "Journey" to "route", "Analytics" to "analytics").forEach { (title, symbol) ->
@@ -142,16 +134,16 @@ fun LedgerApp(vm: LedgerViewModel) {
                     { financeSection = "Expected Income"; financeOpen = true })
                 else Crossfade(tab, label = "Navigation") { destination ->
                     when (destination) {
-                        "Journey" -> { val journeyVm: my.fuelledger.JourneyViewModel = viewModel(factory = financialViewModelFactory); JourneyScreen(state.settings, journeyVm, state.refuels) { value -> vm.saveSettings(state.settings.copy(consumption = value, consumptionFallbackEnabled = true)) {} } }
-                        "Fuel" -> FuelScreen(state, newRefuel, { refuelEditId = it.id })
-                        "Expenses" -> ExpensesScreen(state, newExpense, onExpense)
-                        "Analytics" -> { val financeVm: FinanceViewModel = viewModel(factory = financialViewModelFactory); val finance by financeVm.state.collectAsStateWithLifecycle(); AnalyticsScreen(state, finance) }
+                        "Journey" -> { val journeyVm: my.fuelledger.JourneyViewModel = viewModel(factory = financialViewModelFactory); JourneyScreen(state.settings, journeyVm, state.refuels, saveFallback = { value -> vm.saveSettings(state.settings.copy(consumption = value, consumptionFallbackEnabled = true)) {} }, openSettings = openSettings) }
+                        "Fuel" -> FuelScreen(state, newRefuel, { refuelEditId = it.id }, openSettings = openSettings)
+                        "Expenses" -> ExpensesScreen(state, newExpense, onExpense, openSettings = openSettings)
+                        "Analytics" -> { val financeVm: FinanceViewModel = viewModel(factory = financialViewModelFactory); val finance by financeVm.state.collectAsStateWithLifecycle(); AnalyticsScreen(state, finance, openSettings = openSettings) }
                         else -> {
                             val financeVm: FinanceViewModel = viewModel(factory = financialViewModelFactory)
                             val financeState by financeVm.state.collectAsStateWithLifecycle()
                             HomeScreen(state, newExpense, newRefuel, onExpense, planner = {
                                 MonthlyPlanner(financeState, financeVm, compact = true, openDetails = { financeSection = "Planner"; financeOpen = true })
-                            }, scanReceipt = { vm.clearReceiptWork(); vm.clearReceiptSuccess(); scannerOpen = true })
+                            }, scanReceipt = { vm.clearReceiptWork(); vm.clearReceiptSuccess(); scannerOpen = true }, openSettings = openSettings)
                         }
                     }
                 }

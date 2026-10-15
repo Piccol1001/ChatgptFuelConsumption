@@ -110,7 +110,7 @@ fun SectionTitle(title: String, subtitle: String? = null) {
 }
 
 @Composable
-fun ScreenHeading(title: String, subtitle: String, icon: ImageVector) {
+fun ScreenHeading(title: String, subtitle: String, icon: ImageVector, openSettings: (() -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(46.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
@@ -119,6 +119,7 @@ fun ScreenHeading(title: String, subtitle: String, icon: ImageVector) {
             Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        if (openSettings != null) IconButton(onClick = openSettings) { Icon(ledgerSymbol("settings"), "Settings") }
     }
 }
 

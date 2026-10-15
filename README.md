@@ -4,11 +4,11 @@ A native Android app for personal spending and car fuel records. Kotlin, Jetpack
 
 ## Download the APK
 
-[**Download Fuel & Expense Tracker for Android**](https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/downloads/Fuel-Expense-Tracker-v1.4.0-debug.apk)
+[**Download Fuel & Expense Tracker for Android**](https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/downloads/Fuel-Expense-Tracker-v1.4.0-minimal-header-debug.apk)
 
 Version 1.4.0, signed debug build, Android 8.0 or later. Open this link on your phone, download the `.apk` file, then open it to install. If Android asks, allow installation for the browser or file manager you used. The APK is also available in this repository's `downloads` folder. Its SHA-256 checksum is in `downloads/SHA256SUMS`; build and test evidence is in [VALIDATION.md](VALIDATION.md).
 
-The launcher icon now combines a fuel pump and wallet in ivory and gold on teal. The installed app is named **Fuel & Expense Tracker v1.4.0**; the header and Settings show the same version. Android adaptive icons follow the launcher’s circle, squircle or rounded-square shape, and Android 13+ themed icons use a monochrome companion. Install this APK over the existing app to keep your records: the application ID and signing key are unchanged, and version code increases to 6 (from 5 in version 1.3.0).
+The launcher icon now combines a fuel pump and wallet in ivory and gold on teal. The installed app is named **Fuel & Expense Tracker v1.4.0**; main screens begin with their screen title and an inline Settings button, without an app-name/version header or empty toolbar row. Project metadata remains version 1.4.0 / code 6. Android adaptive icons follow the launcher’s circle, squircle or rounded-square shape, and Android 13+ themed icons use a monochrome companion. Install this APK over the existing app to keep your records: the application ID and signing key are unchanged, and version code increases to 6 (from 5 in version 1.3.0).
 
 ## Install on your phone
 

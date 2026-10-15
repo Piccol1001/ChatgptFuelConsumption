@@ -50,7 +50,7 @@ private fun journeyInput(plan: JourneyPlan) = JourneyInput(plan.origin, plan.des
     plan.shareFuel, plan.shareTolls, plan.shareParking, plan.shareOther, consumptionOverride = plan.consumptionSource in setOf("Legacy", "Override"))
 
 @Composable
-fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel, refuels: List<Refuel> = emptyList(), saveFallback: ((Double) -> Unit)? = null) {
+fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel, refuels: List<Refuel> = emptyList(), saveFallback: ((Double) -> Unit)? = null, openSettings: (() -> Unit)? = null) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val journeys by vm.journeys.collectAsStateWithLifecycle()
@@ -71,7 +71,7 @@ fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel, refuels: List<Ref
     val estimate = runCatching { journeyCost(input.plan(effectiveConsumption, consumptionSource)) }
     val locations = journeys.flatMap { listOf(it.plan().origin, it.plan().destination) }.distinct().sorted()
     LazyColumn(state = listState, contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { ScreenHeading("Journey Planner", "Offline journey estimates", ledgerSymbol("route")) }
+        item { ScreenHeading("Journey Planner", "Offline journey estimates", ledgerSymbol("route"), openSettings) }
         item {
             LedgerCard {
                 Text(if (saved != null) "Edit saved journey" else "Plan a journey", style = MaterialTheme.typography.titleLarge)

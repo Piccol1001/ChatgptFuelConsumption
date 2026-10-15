@@ -109,6 +109,7 @@ class AppSmokeTest {
         navigate("Analytics")
         waitFor("Understand your spending, at your own pace.")
         captureScreen("analytics")
+        scrollScreenTo(hasContentDescription("Settings"))
         compose.onNodeWithContentDescription("Settings").performClick()
         waitFor("Fuel settings")
         compose.onNodeWithText("Default petrol price (RM/L)").assertExists()
@@ -133,6 +134,7 @@ class AppSmokeTest {
         assertEquals("Penang", snapshot.journeys.single().plan().destination)
         assertEquals("Fallback", snapshot.journeys.single().plan().consumptionSource)
         assertTrue(snapshot.expenses.isEmpty()); assertTrue(snapshot.refuels.isEmpty())
+        scrollScreenTo(hasContentDescription("Settings"))
         compose.onNodeWithContentDescription("Settings").performClick()
         waitFor("Fuel settings")
         scrollScreenTo(hasText("Theme"))
@@ -187,6 +189,7 @@ class AppSmokeTest {
             my.fuelledger.data.FinanceRepository(repository.database).saveRecurring(my.fuelledger.data.FinanceRecurring(
                 "expected-salary", "Salary", 300000, "income:Salary", "Monthly", first, first, kind = "Income", manualPayment = true))
         }
+        scrollScreenTo(hasContentDescription("Settings"))
         compose.onNodeWithContentDescription("Settings").performClick()
         waitFor("Fuel settings")
         compose.onAllNodesWithText("Monthly Allocation").assertCountEquals(0)

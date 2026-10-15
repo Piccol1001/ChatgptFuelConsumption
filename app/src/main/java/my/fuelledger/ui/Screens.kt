@@ -36,14 +36,14 @@ private val monthFormat = DateTimeFormatter.ofPattern("MMMM yyyy", Malaysia)
 private val shortMonthFormat = DateTimeFormatter.ofPattern("MMM yy", Malaysia)
 
 @Composable
-fun HomeScreen(state: LedgerState, addExpense: () -> Unit, addRefuel: () -> Unit, edit: (Expense) -> Unit, planner: (@Composable () -> Unit)? = null, scanReceipt: (() -> Unit)? = null) {
+fun HomeScreen(state: LedgerState, addExpense: () -> Unit, addRefuel: () -> Unit, edit: (Expense) -> Unit, planner: (@Composable () -> Unit)? = null, scanReceipt: (() -> Unit)? = null, openSettings: (() -> Unit)? = null) {
     val calendar = currentCalendar()
     val today = calendar.today
     val month = YearMonth.from(today)
     val totals = remember(state.expenses, calendar.zone) { spending(state, calendar.zone) }
     val fuel = state.refuels.filter { YearMonth.from(localDate(it.timestamp)) == month }.sumOf { it.cents }
     LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { ScreenHeading("Dashboard", today.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Malaysia)), ledgerSymbol("home")) }
+        item { ScreenHeading("Dashboard", today.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Malaysia)), ledgerSymbol("home"), openSettings) }
         item { HeroAmount("Total spent this month", Money.format(totals.month(month)), "${month.format(monthFormat)} · includes fuel payments") }
         item { ResponsivePair(
             first = { Stat("Today's spending", Money.format(totals.today(today)), it, "${today.format(DateTimeFormatter.ofPattern("d MMM", Malaysia))}") },
@@ -64,7 +64,7 @@ fun HomeScreen(state: LedgerState, addExpense: () -> Unit, addRefuel: () -> Unit
 }
 
 @Composable
-fun FuelScreen(state: LedgerState, add: () -> Unit, edit: (Refuel) -> Unit) {
+fun FuelScreen(state: LedgerState, add: () -> Unit, edit: (Refuel) -> Unit, openSettings: (() -> Unit)? = null) {
     val calendar = currentCalendar()
     val month = YearMonth.from(calendar.today)
     var chartMonths by rememberSaveable { mutableStateOf(3) }
@@ -77,7 +77,7 @@ fun FuelScreen(state: LedgerState, add: () -> Unit, edit: (Refuel) -> Unit) {
     val newest = state.refuels.maxByOrNull { it.timestamp }
     val records = state.refuels.sortedByDescending { it.timestamp }
     LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { ScreenHeading("Fuel tracker", "Refuelling records and statistics", ledgerSymbol("fuel")) }
+        item { ScreenHeading("Fuel tracker", "Refuelling records and statistics", ledgerSymbol("fuel"), openSettings) }
         item {
             LedgerCard(emphasized = true) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -166,7 +166,7 @@ private fun RefuelHistoryCard(refuel: Refuel, estimate: FillEstimate?, measured:
 }
 
 @Composable
-fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit, planner: (@Composable () -> Unit)? = null, scanReceipt: (() -> Unit)? = null) {
+fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit, planner: (@Composable () -> Unit)? = null, scanReceipt: (() -> Unit)? = null, openSettings: (() -> Unit)? = null) {
     val calendar = currentCalendar()
     val today = calendar.today
     val currentMonth = YearMonth.from(today)
@@ -189,7 +189,7 @@ fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit,
         if (sort == "Oldest") entries.sortedBy { it.key } else entries.sortedByDescending { it.key }
     }
     LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { ScreenHeading("Expenses", "Recorded transactions", ledgerSymbol("expenses")) }
+        item { ScreenHeading("Expenses", "Recorded transactions", ledgerSymbol("expenses"), openSettings) }
         item { HeroAmount("This month's expenditure", Money.format(totals.month(currentMonth)), "${currentMonth.format(monthFormat)} · fuel counted once") }
         item { ResponsivePair(
             first = { Stat("Today", Money.format(totals.today(today)), it) },
@@ -257,7 +257,7 @@ private fun DayHeading(date: LocalDate, cents: Long) {
 }
 
 @Composable
-fun AnalyticsScreen(state: LedgerState, finance: my.fuelledger.FinanceState? = null) {
+fun AnalyticsScreen(state: LedgerState, finance: my.fuelledger.FinanceState? = null, openSettings: (() -> Unit)? = null) {
     val calendar = currentCalendar()
     val today = calendar.today
     var monthString by rememberSaveable { mutableStateOf(YearMonth.from(today).toString()) }
@@ -280,7 +280,7 @@ fun AnalyticsScreen(state: LedgerState, finance: my.fuelledger.FinanceState? = n
     fun trendBounds(m: YearMonth): Pair<LocalDate, LocalDate> =
         if (customRange) maxOf(m.atDay(1), start) to minOf(m.atEndOfMonth(), end) else m.atDay(1) to m.atEndOfMonth()
     LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { ScreenHeading("Analytics", "Understand your spending, at your own pace.", ledgerSymbol("analytics")) }
+        item { ScreenHeading("Analytics", "Understand your spending, at your own pace.", ledgerSymbol("analytics"), openSettings) }
         if (finance != null && !customRange) item {
             val plan = finance.months.find { it.month == month.toString() }?.occurrences() ?: plannedOccurrences(finance.recurring, month)
             val money = monthlyMoney(month, plan, finance.income, state.expenses, calendar.zone)
