@@ -10,8 +10,10 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import my.fuelledger.*
+import my.fuelledger.R
 import my.fuelledger.data.*
 import java.util.UUID
 
@@ -58,13 +60,13 @@ fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, expor
                     OutlinedButton(onClick = exportRefuels, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Export refuels to CSV") }
                     Button(onClick = backup, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.SaveAlt, null); Text(" Create complete backup") }
                     OutlinedButton(onClick = restore, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Restore from backup…") }
-                    Text("Backups include all transactions, categories and preferences. Restore validates the file and asks before replacing data. CSV files are for spreadsheets and cannot be restored.", style = MaterialTheme.typography.bodySmall)
+                    Text("ZIP backups include all transactions, receipt photos, categories and preferences. Restore also accepts your older JSON backups, validates the file and asks before replacing data. CSV files are for spreadsheets and cannot be restored.", style = MaterialTheme.typography.bodySmall)
                     Text("Backup files are readable by anyone who has the file. Store them in a private location.", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
         item {
-            Text("Fuel & Expense Tracker · 1.0.0\nOffline by design. No account, ads or tracking.\nDates use your device's local time zone. Week totals run Monday to Sunday.\nBack up before uninstalling: Android removes the local database when you uninstall.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.app_display_name) + "\nOffline by design. No account, ads or tracking.\nDates use your device's local time zone. Week totals run Monday to Sunday.\nBack up before uninstalling: Android removes the local database when you uninstall.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
     if (addCategory || editCategory != null) {

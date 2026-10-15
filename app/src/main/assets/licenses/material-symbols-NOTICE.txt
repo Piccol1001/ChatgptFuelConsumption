@@ -1,0 +1,42 @@
+Google Material Symbols Outlined
+Copyright Google LLC
+License: Apache License, Version 2.0
+Source: https://github.com/google/material-design-icons/tree/master/symbols
+
+Sixteen official 24px SVGs were converted to native Android vector drawables.
+Their source path geometry is unchanged; the SVG viewBox origin is translated
+to Android's positive viewport. No fonts or remote icon requests are required.
+Source SVG SHA-256 hashes and URLs:
+
+home: 41735f056fa43ed570585a294210f4c32dad1481bdf0a617b86b1007b2a8a913
+https://raw.githubusercontent.com/google/material-design-icons/master/symbols/web/home/materialsymbolsoutlined/home_24px.svg
+local_gas_station: e53026970561ad5f0dd868b9035fa03b466b9723db95360317e08cb55713ade4
+https://raw.githubusercontent.com/google/material-design-icons/master/symbols/web/local_gas_station/materialsymbolsoutlined/local_gas_station_24px.svg
+account_balance_wallet: e3b5573589f4187e22cd1a89987da212f31e1c0f7c55cdd5c28350542c4cdaa7
+https://raw.githubusercontent.com/google/material-design-icons/master/symbols/web/account_balance_wallet/materialsymbolsoutlined/account_balance_wallet_24px.svg
+monitoring: 436ec6895417dc7ed12521f77476d7b46b02dac82c04c6d8da00bfc8e533de1c
+https://raw.githubusercontent.com/google/material-design-icons/master/symbols/web/monitoring/materialsymbolsoutlined/monitoring_24px.svg
+restaurant: 5b93a8c25a34c244cfb8894746ba90664cf2bb4639f97a0b5f7613e4a86d1159
+https://raw.githubusercontent.com/google/material-design-icons/master/symbols/web/restaurant/materialsymbolsoutlined/restaurant_24px.svg
+shopping_cart: 91eededcbfd712eb3b6771112b348041379c47ce3f8a6007680a803c537fecbe
+https://raw.githubusercontent.com/google/material-design-icons/master/symbols/web/shopping_cart/materialsymbolsoutlined/shopping_cart_24px.svg
+movie: b037f2324951459f7ef1f78ac0c7a9d0e57848e5cf88160757aeafafc51d758c
+https://raw.githubusercontent.com/google/material-design-icons/master/symbols/web/movie/materialsymbolsoutlined/movie_24px.svg
+shopping_bag: 2d49debfdfc6f2c7fcea9a0bac49ba422a8cb8849752e5a24d65fcca109dea06
+https://raw.githubusercontent.com/google/material-design-icons/master/symbols/web/shopping_bag/materialsymbolsoutlined/shopping_bag_24px.svg
+receipt_long: 03ac9b0db2cf67cdb561a10403e6bda20b54b72fbeb1e16bcb86ea9f7f3189de
+https://raw.githubusercontent.com/google/material-design-icons/master/symbols/web/receipt_long/materialsymbolsoutlined/receipt_long_24px.svg
+favorite: 9aa246b56617782817301f5d940f501ea4b14fffb1faf29012c76fce8f07ed70
+https://raw.githubusercontent.com/google/material-design-icons/master/symbols/web/favorite/materialsymbolsoutlined/favorite_24px.svg
+more_horiz: 498ade89fbbdd4f4ab9b90bb49bae4cc6b2dc0ff0f019b6b051ac641a7bd5872
+https://raw.githubusercontent.com/google/material-design-icons/master/symbols/web/more_horiz/materialsymbolsoutlined/more_horiz_24px.svg
+add: e9532de2b9be01ce951e899e98ee673bb97acd574f0db118feb72fe074a1c376
+https://raw.githubusercontent.com/google/material-design-icons/master/symbols/web/add/materialsymbolsoutlined/add_24px.svg
+route: d7962e11c41b71ce30aa4c47b7f3eacb9d88d08f02421214f5f9d641d5a45956
+https://raw.githubusercontent.com/google/material-design-icons/master/symbols/web/route/materialsymbolsoutlined/route_24px.svg
+speed: 8bc7560c91a3b04183520be7c266d308c2f1fb82126789cfe35e421a93997a0a
+https://raw.githubusercontent.com/google/material-design-icons/master/symbols/web/speed/materialsymbolsoutlined/speed_24px.svg
+tune: b1a4320c966b3f7c421bf3dad47cabdb1ac8a18c1dfff1d8a51236beb2aa697e
+https://raw.githubusercontent.com/google/material-design-icons/master/symbols/web/tune/materialsymbolsoutlined/tune_24px.svg
+settings: 6aebb4a88b40a5bf1ce378ca532e4a885aedc402a0574562c6ed4ded03360fd2
+https://raw.githubusercontent.com/google/material-design-icons/master/symbols/web/settings/materialsymbolsoutlined/settings_24px.svg

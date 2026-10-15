@@ -4,6 +4,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.devtools.ksp")
 }
+
+val ledgerAppName = "Fuel & Expense Tracker"
+val ledgerVersionName = "1.2.0"
+
 android {
     namespace = "my.fuelledger"
     compileSdk = 37
@@ -11,11 +15,17 @@ android {
         applicationId = "my.fuelledger"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 4
+        versionName = ledgerVersionName
+        resValue("string", "app_name", ledgerAppName)
+        resValue("string", "app_version", "v$ledgerVersionName")
+        resValue("string", "app_display_name", "$ledgerAppName v$ledgerVersionName")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        resValues = true
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -58,6 +68,15 @@ dependencies {
     implementation("androidx.room:room-ktx:2.8.5")
     ksp("androidx.room:room-compiler:2.8.5")
     implementation("androidx.datastore:datastore-preferences:1.2.1")
+    implementation("androidx.exifinterface:exifinterface:1.4.2")
+    implementation("net.zetetic:sqlcipher-android:4.19.1")
+    implementation("androidx.sqlite:sqlite:2.6.2")
+    implementation("com.google.crypto.tink:tink-android:1.23.0")
+    implementation("androidx.biometric:biometric:1.1.0")
+    implementation("androidx.fragment:fragment-ktx:1.9.1")
+    implementation("androidx.work:work-runtime-ktx:2.12.0")
+    // Bundles the Latin recognition model for offline receipt scanning.
+    implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
@@ -68,4 +87,7 @@ dependencies {
     testImplementation("org.robolectric:robolectric:4.17")
     testImplementation("androidx.test:core:1.7.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test:core:1.7.0")
 }

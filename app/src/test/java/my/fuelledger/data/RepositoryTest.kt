@@ -1,6 +1,7 @@
 package my.fuelledger.data
 
 import androidx.room.Room
+import android.database.sqlite.SQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.runBlocking
@@ -12,6 +13,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import my.fuelledger.domain.*
+import org.json.JSONObject
+import java.io.File
 
 class MemorySettings : PreferencesStore {
     private val value = MutableStateFlow(AppSettings())
@@ -112,6 +115,121 @@ class RepositoryTest {
         assertEquals(saved.categories, db.dao().allCategories())
         assertEquals(saved.settings, prefs.settings.first())
         assertNull(db.dao().pendingSettings())
+    }
+    @Test fun optionalRefuelMetadataRoundTripsInVersionTwoBackupAndCsv() = runBlocking {
+        val refuel = fuel().copy(fullTank = false, station = "Petronas", fuelType = "RON 95",
+            stationLocation = "Jalan Ampang, Kuala Lumpur", receiptFile = "12345678-abcd-1234-abcd-123456789abc.jpg")
+        repo.saveRefuel(refuel)
+        val saved = backupJson.decodeFromString<Backup>(backupJson.encodeToString(repo.backup()))
+        assertEquals(2, saved.version)
+        saved.validate()
+        repo.deleteRefuel(refuel.id)
+        repo.restore(saved)
+        assertEquals(refuel, db.dao().allRefuels().single())
+        assertEquals(saved.expenses, db.dao().allExpenses())
+        val csv = repo.exportRefuels()
+        assertTrue(csv.contains("\"Fuel type\",\"Station location\",\"Receipt file\""))
+        assertTrue(csv.contains("\"RON 95\",\"Jalan Ampang, Kuala Lumpur\",\"12345678-abcd-1234-abcd-123456789abc.jpg\""))
+    }
+    @Test fun versionOneJsonBackupRestoresWithEmptyMetadataAndIntactFuelLink() = runBlocking {
+        repo.saveRefuel(fuel().copy(station = "Original station", notes = "Original notes"))
+        val old = JSONObject(backupJson.encodeToString(repo.backup())).apply {
+            put("version", 1)
+            getJSONArray("refuels").getJSONObject(0).apply {
+                remove("fuelType"); remove("stationLocation"); remove("receiptFile")
+            }
+        }
+        val saved = backupJson.decodeFromString<Backup>(old.toString())
+        assertEquals(1, saved.version)
+        saved.validate()
+        repo.deleteRefuel("a")
+        repo.restore(saved)
+        assertEquals(saved.refuels, db.dao().allRefuels())
+        assertEquals(saved.expenses, db.dao().allExpenses())
+        assertEquals("", db.dao().allRefuels().single().fuelType)
+        assertEquals("", db.dao().allRefuels().single().stationLocation)
+        assertNull(db.dao().allRefuels().single().receiptFile)
+        assertEquals(2, repo.backup().version)
+    }
+    @Test fun invalidReceiptNamesAndOversizedMetadataNeverChangeExistingRecords() = runBlocking {
+        repo.saveRefuel(fuel())
+        val before = repo.backup()
+        val invalidNames = listOf("../private.jpg", "/tmp/receipt.jpg", "receipt.jpg", "",
+            "12345678-ABCD-1234-abcd-123456789abc.jpg", "12345678-abcd-1234-abcd-123456789abc.JPG",
+            "12345678-abcd-1234-abcd-123456789abc.jpg/../other")
+        val invalid = invalidNames.map { fuel().copy(receiptFile = it) } +
+            listOf(fuel().copy(fuelType = "x".repeat(51)), fuel().copy(stationLocation = "x".repeat(201)))
+        invalid.forEach { bad ->
+            try { repo.saveRefuel(bad); fail("Expected rejection") } catch (_: IllegalArgumentException) {}
+            try { repo.restore(before.copy(refuels = listOf(bad))); fail("Expected rejection") } catch (_: IllegalArgumentException) {}
+            assertEquals(before.refuels, db.dao().allRefuels())
+            assertEquals(before.expenses, db.dao().allExpenses())
+        }
+    }
+    @Test fun partialFillRepositoryEditsAndDeletesRecalculateAndKeepExpenseLinks() = runBlocking {
+        val a = fuel().copy(fullTank = false)
+        val b = fuel("b", 2000, 1200.0).copy(fullTank = false, litres = 20.0, cents = 4100)
+        val c = fuel("c", 3000, 1600.0).copy(fullTank = false)
+        listOf(a, b, c).forEach { repo.saveRefuel(it) }
+        val originalLinks = db.dao().allExpenses().associate { it.fuelId to it.id }
+        repo.saveRefuel(b.copy(odometer = 1300.0, litres = 10.0, fuelType = "RON 97"))
+        val estimates = fillEstimates(db.dao().allRefuels().map { it.point() })
+        assertEquals(30.0, estimates[0].kmPerLitre, 0.0)
+        assertEquals(7.5, estimates[1].kmPerLitre, 0.0)
+        assertEquals(originalLinks, db.dao().allExpenses().associate { it.fuelId to it.id })
+        repo.deleteRefuel("b")
+        assertEquals(15.0, fillEstimates(db.dao().allRefuels().map { it.point() }).single().kmPerLitre, 0.0)
+        assertEquals(setOf("a", "c"), db.dao().allExpenses().map { it.fuelId }.toSet())
+    }
+    @Test fun schemaOneMigrationRetainsRecordsLinksAndPendingSettings() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val databaseName = "fuel-ledger.db"
+        context.deleteDatabase(databaseName)
+        val databaseFile = context.getDatabasePath(databaseName).apply { parentFile?.mkdirs() }
+        val schemaPath = "schemas/my.fuelledger.data.LedgerDatabase/1.json"
+        val schemaFile = listOf(File(schemaPath), File("app/$schemaPath")).first { it.isFile }
+        val schema = JSONObject(schemaFile.readText()).getJSONObject("database")
+        val originalRefuel = fuel().copy(station = "Old station", notes = "Preserved")
+        val originalExpense = Expense("linked", originalRefuel.cents, FUEL_CATEGORY, originalRefuel.timestamp,
+            fuelDescription(originalRefuel), originalRefuel.notes, fuelId = originalRefuel.id)
+        SQLiteDatabase.openOrCreateDatabase(databaseFile, null).use { old ->
+            val entities = schema.getJSONArray("entities")
+            for (i in 0 until entities.length()) {
+                val entity = entities.getJSONObject(i)
+                val table = entity.getString("tableName")
+                old.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}", table))
+                entity.optJSONArray("indices")?.let { indices ->
+                    for (j in 0 until indices.length()) old.execSQL(indices.getJSONObject(j).getString("createSql").replace("\${TABLE_NAME}", table))
+                }
+            }
+            val setup = schema.getJSONArray("setupQueries")
+            for (i in 0 until setup.length()) old.execSQL(setup.getString(i))
+            defaultCategories.forEach { category ->
+                old.execSQL("INSERT INTO categories VALUES (?, ?, ?, ?, ?)",
+                    arrayOf<Any?>(category.id, category.name, category.icon, category.color, if (category.custom) 1 else 0))
+            }
+            old.execSQL("INSERT INTO refuels VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                arrayOf<Any?>(originalRefuel.id, originalRefuel.timestamp, originalRefuel.odometer, originalRefuel.litres,
+                    originalRefuel.cents, 1, originalRefuel.station, originalRefuel.notes))
+            old.execSQL("INSERT INTO expenses VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                arrayOf<Any?>(originalExpense.id, originalExpense.cents, originalExpense.categoryId, originalExpense.timestamp,
+                    originalExpense.description, originalExpense.notes, originalExpense.payment, originalExpense.fuelId))
+            old.execSQL("INSERT INTO pending_settings VALUES (1, ?)", arrayOf("pending preferences"))
+            old.version = 1
+        }
+        val migrated = LedgerDatabase.open(context)
+        try {
+            assertEquals(originalRefuel, migrated.dao().allRefuels().single())
+            assertEquals(originalExpense, migrated.dao().allExpenses().single())
+            assertEquals(defaultCategories.toSet(), migrated.dao().allCategories().toSet())
+            assertEquals("pending preferences", migrated.dao().pendingSettings()?.payload)
+            assertEquals(2, migrated.openHelper.readableDatabase.version)
+            migrated.dao().deleteRefuel(originalRefuel.id)
+            assertTrue(migrated.dao().allExpenses().isEmpty())
+        } finally {
+            migrated.close()
+            context.deleteDatabase(databaseName)
+        }
     }
     @Test fun malformedBackupDoesNotTouchExistingRecords() = runBlocking {
         repo.saveRefuel(fuel())

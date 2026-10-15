@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Alpha-only companion for Android 13+ themed launcher icons. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:pivotX="54" android:pivotY="54" android:scaleX="0.9" android:scaleY="0.9">
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd"
+        android:pathData="M35,27H52Q57,27 57,33V73H29V33Q29,27 35,27ZM35,33V43H51V33Z" />
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M29,71H53V78H29Q25,78 25,74.5Q25,71 29,71Z" />
+    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M56,46H59Q64,46 64,51V59Q64,64 69,64Q74,64 74,59V45L65,35" />
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd"
+        android:pathData="M55,59H72Q78,59 78,65V75Q78,81 72,81H55Q49,81 49,75V65Q49,59 55,59ZM69,67Q65,67 65,71Q65,75 69,75H78V67Z" />
+    </group>
+</vector>

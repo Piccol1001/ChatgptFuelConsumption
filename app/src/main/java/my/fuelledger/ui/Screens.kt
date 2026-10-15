@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,6 +18,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import my.fuelledger.LedgerState
@@ -24,43 +28,36 @@ import my.fuelledger.data.*
 import my.fuelledger.domain.*
 import java.time.*
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
-private val screenPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp)
-private fun spending(state: LedgerState) = Spending(state.expenses.map { it.point() })
+private val screenPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 28.dp)
+private fun spending(state: LedgerState, zone: ZoneId) = Spending(state.expenses.map { it.point() }, zone)
+private val monthFormat = DateTimeFormatter.ofPattern("MMMM yyyy", Malaysia)
+private val shortMonthFormat = DateTimeFormatter.ofPattern("MMM yy", Malaysia)
 
 @Composable
 fun HomeScreen(state: LedgerState, addExpense: () -> Unit, addRefuel: () -> Unit, edit: (Expense) -> Unit) {
     val calendar = currentCalendar()
     val today = calendar.today
     val month = YearMonth.from(today)
-    val totals = remember(state.expenses, calendar.zone) { spending(state) }
+    val totals = remember(state.expenses, calendar.zone) { spending(state, calendar.zone) }
     val fuel = state.refuels.filter { YearMonth.from(localDate(it.timestamp)) == month }.sumOf { it.cents }
     LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { SectionTitle("Your money, at a glance", today.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Malaysia))) }
-        item {
-            Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("SPENDING THIS MONTH", style = MaterialTheme.typography.labelLarge)
-                    Text(Money.format(totals.month(month)), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                    Text("Includes your refuelling payments", style = MaterialTheme.typography.bodySmall)
-                }
-            }
+        item { ScreenHeading("Dashboard", today.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Malaysia)), ledgerSymbol("home")) }
+        item { HeroAmount("Total spent this month", Money.format(totals.month(month)), "${month.format(monthFormat)} · includes fuel payments") }
+        item { ResponsivePair(
+            first = { Stat("Today's spending", Money.format(totals.today(today)), it, "${today.format(DateTimeFormatter.ofPattern("d MMM", Malaysia))}") },
+            second = { Stat("Monthly fuel", Money.format(fuel), it, "Refuelling payments") }
+        ) }
+        item { ResponsivePair(
+            first = { LedgerAction("Add Expense", ledgerSymbol("add"), it, onClick = addExpense) },
+            second = { LedgerAction("Add Refuel", ledgerSymbol("fuel"), it, secondary = true, onClick = addRefuel) }
+        ) }
+        item { SectionTitle("Recent transactions", "Your latest activity · tap to edit") }
+        if (state.expenses.isEmpty()) item { EmptyState("Your ledger starts here", "Add an expense or a refuel to see your spending. Your records stay on your phone.") }
+        items(state.expenses.sortedByDescending { it.timestamp }.take(10), key = { it.id }) { expense ->
+            ExpenseRow(expense, state.categories.find { it.id == expense.categoryId }) { edit(expense) }
         }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Stat("Today", Money.format(totals.today(today)), Modifier.weight(1f))
-                Stat("Monthly fuel", Money.format(fuel), Modifier.weight(1f))
-            }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = addExpense, modifier = Modifier.weight(1f)) { Icon(Icons.Outlined.Add, null); Spacer(Modifier.width(6.dp)); Text("Expense") }
-                FilledTonalButton(onClick = addRefuel, modifier = Modifier.weight(1f)) { Icon(Icons.Outlined.LocalGasStation, null); Spacer(Modifier.width(6.dp)); Text("Refuel") }
-            }
-        }
-        item { SectionTitle("Recent transactions", "Tap a transaction to view or edit") }
-        if (state.expenses.isEmpty()) item { EmptyState("Start your local ledger", "Add an expense or a refuel. Everything stays on your phone.") }
-        items(state.expenses.take(10), key = { it.id }) { expense -> ExpenseRow(expense, state.categories.find { it.id == expense.categoryId }) { edit(expense) } }
     }
 }
 
@@ -72,71 +69,119 @@ fun TripEstimator(settings: AppSettings) {
     val calculation = remember(distance, consumption, price) {
         runCatching { estimateTrip(measurement(distance, "Distance"), measurement(consumption, "Consumption"), price.toBigDecimal()) }
     }
-    OutlinedCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Trip cost estimator", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text("Estimated · based on the inputs below", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-            NumericField(distance, { distance = it }, "Trip distance (km)")
-            NumericField(consumption, { consumption = it }, "Consumption (L/100 km)")
-            NumericField(price, { price = it }, "Petrol price (RM/L)")
-            calculation.getOrNull()?.let { estimate ->
-                HorizontalDivider()
-                Text(Money.format(estimate.costCents), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                Text("${number(estimate.litres)} L of fuel · ${number(estimate.kmPerLitre)} km/L")
-                Text("RM ${number(estimate.costPerKm, 4)} per km", style = MaterialTheme.typography.bodyMedium)
-            } ?: Text("Enter positive distance, consumption and price to calculate.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+    LedgerCard {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(ledgerSymbol("route"), null, tint = MaterialTheme.colorScheme.primary)
+            Text("Trip cost estimator", style = MaterialTheme.typography.titleMedium)
         }
+        Text("Plan a journey using your own inputs. Estimates do not change your refuelling records.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        NumericField(distance, { distance = it }, "Trip distance (km)")
+        NumericField(consumption, { consumption = it }, "Consumption (L/100 km)")
+        NumericField(price, { price = it }, "Petrol price (RM/L)")
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        calculation.getOrNull()?.let { estimate ->
+            Text("Estimated trip cost", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(Money.format(estimate.costCents), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+            Text("${number(estimate.litres)} L of fuel · ${number(estimate.kmPerLitre)} km/L", style = MaterialTheme.typography.bodyMedium)
+            Text("RM ${number(estimate.costPerKm, 4)} per km", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } ?: Text("Enter positive distance, consumption and price to calculate.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     }
 }
+
 @Composable
 fun FuelScreen(state: LedgerState, add: () -> Unit, edit: (Refuel) -> Unit) {
     val month = YearMonth.from(currentCalendar().today)
     val current = state.refuels.filter { YearMonth.from(localDate(it.timestamp)) == month }
+    val estimates = remember(state.refuels) { fillEstimates(state.refuels.map { it.point() }) }
+    val latest = estimates.lastOrNull()
     val measured = remember(state.refuels) { efficiencies(state.refuels.map { it.point() }) }
-    val last = measured.lastOrNull()
-    val average = if (measured.isEmpty()) null else measured.sumOf { it.distance } / measured.sumOf { it.litres }
+    val measuredLast = measured.lastOrNull()
+    val measuredAverage = if (measured.isEmpty()) null else measured.sumOf { it.distance } / measured.sumOf { it.litres }
+    val newest = state.refuels.maxByOrNull { it.timestamp }
+    val records = state.refuels.sortedByDescending { it.timestamp }
     LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { SectionTitle("Fuel, with a clearer picture", "Estimates for planning. Full tanks for measurement.") }
-        item { TripEstimator(state.settings) }
+        item { ScreenHeading("Fuel tracker", "Every fill. A clearer view of every kilometre.", ledgerSymbol("fuel")) }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Stat("Fuel this month", Money.format(current.sumOf { it.cents }), Modifier.weight(1f), "${current.size} refuelling sessions")
-                Stat("Latest price", state.refuels.firstOrNull()?.let { "RM ${number(it.pricePerLitre, 3)}" } ?: "—", Modifier.weight(1f), "Per litre")
-            }
-        }
-        item {
-            if (last == null) EmptyState("Insufficient refuelling data", "Record two full tanks with increasing odometer readings. Partial fills between them are included.")
-            else OutlinedCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("MEASURED · FULL TANK TO FULL TANK", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
-                    Text("${number(last.kmPerLitre)} km/L", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    Text("Latest: ${number(last.litresPer100Km)} L/100 km · RM ${number(last.costPerKm, 4)}/km")
-                    Text("Average: ${number(average!!)} km/L across ${measured.size} valid cycles", style = MaterialTheme.typography.bodyMedium)
-                    Text("Average = total measured distance ÷ total measured litres. The baseline tank's fuel is excluded.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LedgerCard(emphasized = true) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Latest fuel efficiency", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Icon(ledgerSymbol("speed"), null, tint = MaterialTheme.colorScheme.primary)
                 }
+                Text(latest?.let { "${number(it.kmPerLitre)} km/L" } ?: "— km/L", style = MaterialTheme.typography.headlineLarge)
+                Text(latest?.let { "${number(it.litresPer100Km)} L/100 km · RM ${number(it.costPerKm, 4)}/km" } ?: "Add two fills with odometer readings to begin.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = .18f))
+                Text("ODO-BASED · PER-FILL ESTIMATE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                Text(latest?.let { "${number(it.distance, 1)} km since the previous fill ÷ ${number(it.litres)} L purchased. Tank levels can vary, so this is an estimate." }
+                    ?: "Use your odometer and litres purchased at every fill. A full tank is optional.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
             }
         }
+        item { ResponsivePair(
+            first = { Stat("Monthly fuel cost", Money.format(current.sumOf { it.cents }), it, "${current.size} fills · ${month.format(DateTimeFormatter.ofPattern("MMMM", Malaysia))}") },
+            second = { Stat("Latest price / litre", newest?.let { "RM ${number(it.pricePerLitre, 3)}" } ?: "—", it, newest?.let { dateLabel(localDate(it.timestamp)) } ?: "No refuels yet") }
+        ) }
+        item { LedgerAction("Add Refuel", ledgerSymbol("add"), Modifier.fillMaxWidth(), onClick = add) }
+        item { FuelTrend(estimates.map { estimate ->
+            val record = state.refuels.find { it.id == estimate.endId }
+            (record?.let { localDate(it.timestamp).format(DateTimeFormatter.ofPattern("d MMM", Malaysia)) } ?: "Fill") to estimate.kmPerLitre
+        }) }
+        item {
+            LedgerCard {
+                Text("Full-tank reference", style = MaterialTheme.typography.titleMedium)
+                if (measuredLast != null) {
+                    Text("${number(measuredLast.kmPerLitre)} km/L", style = MaterialTheme.typography.headlineSmall)
+                    Text("Latest measured cycle · ${number(measuredLast.litresPer100Km)} L/100 km · RM ${number(measuredLast.costPerKm, 4)}/km", style = MaterialTheme.typography.bodySmall)
+                    Text("Average ${number(measuredAverage!!)} km/L across ${measured.size} valid cycles", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                    Text("Total measured distance ÷ total measured litres. Partial fills between full tanks are included; the baseline tank's fuel is excluded.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else Text("Optional: mark two fills as full tanks to measure a complete cycle. Partial fills in between are included. Your per-fill estimates above work without this.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        item { SectionTitle("Plan your next journey", "Trip estimates are separate from your recorded fills") }
+        item { TripEstimator(state.settings) }
         item { SpendingBars("Fuel spending by month", (5L downTo 0L).map { offset ->
             val selected = month.minusMonths(offset)
-            selected.format(DateTimeFormatter.ofPattern("MMM yy", Malaysia)) to state.refuels.filter { YearMonth.from(localDate(it.timestamp)) == selected }.sumOf { it.cents }
+            selected.format(shortMonthFormat) to state.refuels.filter { YearMonth.from(localDate(it.timestamp)) == selected }.sumOf { it.cents }
         }, MaterialTheme.colorScheme.secondary) }
-        item { Button(onClick = add, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.Add, null); Text(" Add refuel") } }
-        item { SectionTitle("Refuelling history", "Newest first · tap to view or edit") }
-        if (state.refuels.isEmpty()) item { EmptyState("No refuels yet", "Your first full tank establishes the odometer baseline.") }
-        items(state.refuels, key = { it.id }) { refuel ->
-            val cycle = measured.find { it.endId == refuel.id }
-            Card(onClick = { edit(refuel) }, modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(refuel.station.ifBlank { "Refuelling" }, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        Text(Money.format(refuel.cents), fontWeight = FontWeight.Bold)
+        item { SectionTitle("Refuelling history", "Newest first · tap a fill to edit or view its receipt") }
+        if (records.isEmpty()) item { EmptyState("Ready for your first fill", "Record the odometer, litres and cost. Your next fill unlocks the first consumption estimate.") }
+        items(records, key = { it.id }) { refuel -> RefuelHistoryCard(refuel, estimates.find { it.endId == refuel.id }, measured.find { it.endId == refuel.id }) { edit(refuel) } }
+    }
+}
+
+@Composable
+private fun RefuelHistoryCard(refuel: Refuel, estimate: FillEstimate?, measured: Efficiency?, edit: () -> Unit) {
+    val fontScale = LocalDensity.current.fontScale
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val stacked = maxWidth < 330.dp || fontScale >= 1.3f
+        Card(onClick = edit, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+                    Box(Modifier.size(42.dp).background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
+                        Icon(ledgerSymbol("fuel"), null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(22.dp))
                     }
-                    Text(dateTime(refuel.timestamp), style = MaterialTheme.typography.bodySmall)
-                    Text("${number(refuel.odometer, 1)} km · ${number(refuel.litres)} L · RM ${number(refuel.pricePerLitre, 3)}/L")
-                    Text(if (refuel.fullTank) "Full tank" else "Partial fill", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
-                    if (cycle != null) Text("Measured: ${number(cycle.kmPerLitre)} km/L · ${number(cycle.litresPer100Km)} L/100 km\n${number(cycle.distance, 1)} km using ${number(cycle.litres)} L · RM ${number(cycle.costPerKm, 4)}/km", style = MaterialTheme.typography.bodySmall)
-                    if (refuel.notes.isNotBlank()) Text(refuel.notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(refuel.station.ifBlank { "Refuelling" }, style = MaterialTheme.typography.titleMedium)
+                        Text(dateTime(refuel.timestamp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (stacked) Text(Money.format(refuel.cents), style = MaterialTheme.typography.titleMedium)
+                    }
+                    if (!stacked) Text(Money.format(refuel.cents), style = MaterialTheme.typography.titleMedium, modifier = Modifier.widthIn(max = 145.dp))
                 }
+                Text("${number(refuel.odometer, 1)} km ODO · ${number(refuel.litres)} L · RM ${number(refuel.pricePerLitre, 3)}/L", style = MaterialTheme.typography.bodySmall)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(8.dp)) {
+                        Text(if (refuel.fullTank) "Full tank" else "Partial fill", Modifier.padding(horizontal = 9.dp, vertical = 5.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    }
+                    if (refuel.fuelType.isNotBlank()) Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, shape = RoundedCornerShape(8.dp)) {
+                        Text(refuel.fuelType, Modifier.padding(horizontal = 9.dp, vertical = 5.dp), style = MaterialTheme.typography.labelSmall)
+                    }
+                    if (refuel.receiptFile != null) Row(Modifier.padding(vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(ledgerSymbol("receipt"), null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                        Text("Receipt attached", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                if (refuel.stationLocation.isNotBlank()) Text(refuel.stationLocation, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (estimate != null) Text("Estimate ${number(estimate.kmPerLitre)} km/L · ${number(estimate.litresPer100Km)} L/100 km\n${number(estimate.distance, 1)} km since previous fill · RM ${number(estimate.costPerKm, 4)}/km", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                if (measured != null) Text("Full-tank cycle ${number(measured.kmPerLitre)} km/L · ${number(measured.distance, 1)} km using ${number(measured.litres)} L", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                if (refuel.notes.isNotBlank()) Text(refuel.notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -152,76 +197,84 @@ fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit)
     var category by rememberSaveable { mutableStateOf("") }
     var query by rememberSaveable { mutableStateOf("") }
     var sort by rememberSaveable { mutableStateOf("Newest") }
+    var filtersOpen by rememberSaveable { mutableStateOf(false) }
     val start = LocalDate.parse(startText)
     val end = LocalDate.parse(endText)
     val rangeValid = !end.isBefore(start)
-    val totals = remember(state.expenses, calendar.zone) { spending(state) }
+    val totals = remember(state.expenses, calendar.zone) { spending(state, calendar.zone) }
     val filtered = remember(state.expenses, start, end, category, query, sort) {
         val records = state.expenses.filter { rangeValid && localDate(it.timestamp) in start..end &&
             (category.isEmpty() || it.categoryId == category) && it.description.contains(query, ignoreCase = true) }
         when (sort) { "Oldest" -> records.sortedBy { it.timestamp }; "Highest" -> records.sortedByDescending { it.cents }; else -> records.sortedByDescending { it.timestamp } }
     }
     val groups = filtered.groupBy { localDate(it.timestamp) }.entries.toList().let { entries ->
-        when (sort) { "Oldest" -> entries.sortedBy { it.key }; "Highest" -> entries.sortedByDescending { it.value.maxOf { e -> e.cents } }; else -> entries.sortedByDescending { it.key } }
+        if (sort == "Oldest") entries.sortedBy { it.key } else entries.sortedByDescending { it.key }
     }
-    LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { SectionTitle("Every expense, accounted for", "Linked refuels are included once") }
+    LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item { ScreenHeading("Expenses", "Small details. A complete spending picture.", ledgerSymbol("expenses")) }
+        item { HeroAmount("This month's expenditure", Money.format(totals.month(currentMonth)), "${currentMonth.format(monthFormat)} · fuel counted once") }
+        item { ResponsivePair(
+            first = { Stat("Today", Money.format(totals.today(today)), it) },
+            second = { Stat("This week", Money.format(totals.week(today)), it, "Monday–Sunday") }
+        ) }
+        item { LedgerAction("Add Expense", ledgerSymbol("add"), Modifier.fillMaxWidth(), onClick = add) }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Stat("This week", Money.format(totals.week(today)), Modifier.weight(1f), "Monday–Sunday")
-                Stat("This year", Money.format(totals.year(today)), Modifier.weight(1f))
-            }
-        }
-        item { Stat("This month", Money.format(totals.month(currentMonth)), Modifier.fillMaxWidth()) }
-        item { Button(onClick = add, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.Add, null); Text(" Add expense") } }
-        item { SectionTitle("Transaction history") }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                DateButton(start, "From", { startText = it.toString() }, Modifier.fillMaxWidth())
-                DateButton(end, "To", { endText = it.toString() }, Modifier.fillMaxWidth())
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = { startText = currentMonth.atDay(1).toString(); endText = currentMonth.atEndOfMonth().toString() }) { Text("This month") }
-                    TextButton(onClick = {
-                        startText = state.expenses.minOfOrNull { localDate(it.timestamp) }?.toString() ?: today.toString()
-                        endText = maxOf(today, state.expenses.maxOfOrNull { localDate(it.timestamp) } ?: today).toString()
-                    }) { Text("All history") }
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = category.isEmpty(), onClick = { category = "" }, modifier = Modifier.heightIn(min = 48.dp), label = { Text("All") })
+                state.categories.forEach { item ->
+                    val label = when (item.id) { "food" -> "Food"; FUEL_CATEGORY -> "Fuel"; else -> item.name }
+                    FilterChip(selected = category == item.id, onClick = { category = item.id }, modifier = Modifier.heightIn(min = 48.dp),
+                        leadingIcon = { Icon(categoryIcon(item.icon), null, Modifier.size(17.dp)) }, label = { Text(label) })
                 }
-                if (!rangeValid) Text("End date must be on or after start date.", color = MaterialTheme.colorScheme.error)
+            }
+        }
+        item { SectionTitle("Transaction history", "${dateLabel(start)} – ${dateLabel(end)}") }
+        item {
+            LedgerCard {
                 TextField(query, { query = it }, "Search descriptions", 200)
-                Choice("Sort", sort, listOf("Newest", "Oldest", "Highest").map { it to it }) { sort = it }
+                OutlinedButton(onClick = { filtersOpen = !filtersOpen }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(12.dp)) {
+                    Icon(ledgerSymbol("tune"), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+                    Text(if (filtersOpen) "Hide date and sort filters" else "Date range & sorting")
+                }
+                if (filtersOpen) {
+                    DateButton(start, "From", { startText = it.toString() }, Modifier.fillMaxWidth())
+                    DateButton(end, "To", { endText = it.toString() }, Modifier.fillMaxWidth())
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { startText = currentMonth.atDay(1).toString(); endText = currentMonth.atEndOfMonth().toString() }) { Text("This month") }
+                        TextButton(onClick = {
+                            startText = state.expenses.minOfOrNull { localDate(it.timestamp) }?.toString() ?: today.toString()
+                            endText = maxOf(today, state.expenses.maxOfOrNull { localDate(it.timestamp) } ?: today).toString()
+                        }) { Text("All history") }
+                    }
+                    Choice("Sort", sort, listOf("Newest", "Oldest", "Highest").map { it to it }) { sort = it }
+                }
+                if (!rangeValid) Text("End date must be on or after start date.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                Text("${filtered.size} transactions · ${Money.format(filtered.sumOf { it.cents })}", style = MaterialTheme.typography.titleSmall)
+                if (rangeValid) Text("Daily average: RM ${number(filtered.sumOf { it.cents } / 100.0 / (ChronoUnit.DAYS.between(start, end) + 1))}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
-        item {
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = category.isEmpty(), onClick = { category = "" }, label = { Text("All categories") })
-                state.categories.forEach { item -> FilterChip(selected = category == item.id, onClick = { category = item.id }, label = { Text(item.name) }) }
-            }
-        }
-        item {
-            Stat("Selected transactions · ${filtered.size}", Money.format(filtered.sumOf { it.cents }), Modifier.fillMaxWidth(),
-                if (rangeValid) "Average per day: RM ${number(filtered.sumOf { it.cents } / 100.0 / (java.time.temporal.ChronoUnit.DAYS.between(start, end) + 1))}" else null)
         }
         if (filtered.isEmpty()) item { EmptyState("No matching transactions", "Try another date range, category or search, or add your first expense.") }
         if (sort == "Highest") {
             filtered.forEachIndexed { index, expense ->
                 val date = localDate(expense.timestamp)
                 if (index == 0 || localDate(filtered[index - 1].timestamp) != date) item(key = "highest-day:${expense.id}") {
-                    Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(dateLabel(date), fontWeight = FontWeight.SemiBold)
-                        Text("Day: ${Money.format(filtered.filter { localDate(it.timestamp) == date }.sumOf { it.cents })}", style = MaterialTheme.typography.labelLarge)
-                    }
+                    DayHeading(date, filtered.filter { localDate(it.timestamp) == date }.sumOf { it.cents })
                 }
                 item(key = expense.id) { ExpenseRow(expense, state.categories.find { it.id == expense.categoryId }) { edit(expense) } }
             }
         } else groups.forEach { (date, entries) ->
-            item(key = "day:$date") {
-                Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(dateLabel(date), fontWeight = FontWeight.SemiBold)
-                    Text(Money.format(entries.sumOf { it.cents }), style = MaterialTheme.typography.labelLarge)
-                }
-            }
+            item(key = "day:$date") { DayHeading(date, entries.sumOf { it.cents }) }
             items(entries, key = { it.id }) { expense -> ExpenseRow(expense, state.categories.find { it.id == expense.categoryId }) { edit(expense) } }
         }
+        item { Stat("This year", Money.format(totals.year(today)), Modifier.fillMaxWidth(), "All recorded expenses in ${today.year}") }
+    }
+}
+
+@Composable
+private fun DayHeading(date: LocalDate, cents: Long) {
+    FlowRow(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(dateLabel(date), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+        Text(Money.format(cents), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -229,71 +282,110 @@ fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit)
 fun AnalyticsScreen(state: LedgerState) {
     val calendar = currentCalendar()
     val today = calendar.today
-    var monthString by rememberSaveable { mutableStateOf(YearMonth.now().toString()) }
+    var monthString by rememberSaveable { mutableStateOf(YearMonth.from(today).toString()) }
     val month = YearMonth.parse(monthString)
-    val totals = remember(state.expenses, calendar.zone) { spending(state) }
-    val current = totals.month(month)
+    var customRange by rememberSaveable { mutableStateOf(false) }
+    var startText by rememberSaveable { mutableStateOf(month.atDay(1).toString()) }
+    var endText by rememberSaveable { mutableStateOf(month.atEndOfMonth().toString()) }
+    val start = if (customRange) LocalDate.parse(startText) else month.atDay(1)
+    val end = if (customRange) LocalDate.parse(endText) else month.atEndOfMonth()
+    val valid = !end.isBefore(start)
+    val totals = remember(state.expenses, calendar.zone) { spending(state, calendar.zone) }
+    val current = if (valid) totals.total(start, end) else 0L
     val previous = totals.month(month.minusMonths(1))
-    val distribution = totals.categories(month.atDay(1), month.atEndOfMonth()).entries.sortedByDescending { it.value }
+    val selectedMonthTotal = totals.month(month)
+    val distribution = if (valid) totals.categories(start, end).entries.sortedByDescending { it.value } else emptyList()
+    // Keep arbitrary ranges responsive while saying exactly which window each chart shows.
+    val trendEndMonth = if (customRange) YearMonth.from(end) else month
+    val firstTrendMonth = if (customRange && valid) maxOf(YearMonth.from(start), trendEndMonth.minusMonths(11)) else month.minusMonths(5)
+    val trendMonths = if (valid) generateSequence(firstTrendMonth) { it.plusMonths(1) }.takeWhile { it <= trendEndMonth }.toList() else emptyList()
+    fun trendBounds(m: YearMonth): Pair<LocalDate, LocalDate> =
+        if (customRange) maxOf(m.atDay(1), start) to minOf(m.atEndOfMonth(), end) else m.atDay(1) to m.atEndOfMonth()
     LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { SectionTitle("Patterns worth seeing", "Explore spending without leaving your phone") }
+        item { ScreenHeading("Analytics", "Understand your spending, at your own pace.", ledgerSymbol("analytics")) }
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { monthString = month.minusMonths(1).toString() }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, "Previous month") }
-                Text(month.format(DateTimeFormatter.ofPattern("MMMM yyyy", Malaysia)), style = MaterialTheme.typography.titleMedium)
-                IconButton(onClick = { monthString = month.plusMonths(1).toString() }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "Next month") }
+            LedgerCard {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { monthString = month.minusMonths(1).toString(); customRange = false }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, "Previous month") }
+                    Text(month.format(monthFormat), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { monthString = month.plusMonths(1).toString(); customRange = false }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "Next month") }
+                }
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(!customRange, { customRange = false }, label = { Text("Selected month") }, modifier = Modifier.heightIn(min = 48.dp))
+                    FilterChip(customRange, { if (!customRange) { startText = month.atDay(1).toString(); endText = month.atEndOfMonth().toString() }; customRange = true }, label = { Text("Custom range") }, modifier = Modifier.heightIn(min = 48.dp))
+                }
+                if (customRange) {
+                    DateButton(start, "From", { startText = it.toString() }, Modifier.fillMaxWidth())
+                    DateButton(end, "To", { endText = it.toString() }, Modifier.fillMaxWidth())
+                }
+                if (!valid) Text("End date must be on or after start date.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
         }
-        item {
-            Stat("Selected month", Money.format(current), Modifier.fillMaxWidth(),
-                if (previous == 0L) "Previous month: ${Money.format(previous)} · percentage unavailable"
-                else "${if (current >= previous) "+" else ""}${number((current - previous) * 100.0 / previous, 1)}% vs previous month (${Money.format(previous)})")
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Stat("Today", Money.format(totals.today(today)), Modifier.weight(1f))
-                Stat("This week", Money.format(totals.week(today)), Modifier.weight(1f))
-            }
-        }
-        item { Stat("Average daily spending", "RM ${number(totals.average(month.atDay(1), month.atEndOfMonth()))}", Modifier.fillMaxWidth(), "All ${month.lengthOfMonth()} calendar days, including days with no spending") }
-        item { SectionTitle("Category breakdown", distribution.firstOrNull()?.let { "Highest: ${state.categories.find { c -> c.id == it.key }?.name}" } ?: "No spending this month") }
-        if (distribution.isEmpty()) item { EmptyState("A fresh month", "Charts will fill in when you add transactions for this month.") }
+        item { HeroAmount(if (customRange) "Selected period spending" else "Selected month spending", Money.format(current),
+            if (customRange) "${dateLabel(start)} – ${dateLabel(end)}" else if (previous == 0L) "Previous month ${Money.format(previous)} · no percentage comparison"
+            else "${if (selectedMonthTotal >= previous) "+" else ""}${number((selectedMonthTotal - previous) * 100.0 / previous, 1)}% vs previous month (${Money.format(previous)})", ledgerSymbol("analytics")) }
+        item { ResponsivePair(
+            first = { Stat("Daily average", if (valid) "RM ${number(totals.average(start, end))}" else "—", it, if (valid) "Across ${ChronoUnit.DAYS.between(start, end) + 1} calendar days" else "Choose a valid range") },
+            second = { Stat("Fuel in this period", Money.format(if (valid) state.refuels.filter { localDate(it.timestamp) in start..end }.sumOf { it.cents } else 0), it, "Refuelling payments") }
+        ) }
+        item { CategoryDonut(distribution.map { (id, cents) -> state.categories.find { it.id == id } to cents }, current) }
+        item { SectionTitle("Category breakdown", distribution.firstOrNull()?.let { "Highest spending: ${state.categories.find { c -> c.id == it.key }?.name ?: "Other"}" } ?: "No spending in this period") }
         items(distribution, key = { it.key }) { (id, cents) ->
             val category = state.categories.find { it.id == id }
-            OutlinedCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        CategoryBadge(category)
-                        Column(Modifier.weight(1f)) { Text(category?.name.orEmpty(), fontWeight = FontWeight.SemiBold); Text("${number(cents * 100.0 / current, 1)}%", style = MaterialTheme.typography.bodySmall) }
-                        Text(Money.format(cents), fontWeight = FontWeight.SemiBold)
+            LedgerCard {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CategoryBadge(category)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(category?.name ?: "Other", style = MaterialTheme.typography.titleSmall)
+                        Text(Money.format(cents), style = MaterialTheme.typography.titleMedium)
+                        Text("${number(if (current > 0) cents * 100.0 / current else 0.0, 1)}% of this period", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    LinearProgressIndicator(progress = { (cents.toDouble() / current).toFloat() }, modifier = Modifier.fillMaxWidth(), color = category?.let { Color(it.color.toULong()) } ?: MaterialTheme.colorScheme.primary)
+                }
+                LinearProgressIndicator(progress = { if (current > 0) (cents.toDouble() / current).toFloat() else 0f }, modifier = Modifier.fillMaxWidth(), color = categoryTint(category), trackColor = MaterialTheme.colorScheme.surfaceContainerHighest)
+            }
+        }
+        if (distribution.isEmpty()) item { EmptyState("Your next insight starts here", "Add expenses in this date range to see category totals and spending patterns.") }
+        if (valid) {
+            item { DailySpending(totals, start, end) }
+            if (customRange && YearMonth.from(start) < firstTrendMonth) item {
+                Text("Monthly charts show the latest 12 months of your selected period.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            item { SpendingBars("Monthly expenditure trend", trendMonths.map { m ->
+                val (from, to) = trendBounds(m)
+                m.format(shortMonthFormat) to totals.total(from, to)
+            }) }
+            item { SpendingBars("Fuel expenditure history", trendMonths.map { m ->
+                val (from, to) = trendBounds(m)
+                m.format(shortMonthFormat) to state.refuels.filter { localDate(it.timestamp) in from..to }.sumOf { it.cents }
+            }, MaterialTheme.colorScheme.secondary) }
+        }
+        item { ResponsivePair(
+            first = { Stat("Today", Money.format(totals.today(today)), it) },
+            second = { Stat("This week", Money.format(totals.week(today)), it, "Monday–Sunday") }
+        ) }
+    }
+}
+
+@Composable
+private fun DailySpending(totals: Spending, start: LocalDate, end: LocalDate) {
+    val chartStart = maxOf(start, end.minusDays(30))
+    val days = generateSequence(chartStart) { it.plusDays(1) }.takeWhile { it <= end }.toList()
+    val data = days.map { totals.today(it) }
+    val max = data.maxOrNull()?.coerceAtLeast(1) ?: 1L
+    LedgerCard {
+        Text("Daily expenditure", style = MaterialTheme.typography.titleMedium)
+        Text("${dateLabel(chartStart)} – ${dateLabel(end)}${if (chartStart > start) " · latest 31 days in period" else ""} · swipe across · MYR", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
+            data.forEachIndexed { index, cents ->
+                Column(Modifier.widthIn(min = 54.dp).clearAndSetSemantics { contentDescription = "${dateLabel(days[index])}: ${Money.format(cents)}" }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(Money.decimal(cents), style = MaterialTheme.typography.labelSmall)
+                    Box(Modifier.height(110.dp).width(22.dp), contentAlignment = Alignment.BottomCenter) {
+                        Box(Modifier.fillMaxWidth().height(if (cents > 0) (110 * cents.toDouble() / max).dp else 2.dp)
+                            .background(if (cents > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(5.dp)))
+                    }
+                    Text(days[index].format(DateTimeFormatter.ofPattern("d MMM", Malaysia)), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
-        item {
-            OutlinedCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Daily expenditure", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Scroll across the month · day / MYR", style = MaterialTheme.typography.bodySmall)
-                    val data = (1..month.lengthOfMonth()).map { totals.today(month.atDay(it)) }
-                    val max = data.maxOrNull()?.coerceAtLeast(1) ?: 1L
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
-                        data.forEachIndexed { index, cents ->
-                            Column(Modifier.width(52.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(Money.decimal(cents), style = MaterialTheme.typography.labelSmall)
-                                Box(Modifier.height(120.dp).width(24.dp), contentAlignment = Alignment.BottomCenter) {
-                                    Box(Modifier.fillMaxWidth().height(if (cents > 0) (120 * cents.toDouble() / max).dp else 2.dp)
-                                        .background(if (cents > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp)))
-                                }
-                                Text((index + 1).toString(), style = MaterialTheme.typography.labelMedium)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        item { SpendingBars("Monthly expenditure trend", (5L downTo 0L).map { offset -> val m = month.minusMonths(offset); m.format(DateTimeFormatter.ofPattern("MMM yy", Malaysia)) to totals.month(m) }) }
-        item { SpendingBars("Monthly fuel trend", (5L downTo 0L).map { offset -> val m = month.minusMonths(offset); m.format(DateTimeFormatter.ofPattern("MMM yy", Malaysia)) to state.refuels.filter { YearMonth.from(localDate(it.timestamp)) == m }.sumOf { it.cents } }, MaterialTheme.colorScheme.secondary) }
     }
 }

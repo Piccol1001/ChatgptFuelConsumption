@@ -18,19 +18,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.core.view.WindowCompat
 import my.fuelledger.LedgerViewModel
+import my.fuelledger.R
 import my.fuelledger.data.*
 import java.util.UUID
-
-private val lightColors = lightColorScheme(primary = Color(0xFF006C60), onPrimary = Color.White,
-    primaryContainer = Color(0xFFB5EEE0), secondary = Color(0xFFA45C3F), background = Color(0xFFF8FAF6),
-    surface = Color(0xFFF8FAF6), surfaceContainer = Color(0xFFEBF1EB), surfaceContainerLow = Color(0xFFF0F5EF))
-private val darkColors = darkColorScheme(primary = Color(0xFF83D5C2), onPrimary = Color(0xFF00382F),
-    primaryContainer = Color(0xFF005145), secondary = Color(0xFFFFB596), background = Color(0xFF101714),
-    surface = Color(0xFF101714), surfaceContainer = Color(0xFF202B25), surfaceContainerLow = Color(0xFF18211C))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,8 +49,8 @@ fun LedgerApp(vm: LedgerViewModel) {
         }
         onDispose { }
     }
-    MaterialTheme(colorScheme = if (dark) darkColors else lightColors,
-        shapes = Shapes(small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(20.dp), large = RoundedCornerShape(28.dp))) {
+    MaterialTheme(colorScheme = if (dark) LedgerDarkColors else LedgerLightColors,
+        typography = LedgerTypography, shapes = LedgerShapes) {
         val snackbar = remember { SnackbarHostState() }
         LaunchedEffect(vm) { vm.messages.collect { snackbar.showSnackbar(it) } }
         var tab by rememberSaveable { mutableStateOf("Home") }
@@ -72,7 +68,7 @@ fun LedgerApp(vm: LedgerViewModel) {
         BackHandler(settingsOpen) { settingsOpen = false }
         val csvExpenses = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { it?.let { vm.export(it, "expenses") } }
         val csvRefuels = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { it?.let { vm.export(it, "refuels") } }
-        val backup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let { vm.export(it, "backup") } }
+        val backup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { it?.let { vm.export(it, "backup") } }
         val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(vm::inspectBackup) }
         val onExpense: (Expense) -> Unit = { expense ->
             if (expense.fuelId != null) refuelEditId = expense.fuelId
@@ -80,7 +76,15 @@ fun LedgerApp(vm: LedgerViewModel) {
         }
         Scaffold(
             topBar = {
-                TopAppBar(title = { Text(if (settingsOpen) "Settings" else "Fuel & Expense") },
+                TopAppBar(title = {
+                    if (settingsOpen) Text("Settings")
+                    else Column {
+                        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(R.string.app_version), style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                },
                     navigationIcon = { if (settingsOpen) IconButton(onClick = { settingsOpen = false }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
                     actions = { if (!settingsOpen) IconButton(onClick = { settingsOpen = true }) { Icon(Icons.Outlined.Settings, "Settings") } })
             },
@@ -100,7 +104,7 @@ fun LedgerApp(vm: LedgerViewModel) {
                     }
                 } else if (settingsOpen) SettingsScreen(state, vm, busy,
                     { csvExpenses.launch("expenses.csv") }, { csvRefuels.launch("refuels.csv") },
-                    { backup.launch("fuel-expense-backup.json") }, { import.launch(arrayOf("application/json", "text/*", "application/octet-stream")) })
+                    { backup.launch("fuel-expense-backup.zip") }, { import.launch(arrayOf("application/zip", "application/json", "text/*", "application/octet-stream")) })
                 else Crossfade(tab, label = "Navigation") { destination ->
                     when (destination) {
                         "Fuel" -> FuelScreen(state, newRefuel, { refuelEditId = it.id })
@@ -123,13 +127,13 @@ fun LedgerApp(vm: LedgerViewModel) {
         if (ready && state.categories.isNotEmpty() && (addRefuel || refuelEditor != null)) {
             val seed = refuelEditor
             val id = seed?.id ?: newRefuelId
-            RefuelEditor(seed, id, busy, dismiss = { if (!busy) { addRefuel = false; refuelEditId = null } },
+            RefuelEditor(seed, id, busy, vm, dismiss = { if (!busy) { addRefuel = false; refuelEditId = null } },
                 save = { vm.saveRefuel(it) { addRefuel = false; refuelEditId = null } },
                 delete = { vm.deleteRefuel(id) { addRefuel = false; refuelEditId = null } })
         }
         restore?.let { pending ->
             AlertDialog(onDismissRequest = { if (!busy) vm.cancelRestore() }, title = { Text("Replace data from backup?") },
-                text = { Text("Validated backup: ${pending.expenses.size} expenses, ${pending.refuels.size} refuels and ${pending.categories.size} categories. This replaces all current records, categories and settings. Export a backup first if you want to keep your current data.") },
+                text = { Text("Validated backup: ${pending.backup.expenses.size} expenses, ${pending.backup.refuels.size} refuels, ${pending.backup.categories.size} categories and ${pending.receiptCount} receipt photos. This replaces all current records, categories and settings. Export a backup first if you want to keep your current data.") },
                 confirmButton = { Button(onClick = vm::confirmRestore, enabled = !busy) { Text("Replace data") } },
                 dismissButton = { TextButton(onClick = vm::cancelRestore, enabled = !busy) { Text("Cancel") } })
         }

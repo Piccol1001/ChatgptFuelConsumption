@@ -2,6 +2,8 @@ package my.fuelledger.data
 
 import android.content.Context
 import androidx.room.*
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.Serializable
 import my.fuelledger.domain.FuelPoint
@@ -18,7 +20,9 @@ data class Category(@PrimaryKey val id: String, val name: String, val icon: Stri
 @Serializable
 @Entity(tableName = "refuels")
 data class Refuel(@PrimaryKey val id: String, val timestamp: Long, val odometer: Double,
-    val litres: Double, val cents: Long, val fullTank: Boolean, val station: String = "", val notes: String = "") {
+    val litres: Double, val cents: Long, val fullTank: Boolean, val station: String = "", val notes: String = "",
+    @ColumnInfo(defaultValue = "''") val fuelType: String = "",
+    @ColumnInfo(defaultValue = "''") val stationLocation: String = "", val receiptFile: String? = null) {
     fun point() = FuelPoint(id, timestamp, odometer, litres, cents, fullTank)
     val pricePerLitre get() = cents / 100.0 / litres
 }
@@ -76,10 +80,18 @@ interface LedgerDao {
     @Query("DELETE FROM categories") suspend fun clearCategories()
 }
 
-@Database(entities = [Category::class, Expense::class, Refuel::class, PendingSettings::class], version = 1, exportSchema = true)
+@Database(entities = [Category::class, Expense::class, Refuel::class, PendingSettings::class], version = 2, exportSchema = true)
 abstract class LedgerDatabase : RoomDatabase() {
     abstract fun dao(): LedgerDao
     companion object {
-        fun open(context: Context) = Room.databaseBuilder(context, LedgerDatabase::class.java, "fuel-ledger.db").build()
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE refuels ADD COLUMN fuelType TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE refuels ADD COLUMN stationLocation TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE refuels ADD COLUMN receiptFile TEXT")
+            }
+        }
+        fun open(context: Context) = Room.databaseBuilder(context, LedgerDatabase::class.java, "fuel-ledger.db")
+            .addMigrations(MIGRATION_1_2).build()
     }
 }

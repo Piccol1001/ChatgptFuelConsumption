@@ -20,6 +20,11 @@ fun validateExpense(expense: Expense) {
 fun validateRefuel(refuel: Refuel) {
     require(refuel.id.isNotBlank() && refuel.id.length <= 100 && refuel.timestamp in 0..32_503_680_000_000L) { "Invalid refuel ID or date." }
     require(refuel.station.length <= 100 && refuel.notes.length <= 2000) { "Station or notes are too long." }
+    require(refuel.fuelType.length <= 50 && refuel.stationLocation.length <= 200) { "Fuel type or station location is too long." }
+    require(refuel.receiptFile == null ||
+        Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.jpg").matches(refuel.receiptFile)) {
+        "Invalid receipt file name."
+    }
     validateSequence(listOf(refuel.point()))
 }
 fun validateCategory(category: Category) {
@@ -27,7 +32,7 @@ fun validateCategory(category: Category) {
     require(category.icon in categoryIcons && category.color in categoryColors) { "Choose a supported icon and colour." }
 }
 fun Backup.validate() {
-    require(format == "my.fuelledger.backup" && version == 1) { "This is not a compatible Fuel & Expense Tracker backup." }
+    require(format == "my.fuelledger.backup" && version in 1..2) { "This is not a compatible Fuel & Expense Tracker backup." }
     require(categories.size in 7..500 && expenses.size <= 100_000 && refuels.size <= 100_000) { "Backup contains too many records or is missing default categories." }
     require(categories.map { it.id }.distinct().size == categories.size &&
         expenses.map { it.id }.distinct().size == expenses.size && refuels.map { it.id }.distinct().size == refuels.size) { "Backup contains duplicate IDs." }

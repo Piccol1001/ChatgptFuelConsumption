@@ -53,6 +53,27 @@ data class Efficiency(val startId: String, val endId: String, val distance: Doub
     val costPerKm get() = cents / 100.0 / distance
 }
 
+/** An estimate from the current purchase, since tank levels can differ between fills. */
+data class FillEstimate(val startId: String, val endId: String, val distance: Double, val litres: Double,
+    val cents: Long) {
+    val kmPerLitre get() = distance / litres
+    val litresPer100Km get() = litres / distance * 100
+    val costPerKm get() = cents / 100.0 / distance
+}
+
+/** Every consecutive fill contributes an interval, even when neither fill is full. */
+fun fillEstimates(points: List<FuelPoint>): List<FillEstimate> = points.sortedBy { it.timestamp }
+    .zipWithNext().mapNotNull { (previous, current) ->
+        if (!validFuelPoint(previous) || !validFuelPoint(current) ||
+            current.timestamp <= previous.timestamp || current.odometer <= previous.odometer) null
+        else FillEstimate(previous.id, current.id, current.odometer - previous.odometer,
+            current.litres, current.cents)
+    }
+
+private fun validFuelPoint(point: FuelPoint) = point.timestamp >= 0 && point.odometer.isFinite() &&
+    point.odometer >= 0 && point.odometer <= 1e9 && point.litres.isFinite() && point.litres > 0 &&
+    point.litres <= 1e9 && point.cents in 1..MAX_CENTS
+
 fun validateSequence(points: List<FuelPoint>) {
     points.forEach {
         require(it.timestamp >= 0 && it.odometer.isFinite() && it.odometer >= 0 && it.odometer <= 1e9 &&

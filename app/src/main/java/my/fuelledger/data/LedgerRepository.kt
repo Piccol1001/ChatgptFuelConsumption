@@ -83,7 +83,7 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
     suspend fun backup(): Backup = writes.withLock {
         applyPendingSettings()
         database.withTransaction {
-            Backup(format = "my.fuelledger.backup", version = 1, createdAt = System.currentTimeMillis(), categories = dao.allCategories(),
+            Backup(format = "my.fuelledger.backup", version = 2, createdAt = System.currentTimeMillis(), categories = dao.allCategories(),
                 expenses = dao.allExpenses(), refuels = dao.allRefuels(), settings = preferences.settings.first())
         }
     }
@@ -110,8 +110,9 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
             snapshot.expenses.map { listOf(it.id, localTimestamp(it.timestamp), my.fuelledger.domain.Money.decimal(it.cents),
                 names[it.categoryId].orEmpty(), it.description, it.notes, it.payment, it.fuelId.orEmpty()) })
     }
-    suspend fun exportRefuels(): String = csv(listOf(listOf("ID", "Date time (local, with offset)", "Odometer (km)", "Litres", "Payment (MYR)", "Price (MYR/L)", "Full tank", "Station", "Notes")) +
+    suspend fun exportRefuels(): String = csv(listOf(listOf("ID", "Date time (local, with offset)", "Odometer (km)", "Litres", "Payment (MYR)", "Price (MYR/L)", "Full tank", "Station", "Notes", "Fuel type", "Station location", "Receipt file")) +
         backup().refuels.map { listOf(it.id, localTimestamp(it.timestamp), it.odometer.toString(), it.litres.toString(),
-            my.fuelledger.domain.Money.decimal(it.cents), it.pricePerLitre.toString(), it.fullTank.toString(), it.station, it.notes) })
+            my.fuelledger.domain.Money.decimal(it.cents), it.pricePerLitre.toString(), it.fullTank.toString(), it.station, it.notes,
+            it.fuelType, it.stationLocation, it.receiptFile.orEmpty()) })
 }
 private fun localTimestamp(epoch: Long) = Instant.ofEpochMilli(epoch).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
