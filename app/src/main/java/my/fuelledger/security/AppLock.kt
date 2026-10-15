@@ -22,7 +22,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import my.fuelledger.LedgerApplication
 import java.io.File
+import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 
 /** Only settings are stored here. The lock never stores credentials or replaces data encryption. */
@@ -74,16 +76,21 @@ fun localAuthenticationPlan(sdk: Int, biometric: Boolean, secureCredential: Bool
     else -> LocalAuthenticationPlan.UNAVAILABLE
 }
 
-private class AppLockStore(context: Context) {
-    private val vault = LocalVault(context)
+internal class AppLockStore(context: Context, private val vault: LocalVault) {
     private val path = File(context.noBackupFilesDir, "security/app-lock.bin")
     private val file = AtomicFile(path)
     fun read(): AppLockPreferences {
         if (!path.exists() && !File(path.path + ".bak").exists()) return AppLockPreferences()
         val encrypted = file.openRead().use { input ->
-            val bytes = input.readNBytes(8193)
-            require(bytes.size <= 8192) { "Invalid lock settings." }
-            bytes
+            val output = ByteArrayOutputStream()
+            val chunk = ByteArray(1024)
+            while (true) {
+                val count = input.read(chunk)
+                if (count < 0) break
+                require(output.size() + count <= 8192) { "Invalid lock settings." }
+                output.write(chunk, 0, count)
+            }
+            output.toByteArray()
         }
         val plain = vault.decrypt(encrypted, "app-lock-settings-v1")
         try {
@@ -109,7 +116,7 @@ private class AppLockStore(context: Context) {
 enum class AppLockAction { UNLOCK, ENABLE, DISABLE }
 
 class AppLockController(application: Application) : AndroidViewModel(application) {
-    private val store = AppLockStore(application)
+    private val store = AppLockStore(application, (application as LedgerApplication).vault)
     private val session = AppLockSession()
     private var timer: Job? = null
     private var foreground = false

@@ -128,7 +128,7 @@ fun parseReceipt(text: String): ReceiptSuggestions {
         litres = choose(litres), amount = choose(amounts), fuelType = fuels.singleOrNull(),
         station = stations.singleOrNull() ?: genericMerchant(lines), stationLocation = receiptLocation(lines),
         odometer = choose(odometers), date = choose(dates), time = choose(times), rawText = text,
-        suggestedCategoryId = suggestCategory(lines, fuels.isNotEmpty() || stations.isNotEmpty() || choose(litres) != null)
+        suggestedCategoryId = suggestCategory(lines, fuels.isNotEmpty() || stations.isNotEmpty())
     )
 }
 
@@ -233,15 +233,18 @@ private val categoryRules = listOf(
 private fun suggestCategory(lines: List<String>, fuel: Boolean): String? {
     if (fuel) return "fuel-transport"
     // Merchant headers take precedence over incidental products or advertisements farther down.
-    val headers = lines.take(5).joinToString("\n")
+    val meaningful = lines.filterNot { receiptFooter.containsMatchIn(it) }
+    val headers = meaningful.take(5).joinToString("\n")
     val headerMatches = categoryRules.filter { it.second.containsMatchIn(headers) }.map { it.first }
     if (headerMatches.size == 1) return headerMatches.single()
     if (headerMatches.size > 1) return null
-    return categoryRules.filter { it.second.containsMatchIn(lines.joinToString("\n")) }.map { it.first }.singleOrNull()
+    return categoryRules.filter { it.second.containsMatchIn(meaningful.joinToString("\n")) }.map { it.first }.singleOrNull()
 }
 
 private fun genericMerchant(lines: List<String>): String? {
     val explicit = Regex("(?i)^(?:MERCHANT|KEDAI|PENIAGA)\\s*[:=-]\\s*(.+)$")
     lines.take(8).forEach { line -> explicit.find(line)?.let { return it.groupValues[1].take(150) } }
-    return lines.take(5).firstOrNull { line -> categoryRules.any { it.second.containsMatchIn(line) } }?.take(150)
+    return lines.take(5).firstOrNull { line -> !receiptFooter.containsMatchIn(line) && categoryRules.any { it.second.containsMatchIn(line) } }?.take(150)
 }
+
+private val receiptFooter = Regex("(?i)\\b(?:THANK(?:S|\\s+YOU)|TERIMA\\s+KASIH|COME\\s+AGAIN|PLEASE\\s+(?:COME|VISIT))\\b")

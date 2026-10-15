@@ -84,13 +84,14 @@ private class LegacySettingsMigration(private val context: Context) : DataMigrat
     override suspend fun migrate(currentData: AppSettings): AppSettings {
         val readScope = CoroutineScope(SupervisorJob() + Dispatchers.IO).also { legacyScope = it }
         try {
-            val old = PreferencesDataStoreFactory.create(scope = readScope, produceFile = { legacyFile }).data.first()
+            val old = PreferenceDataStoreFactory.create(scope = readScope, produceFile = { legacyFile }).data.first()
             return AppSettings(old[stringPreferencesKey("petrol_price")] ?: "2.05",
                 old[doublePreferencesKey("consumption")] ?: 7.0,
                 old[stringPreferencesKey("theme")] ?: "Dark").also { it.validate() }
-        } catch (error: Exception) {
+        } finally {
+            // This reader is no longer needed once its snapshot is taken. In particular,
+            // a later encryption/write failure must not leave an active legacy DataStore.
             readScope.coroutineContext[Job]?.cancelAndJoin()
-            throw error
         }
     }
     override suspend fun cleanUp() {

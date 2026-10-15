@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
 import androidx.exifinterface.media.ExifInterface
+import androidx.core.graphics.scale
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -132,7 +133,7 @@ class ReceiptStore(context: Context, private val vault: LocalVault = LocalVault(
             val longest = maxOf(adjusted.width, adjusted.height)
             val finalBitmap = if (longest <= MAX_EDGE) adjusted else {
                 val factor = MAX_EDGE.toDouble() / longest
-                Bitmap.createScaledBitmap(adjusted, (adjusted.width * factor).toInt().coerceAtLeast(1),
+                adjusted.scale((adjusted.width * factor).toInt().coerceAtLeast(1),
                     (adjusted.height * factor).toInt().coerceAtLeast(1), true)
             }
             resized = finalBitmap

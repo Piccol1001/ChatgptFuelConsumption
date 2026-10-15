@@ -19,7 +19,8 @@ import java.util.UUID
 
 @Composable
 fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, exportExpenses: () -> Unit,
-    exportRefuels: () -> Unit, backup: () -> Unit, restore: () -> Unit) {
+    exportRefuels: () -> Unit, backup: () -> Unit, restore: () -> Unit,
+    restoreLegacy: () -> Unit = {}, openFinance: () -> Unit = {}) {
     var price by rememberSaveable(state.settings.petrolPrice) { mutableStateOf(state.settings.petrolPrice) }
     var consumption by rememberSaveable(state.settings.consumption) { mutableStateOf(state.settings.consumption.toString()) }
     var theme by rememberSaveable(state.settings.theme) { mutableStateOf(state.settings.theme) }
@@ -43,6 +44,12 @@ fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, expor
                 }
             }
         }
+        item {
+            OutlinedButton(onClick = openFinance, modifier = Modifier.fillMaxWidth(), enabled = !busy) {
+                Icon(ledgerSymbol("wallet"), null); Spacer(Modifier.width(8.dp)); Text("Income, budgets & recurring expenses")
+            }
+        }
+        item { AppLockSettings() }
         item { SectionTitle("Categories", "Built-in categories stay available. Custom categories can be changed.") }
         items(state.categories, key = { it.id }) { category ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -51,17 +58,19 @@ fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, expor
                 if (category.custom) IconButton(onClick = { editCategory = category }, enabled = !busy) { Icon(Icons.Outlined.Edit, "Edit ${category.name}") }
             }
         }
-        item { OutlinedButton(onClick = { addCategory = true }, modifier = Modifier.fillMaxWidth(), enabled = !busy) { Icon(Icons.Outlined.Add, null); Text(" Create category") } }
-        item { SectionTitle("Your data", "Use the system picker to choose a local folder. No storage permission is needed.") }
+        item { OutlinedButton(onClick = { addCategory = true }, modifier = Modifier.fillMaxWidth(), enabled = !busy) { Icon(ledgerSymbol("add"), null); Text(" Create category") } }
+        item { SectionTitle("Your data", "Choose a local folder in the system picker. Password-protected backups include all records and retained receipt photos.") }
         item {
             OutlinedCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedButton(onClick = exportExpenses, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Export expenses to CSV") }
                     OutlinedButton(onClick = exportRefuels, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Export refuels to CSV") }
-                    Button(onClick = backup, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.SaveAlt, null); Text(" Create complete backup") }
-                    OutlinedButton(onClick = restore, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Restore from backup…") }
-                    Text("ZIP backups include all transactions, receipt photos, categories and preferences. Restore also accepts your older JSON backups, validates the file and asks before replacing data. CSV files are for spreadsheets and cannot be restored.", style = MaterialTheme.typography.bodySmall)
-                    Text("Backup files are readable by anyone who has the file. Store them in a private location.", style = MaterialTheme.typography.bodySmall)
+                    Button(onClick = backup, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Icon(ledgerSymbol("receipt"), null); Spacer(Modifier.width(8.dp)); Text("Create encrypted backup") }
+                    OutlinedButton(onClick = restore, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Restore encrypted backup…") }
+                    OutlinedButton(onClick = restoreLegacy, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Import old unencrypted JSON / ZIP…") }
+                    Text("Backups include expenses, fuel records, income, budgets, recurring rules, categories, preferences and retained receipts. A password is required for new encrypted backups and is never stored. Losing it can make the backup unrecoverable.", style = MaterialTheme.typography.bodySmall)
+                    Text("Old JSON/ZIP imports are unencrypted compatibility files. Restore validates a complete file and asks before replacing your records. CSV exports are unencrypted spreadsheet files and cannot be restored.", style = MaterialTheme.typography.bodySmall)
+                    Text("Cloud-synced folders and sharing with another app are outside this app's local-storage protection. Choose a private local folder.", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -93,5 +102,5 @@ private fun CategoryEditor(seed: Category?, id: String, busy: Boolean, dismiss: 
         Choice("Colour", color.toString(), categoryColors.zip(listOf("Orange", "Green", "Purple", "Blue", "Pink", "Gold", "Grey", "Red")).map { it.first.toString() to it.second }) { color = it.toLong() }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) { CategoryBadge(Category(id, name, icon, color)); Text(name.ifBlank { "Category preview" }) }
     }
-    if (confirm) DeleteConfirmation("Delete category?", "Existing expenses in this category will be moved to Others. No expense records will be deleted.", busy, { confirm = false }, delete)
+    if (confirm) DeleteConfirmation("Delete category?", "Expenses and recurring payments in this category move to Others. Its monthly budgets are combined with existing Others budgets. No expense records are deleted.", busy, { confirm = false }, delete)
 }

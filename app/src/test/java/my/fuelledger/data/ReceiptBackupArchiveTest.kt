@@ -22,8 +22,6 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
-import java.io.FilterOutputStream
-import java.io.OutputStream
 import javax.crypto.spec.SecretKeySpec
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
@@ -109,16 +107,18 @@ class ReceiptBackupArchiveTest {
     @Test fun zipRoundTripIncludesPhotosAndRestoresToFreshNamesOnlyAfterConfirmation() = runBlocking {
         val image = jpeg()
         savePhoto(first, image)
-        val original = backup(listOf(first))
+        val original = backup(listOf(first)).copy(version = 3)
         val output = ByteArrayOutputStream()
-        archive.write(output, original)
+        archive.writeEncrypted(output, original, "Roundtrip backup password".toCharArray())
         val entryNames = mutableListOf<String>()
-        ZipInputStream(ByteArrayInputStream(output.toByteArray())).use { zip ->
-            while (true) entryNames += (zip.nextEntry ?: break).name
+        BackupCrypto.decryptingStream(ByteArrayInputStream(output.toByteArray()), "Roundtrip backup password".toCharArray()).use { decrypted ->
+            ZipInputStream(decrypted).use { zip ->
+                while (true) entryNames += (zip.nextEntry ?: break).name
+            }
         }
         assertEquals(listOf("manifest.json", "receipts/$first"), entryNames)
         val before = liveFiles()
-        archive.read(ByteArrayInputStream(output.toByteArray())).use { prepared ->
+        archive.readEncrypted(ByteArrayInputStream(output.toByteArray()), "Roundtrip backup password".toCharArray()).use { prepared ->
             assertEquals(original, prepared.backup)
             assertEquals(1, prepared.receiptCount)
             assertEquals(before, liveFiles())
@@ -148,12 +148,14 @@ class ReceiptBackupArchiveTest {
     @Test fun legacyVersionOneJsonRetainsRecordsAndDefaultsForNewMetadata() = runBlocking {
         val json = JSONObject(backupJson.encodeToString(backup())).apply {
             put("version", 1)
+            remove("incomes"); remove("budgets"); remove("recurring")
             getJSONArray("refuels").getJSONObject(0).apply {
                 remove("fuelType"); remove("stationLocation"); remove("receiptFile")
             }
         }.toString()
         archive.read(ByteArrayInputStream(json.toByteArray())).use { prepared ->
             assertEquals(1, prepared.backup.version)
+            assertTrue(prepared.backup.incomes.isEmpty() && prepared.backup.budgets.isEmpty() && prepared.backup.recurring.isEmpty())
             assertEquals(0, prepared.receiptCount)
             assertNull(prepared.backup.refuels.single().receiptFile)
             assertEquals("", prepared.backup.refuels.single().fuelType)
@@ -278,8 +280,8 @@ class ReceiptBackupArchiveTest {
     @Test fun sharedReceiptIsArchivedOnceAndGetsOneFreshName() = runBlocking {
         savePhoto(first)
         val output = ByteArrayOutputStream()
-        archive.write(output, backup(listOf(first, first)))
-        archive.read(ByteArrayInputStream(output.toByteArray())).use { prepared ->
+        archive.writeEncrypted(output, backup(listOf(first, first)), "Shared photo backup password".toCharArray())
+        archive.readEncrypted(ByteArrayInputStream(output.toByteArray()), "Shared photo backup password".toCharArray()).use { prepared ->
             assertEquals(1, prepared.receiptCount)
             val restored = archive.materialize(prepared)
             assertEquals(1, restored.refuels.map { it.receiptFile }.distinct().size)
@@ -290,7 +292,7 @@ class ReceiptBackupArchiveTest {
     @Test fun exportWithMissingReceiptFailsBeforeWritingAnyArchiveBytes() = runBlocking {
         val output = ByteArrayOutputStream()
         try {
-            archive.write(output, backup(listOf(first)))
+            archive.writeEncrypted(output, backup(listOf(first)), "Missing receipt backup password".toCharArray())
             fail("Expected missing source photo rejection")
         } catch (failure: IllegalArgumentException) {
             assertTrue(failure.message.orEmpty().contains("receipt photo is missing"))
@@ -356,10 +358,7 @@ class ReceiptBackupArchiveTest {
         val password = "A sufficiently long password".toCharArray()
         // Force the final authenticated segment to lie well beyond ZIP's central directory.
         BackupCrypto.encryptingStream(output, password).use { encrypted ->
-            val nonClosing = object : FilterOutputStream(encrypted) {
-                override fun close() = flush()
-            }
-            archive.write(nonClosing, backup().copy(version = 3))
+            encrypted.write(zip(backup().copy(version = 3)))
             encrypted.write(ByteArray(200_000) { (it % 251).toByte() })
         }
         password.fill('\u0000')
@@ -415,6 +414,52 @@ class ReceiptBackupArchiveTest {
         try { archive.materialize(prepared) } catch (_: Exception) { rejected = true }
         assertTrue(rejected)
         assertTrue(liveFiles().isEmpty())
+        assertTrue(restoreStages().isEmpty())
+    }
+    @Test fun encryptedArchiveIncludesAllFinanceListsAndHistoricalOccurrences() = runBlocking {
+        val income = FinanceIncome("salary", 350000, 1000, "Salary", "Private")
+        val budget = FinanceBudget("limit", "2026-10", 50000, "food")
+        val rule = FinanceRecurring("rent", "Rent", 80000, "bills", "Monthly", "2026-10-01", "2026-10-01", false)
+        val historical = Expense("historical", 1200, "food", 2000, recurringRuleId = "removed-rule", recurringDate = "2026-10-01")
+        val original = backup().let { it.copy(version = 3, incomes = listOf(income), budgets = listOf(budget),
+            recurring = listOf(rule), expenses = it.expenses + historical) }
+        val output = ByteArrayOutputStream()
+        archive.writeEncrypted(output, original, "Finance backup password".toCharArray())
+        archive.readEncrypted(ByteArrayInputStream(output.toByteArray()), "Finance backup password".toCharArray()).use { prepared ->
+            assertEquals(original, prepared.backup)
+            assertEquals(original, archive.materialize(prepared))
+        }
+        assertTrue(restoreStages().isEmpty())
+    }
+
+    @Test fun encryptedReadCancellationClearsPasswordAndRemovesAllStaging() = runBlocking {
+        val password = "Cancelled backup password".toCharArray()
+        val source = object : InputStream() {
+            override fun read(): Int = throw CancellationException("Cancelled backup import")
+        }
+        try {
+            archive.readEncrypted(source, password).close()
+            fail("Expected cancellation")
+        } catch (_: CancellationException) { }
+        assertTrue(password.all { it == '\u0000' })
+        assertTrue(restoreStages().isEmpty())
+        assertTrue(liveFiles().isEmpty())
+    }
+
+    @Test fun oversizedExportMetadataFailsWhileEncodingBeforeAnyCiphertextIsWritten() = runBlocking {
+        val notes = "x".repeat(2000)
+        val large = backup().let { source -> source.copy(version = 3,
+            expenses = source.expenses + List(9_000) { Expense("large-$it", 100, "food", 1000, notes = notes) }) }
+        val output = ByteArrayOutputStream()
+        val password = "Oversized backup password".toCharArray()
+        try {
+            archive.writeEncrypted(output, large, password)
+            fail("Expected a bounded metadata rejection")
+        } catch (failure: IllegalArgumentException) {
+            assertTrue(failure.message.orEmpty().contains("16 MB"))
+        }
+        assertEquals(0, output.size())
+        assertTrue(password.all { it == '\u0000' })
         assertTrue(restoreStages().isEmpty())
     }
 }

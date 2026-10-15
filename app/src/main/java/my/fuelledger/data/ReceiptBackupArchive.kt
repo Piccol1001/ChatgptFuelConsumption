@@ -7,7 +7,8 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.encodeToStream
 import my.fuelledger.receipts.ReceiptStore
 import my.fuelledger.security.LocalVault
 import java.io.ByteArrayInputStream
@@ -15,6 +16,7 @@ import java.io.ByteArrayOutputStream
 import java.io.Closeable
 import java.io.File
 import java.io.FilterInputStream
+import java.io.FilterOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.io.PushbackInputStream
@@ -59,8 +61,14 @@ class ReceiptBackupArchive(
     suspend fun writeEncrypted(output: OutputStream, backup: Backup, password: CharArray) {
         try {
             withContext(Dispatchers.IO) {
-                BackupCrypto.encryptingStream(output.buffered(), password).use { encrypted ->
-                    write(encrypted, backup.copy(version = 3))
+                require(password.size in 12..1024) { "Use a backup password containing 12–1024 characters." }
+                val prepared = prepareExport(backup.copy(version = 3))
+                try {
+                    BackupCrypto.encryptingStream(output.buffered(), password).use { encrypted ->
+                        writeArchive(encrypted, prepared)
+                    }
+                } finally {
+                    prepared.manifest.fill(0)
                 }
             }
         } finally {
@@ -99,34 +107,45 @@ class ReceiptBackupArchive(
         }
     }
 
-    /** Legacy compatibility/test writer. Production UI only exposes writeEncrypted. */
-    suspend fun write(output: OutputStream, backup: Backup) = withContext(Dispatchers.IO) {
+    private data class PreparedExport(val manifest: ByteArray, val photoNames: Set<String>)
+
+    @OptIn(ExperimentalSerializationApi::class)
+    private suspend fun prepareExport(backup: Backup): PreparedExport {
         backup.validate()
-        val manifest = backupJson.encodeToString(backup.copy(version = maxOf(2, backup.version))).toByteArray(Charsets.UTF_8)
-        require(manifest.size <= MAX_MANIFEST_BYTES) { "Backup metadata exceeds 16 MB." }
+        // Enforce the limit while encoding rather than allocating an oversized JSON String.
+        val manifest = LimitedByteArrayOutputStream(MAX_MANIFEST_BYTES).also {
+            backupJson.encodeToStream(backup, it)
+        }.toByteArray()
         val photoNames = backup.receiptNames()
+        require(photoNames.size + 1 <= MAX_ENTRIES) { "Backup contains too many receipt photos." }
         var expandedSize = manifest.size.toLong()
         // Preflight without retaining all photos in RAM and before writing any output.
         photoNames.forEach { name ->
+            currentCoroutineContext().ensureActive()
             require(receipts.file(name).isFile) { "A receipt photo is missing. Reattach it before creating a backup." }
             val bytes = receipts.readPhoto(name)
             try {
                 validateJpeg(bytes)
                 expandedSize += bytes.size
+                require(expandedSize <= MAX_EXPANDED_BYTES) { "Backup exceeds the 256 MB expanded size limit." }
             } finally {
                 bytes.fill(0)
             }
         }
-        require(photoNames.size + 1 <= MAX_ENTRIES) { "Backup contains too many receipt photos." }
         require(expandedSize <= MAX_EXPANDED_BYTES) {
             "Backup exceeds the 256 MB expanded size limit."
         }
-        ZipOutputStream(output.buffered()).use { zip ->
+        return PreparedExport(manifest, photoNames)
+    }
+
+    private suspend fun writeArchive(output: OutputStream, prepared: PreparedExport) {
+        val manifest = prepared.manifest
+        ZipOutputStream(NonClosingOutputStream(output).buffered()).use { zip ->
             zip.putNextEntry(ZipEntry(MANIFEST))
             zip.write(manifest)
             zip.closeEntry()
             var total = manifest.size.toLong()
-            photoNames.forEach { name ->
+            prepared.photoNames.forEach { name ->
                 currentCoroutineContext().ensureActive()
                 zip.putNextEntry(ZipEntry("receipts/$name"))
                 val bytes = receipts.readPhoto(name)
@@ -347,6 +366,21 @@ class ReceiptBackupArchive(
         override fun close() = Unit
     }
 
+    private class NonClosingOutputStream(output: OutputStream) : FilterOutputStream(output) {
+        override fun close() = flush()
+    }
+
+    private class LimitedByteArrayOutputStream(private val maximum: Int) : ByteArrayOutputStream() {
+        override fun write(value: Int) {
+            require(count < maximum) { "Backup metadata exceeds 16 MB." }
+            super.write(value)
+        }
+        override fun write(bytes: ByteArray, offset: Int, length: Int) {
+            require(length <= maximum - count) { "Backup metadata exceeds 16 MB." }
+            super.write(bytes, offset, length)
+        }
+    }
+
     private class BoundedInputStream(input: InputStream, private val limit: Long) : FilterInputStream(input) {
         private var count = 0L
         override fun read(): Int = `in`.read().also { if (it >= 0) account(1) }
@@ -364,8 +398,9 @@ class ReceiptBackupArchive(
         const val MAX_PHOTO_BYTES = 8L * 1024 * 1024
         const val MAX_EXPANDED_BYTES = 256L * 1024 * 1024
         const val MAX_ENTRIES = 100_001
-        const val MAX_PHOTO_SIDE = 4096
-        const val MAX_PHOTO_PIXELS = 16L * 1024 * 1024
+        // Matches ReceiptStore normalization and bounds full decode to roughly 10 MB ARGB.
+        const val MAX_PHOTO_SIDE = 1600
+        const val MAX_PHOTO_PIXELS = 1600L * 1600
         val PHOTO_ENTRY = Regex("receipts/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.jpg")
     }
 }

@@ -21,12 +21,10 @@ class FinanceRepository(private val database: LedgerDatabase) {
         dao.putBudget(value)
     }
     suspend fun deleteBudget(id: String) = dao.deleteBudget(id)
-    suspend fun saveRecurring(value: FinanceRecurring) {
-        database.withTransaction {
-            validateFinanceRecurring(value)
-            requireCategory(value.categoryId)
-            dao.putRecurring(value)
-        }
+    suspend fun saveRecurring(value: FinanceRecurring) = database.withTransaction {
+        validateFinanceRecurring(value)
+        requireCategory(value.categoryId)
+        dao.putRecurring(value)
         reconcile()
     }
     suspend fun deleteRecurring(id: String) = dao.deleteRecurring(id)
@@ -36,7 +34,8 @@ class FinanceRepository(private val database: LedgerDatabase) {
     }
 
     /** Both the occurrence and cursor commit together. Repeated launches/work runs cannot duplicate payments. */
-    suspend fun reconcile(today: LocalDate = LocalDate.now(), zone: ZoneId = ZoneId.systemDefault()): Int = database.withTransaction {
+    suspend fun reconcile(today: LocalDate? = null, zone: ZoneId = ZoneId.systemDefault()): Int = database.withTransaction {
+        val through = today ?: LocalDate.now(zone)
         var inserted = 0
         for (rule in dao.allRecurring().filter { it.enabled }) {
             validateFinanceRecurring(rule)
@@ -45,11 +44,18 @@ class FinanceRepository(private val database: LedgerDatabase) {
             var due = LocalDate.parse(rule.nextDate)
             var occurrences = 0
             // Bound one background run while retaining its cursor for the following run.
-            while (due <= today && occurrences < 36_600) {
+            while (due <= through && occurrences < 36_600) {
                 val expense = Expense(id = "recurring:${rule.id}:$due", cents = rule.cents, categoryId = rule.categoryId,
                     timestamp = due.atStartOfDay(zone).toInstant().toEpochMilli(), description = rule.name,
                     notes = rule.notes, payment = rule.payment, recurringRuleId = rule.id, recurringDate = due.toString())
+                validateExpense(expense)
                 if (dao.insertOccurrence(expense) != -1L) inserted++
+                else {
+                    val existing = database.dao().expense(expense.id)
+                    require(existing != null && existing.recurringRuleId == rule.id && existing.recurringDate == due.toString()) {
+                        "A transaction conflicts with this recurring payment. No scheduled payments were changed."
+                    }
+                }
                 due = nextFinanceOccurrence(anchor, due, rule.frequency)
                 occurrences++
             }
@@ -59,7 +65,9 @@ class FinanceRepository(private val database: LedgerDatabase) {
     }
 
     /** Call inside the category deletion transaction. Colliding budgets are combined without losing planned amounts. */
-    suspend fun reassignCategory(oldId: String, replacement: String) {
+    suspend fun reassignCategory(oldId: String, replacement: String) = database.withTransaction {
+        if (oldId == replacement) return@withTransaction
+        requireCategory(replacement)
         dao.reassignRecurringCategory(oldId, replacement)
         for (budget in dao.allBudgets().filter { it.categoryId == oldId }) {
             val target = dao.allBudgets().firstOrNull { it.month == budget.month && it.categoryId == replacement }

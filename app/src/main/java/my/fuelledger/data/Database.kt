@@ -8,6 +8,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.Serializable
 import my.fuelledger.domain.FuelPoint
 import my.fuelledger.domain.SpendingPoint
+import my.fuelledger.security.EncryptedDatabaseFiles
+import my.fuelledger.security.LocalVault
+import my.fuelledger.security.PreservingOpenHelperFactory
 
 const val FUEL_CATEGORY = "fuel-transport"
 const val OTHER_CATEGORY = "others"
@@ -34,7 +37,8 @@ data class Refuel(@PrimaryKey val id: String, val timestamp: Long, val odometer:
 ], indices = [Index("categoryId"), Index(value = ["fuelId"], unique = true), Index("timestamp")])
 data class Expense(@PrimaryKey val id: String, val cents: Long, val categoryId: String,
     val timestamp: Long, val description: String = "", val notes: String = "",
-    val payment: String = "Cash", val fuelId: String? = null) {
+    val payment: String = "Cash", val fuelId: String? = null, val receiptFile: String? = null,
+    val recurringRuleId: String? = null, val recurringDate: String? = null) {
     fun point() = SpendingPoint(timestamp, cents, categoryId)
 }
 
@@ -80,9 +84,11 @@ interface LedgerDao {
     @Query("DELETE FROM categories") suspend fun clearCategories()
 }
 
-@Database(entities = [Category::class, Expense::class, Refuel::class, PendingSettings::class], version = 2, exportSchema = true)
+@Database(entities = [Category::class, Expense::class, Refuel::class, PendingSettings::class,
+    FinanceIncome::class, FinanceBudget::class, FinanceRecurring::class], version = 3, exportSchema = true)
 abstract class LedgerDatabase : RoomDatabase() {
     abstract fun dao(): LedgerDao
+    abstract fun financeDao(): FinanceDao
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -91,7 +97,22 @@ abstract class LedgerDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE refuels ADD COLUMN receiptFile TEXT")
             }
         }
-        fun open(context: Context) = Room.databaseBuilder(context, LedgerDatabase::class.java, "fuel-ledger.db")
-            .addMigrations(MIGRATION_1_2).build()
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE expenses ADD COLUMN receiptFile TEXT")
+                db.execSQL("ALTER TABLE expenses ADD COLUMN recurringRuleId TEXT")
+                db.execSQL("ALTER TABLE expenses ADD COLUMN recurringDate TEXT")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `finance_income` (`id` TEXT NOT NULL, `cents` INTEGER NOT NULL, `timestamp` INTEGER NOT NULL, `source` TEXT NOT NULL, `notes` TEXT NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `finance_budgets` (`id` TEXT NOT NULL, `month` TEXT NOT NULL, `cents` INTEGER NOT NULL, `categoryId` TEXT NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_finance_budgets_month_categoryId` ON `finance_budgets` (`month`,`categoryId`)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `finance_recurring` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `cents` INTEGER NOT NULL, `categoryId` TEXT NOT NULL, `frequency` TEXT NOT NULL, `startDate` TEXT NOT NULL, `nextDate` TEXT NOT NULL, `enabled` INTEGER NOT NULL, `payment` TEXT NOT NULL, `notes` TEXT NOT NULL, PRIMARY KEY(`id`))")
+            }
+        }
+        fun open(context: Context, vault: LocalVault = LocalVault(context), databaseName: String = "fuel-ledger.db"): LedgerDatabase {
+            val password = EncryptedDatabaseFiles.prepare(context, databaseName, vault)
+            return Room.databaseBuilder(context, LedgerDatabase::class.java, databaseName)
+                .openHelperFactory(PreservingOpenHelperFactory(password))
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
+        }
     }
 }

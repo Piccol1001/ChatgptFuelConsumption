@@ -8,3 +8,8 @@ local.properties
 *.keystore
 signing.properties
 captures/
+# The build-policy Java package is source, rather than generated build output.
+!buildSrc/src/main/java/my/fuelledger/build/
+!buildSrc/src/main/java/my/fuelledger/build/*.java
+!buildSrc/src/test/java/my/fuelledger/build/
+!buildSrc/src/test/java/my/fuelledger/build/*.java

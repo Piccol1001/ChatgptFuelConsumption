@@ -10,6 +10,10 @@ import my.fuelledger.domain.validateSequence
 import java.time.*
 import java.time.format.DateTimeFormatter
 
+/** Records committed successfully; initialize() will replay the persisted settings intent. */
+class RestoreSettingsPendingException(cause: Exception) : IllegalStateException(
+    "Records were restored. Preferences could not be applied yet; retry or reopen the app to finish restoring settings.", cause)
+
 class LedgerRepository(val database: LedgerDatabase, val preferences: PreferencesStore) {
     val dao = database.dao()
     val categories = dao.categories()
@@ -34,9 +38,13 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
         validateExpense(expense)
         require(expense.fuelId == null) { "Edit linked expenses through the refuel record." }
         database.withTransaction {
-            require(dao.expense(expense.id)?.fuelId == null) { "Edit linked expenses through the refuel record." }
+            val existing = dao.expense(expense.id)
+            require(existing?.fuelId == null) { "Edit linked expenses through the refuel record." }
             require(dao.allCategories().any { it.id == expense.categoryId }) { "Category no longer exists." }
-            dao.putExpense(expense)
+            val updated = if (existing?.recurringRuleId != null) expense.copy(
+                recurringRuleId = existing.recurringRuleId, recurringDate = existing.recurringDate) else expense
+            validateExpense(updated)
+            dao.putExpense(updated)
         }
     }
     suspend fun deleteExpense(id: String) = writes.withLock {
@@ -54,7 +62,7 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
             dao.putRefuel(refuel)
             dao.putExpense(Expense(id = old?.id ?: java.util.UUID.randomUUID().toString(), cents = refuel.cents,
                 categoryId = FUEL_CATEGORY, timestamp = refuel.timestamp, description = fuelDescription(refuel),
-                notes = refuel.notes, payment = old?.payment ?: "Cash", fuelId = refuel.id))
+                notes = refuel.notes, payment = old?.payment ?: "Cash", fuelId = refuel.id, receiptFile = refuel.receiptFile))
         }
     }
     suspend fun deleteRefuel(id: String) = writes.withLock {
@@ -73,6 +81,7 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
         database.withTransaction {
             require(dao.allCategories().firstOrNull { it.id == id }?.custom == true) { "Built-in categories cannot be deleted." }
             dao.reassignCategory(id, OTHER_CATEGORY)
+            FinanceRepository(database).reassignCategory(id, OTHER_CATEGORY)
             dao.deleteCategory(id)
         }
     }
@@ -83,32 +92,40 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
     suspend fun backup(): Backup = writes.withLock {
         applyPendingSettings()
         database.withTransaction {
-            Backup(format = "my.fuelledger.backup", version = 2, createdAt = System.currentTimeMillis(), categories = dao.allCategories(),
-                expenses = dao.allExpenses(), refuels = dao.allRefuels(), settings = preferences.settings.first())
+            val finance = database.financeDao()
+            Backup(format = "my.fuelledger.backup", version = 3, createdAt = System.currentTimeMillis(), categories = dao.allCategories(),
+                expenses = dao.allExpenses(), refuels = dao.allRefuels(), settings = preferences.settings.first(),
+                incomes = finance.allIncome(), budgets = finance.allBudgets(), recurring = finance.allRecurring())
         }
     }
     suspend fun restore(backup: Backup) = writes.withLock {
         backup.validate() // All validation occurs before deleting anything.
         database.withTransaction {
+            val finance = database.financeDao()
+            finance.clearIncome(); finance.clearBudgets(); finance.clearRecurring()
             dao.clearExpenses(); dao.clearRefuels(); dao.clearCategories()
             backup.categories.forEach { dao.putCategory(it) }
             backup.refuels.forEach { dao.putRefuel(it) }
             backup.expenses.forEach { dao.putExpense(it) }
+            backup.incomes.forEach { finance.putIncome(it) }
+            backup.budgets.forEach { finance.putBudget(it) }
+            backup.recurring.forEach { finance.putRecurring(it) }
             dao.putPendingSettings(PendingSettings(payload = backupJson.encodeToString(backup.settings)))
         }
         // If this write fails or the process stops, initialize() replays the committed intent.
         try { applyPendingSettings() }
         catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
         catch (error: Exception) {
-            throw IllegalStateException("Records were restored. Preferences could not be applied yet; retry or reopen the app to finish restoring settings.", error)
+            throw RestoreSettingsPendingException(error)
         }
     }
     suspend fun exportExpenses(): String {
         val snapshot = backup()
         val names = snapshot.categories.associate { it.id to it.name }
-        return csv(listOf(listOf("ID", "Date time (local, with offset)", "Amount (MYR)", "Category", "Description", "Notes", "Payment method", "Refuel ID")) +
+        return csv(listOf(listOf("ID", "Date time (local, with offset)", "Amount (MYR)", "Category", "Description", "Notes", "Payment method", "Refuel ID", "Receipt file", "Recurring rule ID", "Recurring date")) +
             snapshot.expenses.map { listOf(it.id, localTimestamp(it.timestamp), my.fuelledger.domain.Money.decimal(it.cents),
-                names[it.categoryId].orEmpty(), it.description, it.notes, it.payment, it.fuelId.orEmpty()) })
+                names[it.categoryId].orEmpty(), it.description, it.notes, it.payment, it.fuelId.orEmpty(),
+                it.receiptFile.orEmpty(), it.recurringRuleId.orEmpty(), it.recurringDate.orEmpty()) })
     }
     suspend fun exportRefuels(): String = csv(listOf(listOf("ID", "Date time (local, with offset)", "Odometer (km)", "Litres", "Payment (MYR)", "Price (MYR/L)", "Full tank", "Station", "Notes", "Fuel type", "Station location", "Receipt file")) +
         backup().refuels.map { listOf(it.id, localTimestamp(it.timestamp), it.odometer.toString(), it.litres.toString(),

@@ -1,3 +1,7 @@
+import com.android.build.api.instrumentation.FramesComputationMode
+import com.android.build.api.instrumentation.InstrumentationScope
+import my.fuelledger.build.OfflineMlKitTelemetry
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -51,9 +55,28 @@ android {
         }
     }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    sourceSets.getByName("androidTest").assets.srcDir("schemas")
 }
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
+// Bundled OCR includes Firelog transports by default. The reviewed sinks are compiled
+// to no-ops, and the network/scheduling implementations are excluded from every APK.
+configurations.configureEach {
+    exclude(group = "com.google.android.datatransport", module = "transport-runtime")
+    exclude(group = "com.google.android.datatransport", module = "transport-backend-cct")
+}
+androidComponents {
+    onVariants { variant ->
+        variant.instrumentation.transformClassesWith(OfflineMlKitTelemetry::class.java, InstrumentationScope.ALL) {}
+        variant.instrumentation.setAsmFramesComputationMode(FramesComputationMode.COMPUTE_FRAMES_FOR_INSTRUMENTED_METHODS)
+    }
+}
+val verifyOfflineOcrPolicy by tasks.registering {
+    doLast {
+        OfflineMlKitTelemetry.verifyAars(configurations.getByName("debugRuntimeClasspath").files)
+    }
+}
+tasks.named("preBuild") { dependsOn(verifyOfflineOcrPolicy) }
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2026.09.00")
     implementation(composeBom)

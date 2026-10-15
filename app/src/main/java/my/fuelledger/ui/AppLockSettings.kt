@@ -2,6 +2,12 @@ package my.fuelledger.ui
 
 import android.content.Context
 import android.content.ContextWrapper
+import android.view.View
+import android.view.KeyEvent
+import android.view.MotionEvent
+import android.view.Window
+import android.view.WindowManager
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Lock
@@ -10,24 +16,56 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogWindowProvider
 import my.fuelledger.MainActivity
 import my.fuelledger.security.AppLockAction
 import my.fuelledger.security.AppLockController
 import my.fuelledger.security.AppLockTimeout
 
 private val LocalAppLock = staticCompositionLocalOf<AppLockController?> { null }
+// Dynamic local reads invalidate existing separate Dialog compositions on every lock transition.
+val LocalAppLocked = compositionLocalOf { false }
 
-/** The ledger composition is absent while locked, including editors and receipt previews. */
+/** Counts soft-keyboard edits, which do not dispatch touch/key events to an activity. */
+@Composable
+fun rememberAppLockInteraction(): () -> Boolean {
+    val controller = LocalAppLock.current
+    return remember(controller) { {
+        controller?.onInteraction()
+        controller?.locked != true && controller?.settingsUnavailable != true
+    } }
+}
+
+/** Keep forms/picker callbacks alive while hiding and disabling all underlying UI. */
 @Composable
 fun AppLockGate(content: @Composable () -> Unit) {
     val activity = LocalContext.current.mainActivity()
     val controller = activity?.appLock
     if (controller == null) { content(); return }
-    CompositionLocalProvider(LocalAppLock provides controller) {
-        if (!controller.locked && !controller.settingsUnavailable) content()
-        else MaterialTheme(colorScheme = LedgerDarkColors, typography = LedgerTypography, shapes = LedgerShapes) {
-            Surface(Modifier.fillMaxSize()) {
+    val blocked = controller.locked || controller.settingsUnavailable
+    val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(blocked) { if (blocked) { focus.clearFocus(force = true); keyboard?.hide() } }
+    CompositionLocalProvider(LocalAppLock provides controller, LocalAppLocked provides blocked) {
+      Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (blocked) 0f else 1f }
+            .focusProperties { canFocus = !blocked }
+            .then(if (blocked) Modifier.clearAndSetSemantics { } else Modifier)) { content() }
+        if (blocked) MaterialTheme(colorScheme = LedgerDarkColors, typography = LedgerTypography, shapes = LedgerShapes) {
+            Surface(Modifier.fillMaxSize().pointerInput(Unit) {
+                // Register a hit target over blank space as well as the Unlock button.
+                // Underlying transparent ledger nodes must never receive a touch.
+                awaitPointerEventScope { while (true) awaitPointerEvent(PointerEventPass.Final) }
+            }) {
                 Column(Modifier.fillMaxSize().safeDrawingPadding().padding(28.dp),
                     verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Outlined.Lock, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
@@ -47,6 +85,57 @@ fun AppLockGate(content: @Composable () -> Unit) {
                 }
             }
         }
+      }
+      BackHandler(blocked) { /* Registered after ledger handlers so locked Back cannot change its state. */ }
+    }
+}
+
+/**
+ * Call inside every app Dialog/AlertDialog. Dialogs use separate Android windows;
+ * hiding only their parent Compose node cannot protect them. Changing the window
+ * rather than disposing its composition retains edits and in-flight picker state.
+ * A dialog opened by a background callback is hidden in the same composition.
+ */
+@Composable
+fun PrivacyDialogWindow() {
+    val locked = LocalAppLocked.current
+    val controller = LocalAppLock.current
+    val view = LocalView.current
+    val window = (view.parent as? DialogWindowProvider)?.window
+    val originalFlags = remember(window) { window?.attributes?.flags ?: 0 }
+    val originalAccessibility = remember(view) { view.importantForAccessibility }
+    SideEffect {
+        window?.let {
+            it.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            val attributes = it.attributes
+            attributes.alpha = if (locked) 0f else 1f
+            val block = WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            attributes.flags = if (locked) attributes.flags or block else
+                (attributes.flags and block.inv()) or (originalFlags and block)
+            it.attributes = attributes
+        }
+        view.importantForAccessibility = if (locked) View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS else originalAccessibility
+        if (locked) view.clearFocus()
+    }
+    DisposableEffect(window) {
+        onDispose {
+            view.importantForAccessibility = originalAccessibility
+        }
+    }
+    DisposableEffect(window, controller) {
+        val previous = window?.callback
+        val callback = previous?.let { delegate -> object : Window.Callback by delegate {
+            private fun allowInput(): Boolean {
+                controller?.onInteraction()
+                return controller?.locked != true && controller?.settingsUnavailable != true
+            }
+            override fun dispatchTouchEvent(event: MotionEvent): Boolean =
+                if (allowInput()) delegate.dispatchTouchEvent(event) else true
+            override fun dispatchKeyEvent(event: KeyEvent): Boolean =
+                if (allowInput()) delegate.dispatchKeyEvent(event) else true
+        } }
+        if (callback != null) window?.callback = callback
+        onDispose { if (window?.callback === callback) window?.callback = previous }
     }
 }
 

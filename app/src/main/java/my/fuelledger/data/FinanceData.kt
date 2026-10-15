@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.Serializable
 import my.fuelledger.domain.MAX_CENTS
 import java.time.*
+import java.time.temporal.ChronoUnit
 
 @Serializable
 @Entity(tableName = "finance_income")
@@ -70,6 +71,13 @@ fun validateFinanceRecurring(value: FinanceRecurring) {
     val start = LocalDate.parse(value.startDate)
     val next = LocalDate.parse(value.nextDate)
     require(start.year in 1970..2999 && next.year in 1970..3000 && next >= start) { "Invalid recurring expense dates." }
+    require(start.toString() == value.startDate && next.toString() == value.nextDate) { "Use ISO dates for scheduled payments." }
+    when (value.frequency) {
+        "Weekly" -> require(ChronoUnit.DAYS.between(start, next) % 7 == 0L) { "The next weekly payment must keep its original weekday." }
+        "Monthly" -> require(next.dayOfMonth == minOf(start.dayOfMonth, YearMonth.from(next).lengthOfMonth())) {
+            "The next monthly payment must keep its original day."
+        }
+    }
 }
 
 /** Monthly rules retain their original day, including after shorter months. */

@@ -1,3 +1,175 @@
+# Current progress — Fuel & Expense Tracker v1.2.0
+
+Updated **15 October 2026 (Asia/Kuala_Lumpur)** after development resumed from checkpoint `6be584c`. The paused-checkpoint document is preserved below; this current section supersedes its unfinished-work/build-error status.
+
+## Completed features
+
+- Preserved and redesigned the existing Kotlin/Compose Home, Fuel, Expenses, and Analytics screens with the requested navy/emerald design, light theme, Material Symbols, responsive components and sample previews. Existing calculations, navigation and stored records were retained.
+- New adaptive logo and consistent app/header/settings version **1.2.0 (code 4)**.
+- ODO-based estimates after every fill, including partial fills, while retaining measured full-to-full calculations. Optional fuel type, station/location, litres, and receipts.
+- Gallery selection, encrypted private receipt storage and in-memory previews, bundled offline OCR, editable extraction/category suggestions, optional deletion after extraction, and generic expense attachments. No public-gallery export/storage permission.
+- Room schema **1 → 2 → 3**, maintained SQLCipher storage, Android Keystore-wrapped database password, encrypted settings, verified plaintext-to-encrypted migration, explicit no-delete corruption handling and safe failure/recovery paths.
+- Income, monthly/category budgets and local recurring payments with transactional deduplication, original monthly-day anchoring, launch reconciliation and local scheduling.
+- Optional local biometric/device credential lock with inactivity/background relocking, protected recent-app/dialog windows and preserved entry state.
+- Password-encrypted authenticated complete backups, verified before confirmation, encrypted staging, finance/photo round-trips and explicit legacy imports. No persisted backup password or automatic cloud/device-transfer backup.
+- Removed network permissions and OCR telemetry transport paths; pinned SDK policy validates reviewed bytecode signatures. No cloud account/database, remote AI, ads or app analytics integration.
+
+## Current implementation and validation status
+
+Implementation is complete. Final verification passed:
+
+- **144 host tests**, **9 native Android/API26 tests in airplane mode**, and **4 build-policy tests**.
+- Debug and Android test APKs built; optimized unsigned release built. Lint: zero errors and one dependency-update advisory (tested SQLite 2.6.2; 2.7.0 is available).
+- Final debug/release manifests and packaged permissions contain no Internet, network-state or public-storage permission. Bundled model assets and no-op telemetry sinks were inspected in the APK.
+- Native migration, integrity, wrong/missing key preservation, local finance/recurrence, encrypted photo backup and offline OCR tested on a booted software emulator. Earlier migration and locked-dialog defects were corrected and retested.
+- APK signature and native alignment verified. The debug signing certificate matches the original APK, preserving the in-place-update signing identity.
+
+Complete evidence and commands are in [VALIDATION.md](VALIDATION.md); dependency/security architecture and limits are in [SECURITY.md](SECURITY.md).
+
+## Artifacts
+
+- New installable file: `downloads/Fuel-Expense-Tracker-v1.2.0-debug.apk` (75,609,451 bytes).
+- SHA-256: `47da1aa93b52acd78e50d569352e1f3c86af133289131317a0d6ac4addf5fec0`.
+- The original `downloads/Fuel-Expense-Tracker-debug.apk` remains intact as version 1.0.0. Both checksums are listed in `downloads/SHA256SUMS`.
+- Optimized unsigned release: `app/build/outputs/apk/release/app-release-unsigned.apk`; requires private release signing before installation/distribution.
+- UI screenshots/reports remain in ignored `app/build/reports/`; no private keys, credentials, user data or tool caches belong in Git.
+
+## Remaining tasks and known limits
+
+- Test actual fingerprint/PIN interaction, OEM backup/transfer behavior, hardware-backed key storage and reboot persistence on the user's physical phone. API35 UI tests ran under Robolectric; the actual offline native device was API26.
+- Release distribution requires the owner's private signing key, kept outside this repository. The supplied installable APK is a signed, debuggable personal-testing build.
+- Missing Keystore material/damaged storage fails closed; no automatic salvage/reset is provided. Old plaintext flash blocks cannot be guaranteed securely erased. Backup-password loss can make backups unrecoverable.
+- CSV/old JSON/ZIP files are plaintext; user-chosen cloud/shared destinations are outside private app storage.
+- No known compilation errors or failing final tests remain. Toolchain deprecation notices and the SQLite update advisory do not block the build. Run release assembly and debug lint sequentially if a generated-KSP-path race recurs during simultaneous variant processing.
+
+## Exact instructions for resuming development
+
+```sh
+cd /workspace/ChatgptFuelConsumption
+git status --short --branch
+git log -2 --oneline
+source /workspace/.tooling/fuel-ledger-env.sh
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew :app:assembleRelease
+./gradlew :app:lintDebug
+./gradlew -p buildSrc test
+```
+
+Use the existing checkout; preserve new work and the stable application ID/signing identity. Do not use destructive migrations, clear installed user data, or introduce a plaintext production fallback. Future Room changes require a new additive migration/schema and preservation tests. Any ML Kit dependency update requires auditing the four pinned telemetry sinks and rerunning bundled-model offline tests.
+
+The prepared cloud toolchain lives under `/workspace/.tooling`; use `scripts/setup-cloud.sh` if a new instance needs setup. Emulator packages/proot are optional device-test tools, not app runtime dependencies. Standard workstations can use normal SDK `adb`. This current cloud machine uses `/workspace/.tooling/fuel-adb.sh` with `emulator-5556`; it maps ADB's writable configuration without changing `$HOME`.
+
+```sh
+# Confirm airplane mode, Wi-Fi/data off, and no active network before a fresh-install OCR test.
+/workspace/.tooling/fuel-adb.sh -s emulator-5556 install -r app/build/outputs/apk/debug/app-debug.apk
+/workspace/.tooling/fuel-adb.sh -s emulator-5556 install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+/workspace/.tooling/fuel-adb.sh -s emulator-5556 shell am instrument -w -r \
+  my.fuelledger.test/androidx.test.runner.AndroidJUnitRunner
+# Require OK (9 tests), not merely adb exit status 0.
+```
+
+Before publishing another APK, verify version, both manifests, permissions, signing-certificate continuity, ZIP/native alignment and SHA-256. Create a new versioned filename, retain older artifacts, update checksums and documentation, and never commit credentials/signing keys. GitHub HTTPS Git/raw downloads work; the releases API was unavailable in this environment.
+
+## Complete file inventory since the published 1.0.0 baseline
+
+A = added, M = modified, D = an earlier resource replaced by the current launcher. Original content remains in Git history. Build caches, credentials, signing material and generated reports are excluded.
+
+| Status | File |
+| --- | --- |
+| M | `.gitignore` |
+| A | `PROGRESS.md` |
+| M | `README.md` |
+| A | `SECURITY.md` |
+| M | `VALIDATION.md` |
+| M | `app/build.gradle.kts` |
+| A | `app/schemas/my.fuelledger.data.LedgerDatabase/2.json` |
+| A | `app/schemas/my.fuelledger.data.LedgerDatabase/3.json` |
+| A | `app/src/androidTest/java/my/fuelledger/OfflinePrivacyTest.kt` |
+| A | `app/src/androidTest/java/my/fuelledger/security/EncryptedStorageTest.kt` |
+| M | `app/src/main/AndroidManifest.xml` |
+| A | `app/src/main/assets/licenses/material-symbols-LICENSE.txt` |
+| A | `app/src/main/assets/licenses/material-symbols-NOTICE.txt` |
+| A | `app/src/main/java/my/fuelledger/FinanceViewModel.kt` |
+| M | `app/src/main/java/my/fuelledger/LedgerApplication.kt` |
+| M | `app/src/main/java/my/fuelledger/LedgerViewModel.kt` |
+| M | `app/src/main/java/my/fuelledger/MainActivity.kt` |
+| M | `app/src/main/java/my/fuelledger/data/Backup.kt` |
+| A | `app/src/main/java/my/fuelledger/data/BackupCrypto.kt` |
+| M | `app/src/main/java/my/fuelledger/data/Database.kt` |
+| A | `app/src/main/java/my/fuelledger/data/FinanceData.kt` |
+| A | `app/src/main/java/my/fuelledger/data/FinanceRepository.kt` |
+| M | `app/src/main/java/my/fuelledger/data/LedgerRepository.kt` |
+| A | `app/src/main/java/my/fuelledger/data/ReceiptBackupArchive.kt` |
+| M | `app/src/main/java/my/fuelledger/data/SettingsStore.kt` |
+| M | `app/src/main/java/my/fuelledger/domain/Calculations.kt` |
+| A | `app/src/main/java/my/fuelledger/finance/RecurringWorker.kt` |
+| A | `app/src/main/java/my/fuelledger/receipts/ReceiptParser.kt` |
+| A | `app/src/main/java/my/fuelledger/receipts/ReceiptScanner.kt` |
+| A | `app/src/main/java/my/fuelledger/receipts/ReceiptStore.kt` |
+| A | `app/src/main/java/my/fuelledger/security/AppLock.kt` |
+| A | `app/src/main/java/my/fuelledger/security/EncryptedDatabaseFiles.kt` |
+| A | `app/src/main/java/my/fuelledger/security/LocalVault.kt` |
+| A | `app/src/main/java/my/fuelledger/security/PreservingOpenHelperFactory.kt` |
+| A | `app/src/main/java/my/fuelledger/ui/AppLockSettings.kt` |
+| M | `app/src/main/java/my/fuelledger/ui/Components.kt` |
+| M | `app/src/main/java/my/fuelledger/ui/Editors.kt` |
+| A | `app/src/main/java/my/fuelledger/ui/FinanceScreen.kt` |
+| A | `app/src/main/java/my/fuelledger/ui/FintechTheme.kt` |
+| M | `app/src/main/java/my/fuelledger/ui/LedgerApp.kt` |
+| A | `app/src/main/java/my/fuelledger/ui/ReceiptAttachment.kt` |
+| A | `app/src/main/java/my/fuelledger/ui/ScreenPreviews.kt` |
+| M | `app/src/main/java/my/fuelledger/ui/Screens.kt` |
+| M | `app/src/main/java/my/fuelledger/ui/SettingsScreen.kt` |
+| A | `app/src/main/res/drawable-nodpi/ic_launcher_foreground.png` |
+| D | `app/src/main/res/drawable/ic_launcher.xml` |
+| A | `app/src/main/res/drawable/ic_launcher_background.xml` |
+| A | `app/src/main/res/drawable/ic_launcher_monochrome.xml` |
+| A | `app/src/main/res/drawable/symbol_account_balance_wallet.xml` |
+| A | `app/src/main/res/drawable/symbol_add.xml` |
+| A | `app/src/main/res/drawable/symbol_favorite.xml` |
+| A | `app/src/main/res/drawable/symbol_home.xml` |
+| A | `app/src/main/res/drawable/symbol_local_gas_station.xml` |
+| A | `app/src/main/res/drawable/symbol_monitoring.xml` |
+| A | `app/src/main/res/drawable/symbol_more_horiz.xml` |
+| A | `app/src/main/res/drawable/symbol_movie.xml` |
+| A | `app/src/main/res/drawable/symbol_receipt_long.xml` |
+| A | `app/src/main/res/drawable/symbol_restaurant.xml` |
+| A | `app/src/main/res/drawable/symbol_route.xml` |
+| A | `app/src/main/res/drawable/symbol_settings.xml` |
+| A | `app/src/main/res/drawable/symbol_shopping_bag.xml` |
+| A | `app/src/main/res/drawable/symbol_shopping_cart.xml` |
+| A | `app/src/main/res/drawable/symbol_speed.xml` |
+| A | `app/src/main/res/drawable/symbol_tune.xml` |
+| A | `app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml` |
+| A | `app/src/main/res/mipmap-anydpi/ic_launcher.xml` |
+| A | `app/src/test/java/my/fuelledger/data/FinanceRepositoryTest.kt` |
+| A | `app/src/test/java/my/fuelledger/data/ReceiptBackupArchiveTest.kt` |
+| M | `app/src/test/java/my/fuelledger/data/RepositoryTest.kt` |
+| A | `app/src/test/java/my/fuelledger/data/SettingsStoreTest.kt` |
+| M | `app/src/test/java/my/fuelledger/domain/CalculationsTest.kt` |
+| A | `app/src/test/java/my/fuelledger/receipts/ReceiptParserTest.kt` |
+| A | `app/src/test/java/my/fuelledger/receipts/ReceiptReviewTest.kt` |
+| A | `app/src/test/java/my/fuelledger/receipts/ReceiptStoreTest.kt` |
+| A | `app/src/test/java/my/fuelledger/security/AppLockSessionTest.kt` |
+| A | `app/src/test/java/my/fuelledger/security/AppLockStoreTest.kt` |
+| A | `app/src/test/java/my/fuelledger/security/LocalVaultTest.kt` |
+| A | `app/src/test/java/my/fuelledger/testing/TestLedgerApplication.kt` |
+| A | `app/src/test/java/my/fuelledger/ui/AppLockUiTest.kt` |
+| M | `app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt` |
+| M | `build.gradle.kts` |
+| A | `buildSrc/build.gradle.kts` |
+| A | `buildSrc/src/main/java/my/fuelledger/build/OfflineMlKitTelemetry.java` |
+| A | `buildSrc/src/test/java/my/fuelledger/build/OfflineMlKitTelemetryTest.java` |
+| A | `downloads/Fuel-Expense-Tracker-v1.2.0-debug.apk` |
+| M | `downloads/SHA256SUMS` |
+
+Total: **86 files** relative to `d5053a0`.
+
+---
+
+<details>
+<summary>Original paused checkpoint (6be584c), retained unchanged for history</summary>
+
 # Development checkpoint
 
 Saved on **15 October 2026**. Development is paused at the user's request. This document and the accompanying local Git commit preserve the current work; they do not mark the upgrade as ready to release.
@@ -252,3 +424,5 @@ Statuses: **A** new, **M** modified, **D** previously removed/replaced launcher 
 | M | `app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt` |
 
 Total: **65 changed files**, including this document.
+
+</details>

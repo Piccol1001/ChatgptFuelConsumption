@@ -170,4 +170,33 @@ class ReceiptParserTest {
             assertEquals(ReceiptSuggestions(rawText = text), parseReceipt(text))
         }
     }
+
+    @Test fun localCategorySuggestionsUseMerchantRulesAndFuelEvidence() {
+        val cases = listOf("PETRONAS\nRON95\nTOTAL RM20.00" to "fuel-transport",
+            "MYDIN\nTOTAL RM40.00" to "groceries", "RESTORAN MAJU\nTOTAL RM12.00" to "food",
+            "TENAGA NASIONAL\nTOTAL RM80.00" to "bills", "UNIQLO\nTOTAL RM99.90" to "shopping")
+        cases.forEach { (text, category) -> assertEquals(text, category, parseReceipt(text).suggestedCategoryId) }
+    }
+
+    @Test fun groceryLiquidQuantityDoesNotMakeAnExpenseFuel() {
+        val result = parseReceipt("MYDIN\nMILK 1 L\nBREAD\nTOTAL RM12.00")
+        assertEquals("groceries", result.suggestedCategoryId)
+        assertEquals("MYDIN", result.station)
+    }
+
+    @Test fun merchantCanBeExplicitWithoutGuessingACategory() {
+        val result = parseReceipt("MERCHANT: ALI SERVICES\nTOTAL RM25.00")
+        assertEquals("ALI SERVICES", result.station)
+        assertNull(result.suggestedCategoryId)
+    }
+
+    @Test fun receiptFooterIsNotAMerchantOrShoppingSuggestion() {
+        val result = parseReceipt("RECEIPT\nTOTAL RM25.00\nThanks for shopping!")
+        assertNull(result.station)
+        assertNull(result.suggestedCategoryId)
+    }
+
+    @Test fun conflictingMerchantCategoryRulesRemainEditableWithoutAPreselection() {
+        assertNull(parseReceipt("MYDIN\nSTARBUCKS\nTOTAL RM25.00").suggestedCategoryId)
+    }
 }

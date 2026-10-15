@@ -34,18 +34,18 @@ fun FinanceScreen(vm: FinanceViewModel) {
     val month = YearMonth.parse(monthText)
     var editor by rememberSaveable { mutableStateOf<String?>(null) }
     var editorId by rememberSaveable { mutableStateOf(UUID.randomUUID().toString()) }
-    var incomeSeed by remember { mutableStateOf<FinanceIncome?>(null) }
-    var budgetSeed by remember { mutableStateOf<FinanceBudget?>(null) }
-    var recurringSeed by remember { mutableStateOf<FinanceRecurring?>(null) }
+    val incomeSeed = state.income.firstOrNull { it.id == editorId }
+    val budgetSeed = state.budgets.firstOrNull { it.id == editorId }
+    val recurringSeed = state.recurring.firstOrNull { it.id == editorId }
     var deleting by remember { mutableStateOf<Pair<String, String>?>(null) }
     val close = { editor = null }
     LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item { ScreenHeading("Income & budgets", "Your records, calculated locally. No bank connection is needed.", Icons.Outlined.AccountBalanceWallet) }
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { monthText = month.minusMonths(1).toString() }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, "Previous finance month") }
+                IconButton(onClick = { monthText = month.minusMonths(1).toString() }, enabled = month > YearMonth.of(1970, 1)) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, "Previous finance month") }
                 Text(month.toString(), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                IconButton(onClick = { monthText = month.plusMonths(1).toString() }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "Next finance month") }
+                IconButton(onClick = { monthText = month.plusMonths(1).toString() }, enabled = month < YearMonth.of(2999, 12)) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "Next finance month") }
             }
         }
         item {
@@ -66,7 +66,6 @@ fun FinanceScreen(vm: FinanceViewModel) {
         item {
             Button(onClick = {
                 editorId = UUID.randomUUID().toString()
-                incomeSeed = null; budgetSeed = null; recurringSeed = null
                 editor = section
             }, modifier = Modifier.fillMaxWidth(), enabled = !busy && state.categories.isNotEmpty()) {
                 Icon(Icons.Outlined.Add, null); Spacer(Modifier.width(8.dp))
@@ -80,7 +79,7 @@ fun FinanceScreen(vm: FinanceViewModel) {
                 items(income, key = { "income-${it.id}" }) { value ->
                     FinanceRecord(value.source.ifBlank { "Income" }, Money.format(value.cents),
                         Instant.ofEpochMilli(value.timestamp).atZone(ZoneId.systemDefault()).toLocalDate().toString()) {
-                        incomeSeed = value; editorId = value.id; editor = "Income"
+                        editorId = value.id; editor = "Income"
                     }
                 }
             }
@@ -93,7 +92,7 @@ fun FinanceScreen(vm: FinanceViewModel) {
                     val label = if (value.categoryId.isEmpty()) "Overall spending" else state.categories.find { it.id == value.categoryId }?.name ?: "Category"
                     FinanceRecord(label, "${Money.format(spent)} of ${Money.format(value.cents)}",
                         if (spent > value.cents) "${Money.format(spent - value.cents)} over budget" else "${Money.format(value.cents - spent)} remaining") {
-                        budgetSeed = value; editorId = value.id; editor = "Budgets"
+                        editorId = value.id; editor = "Budgets"
                     }
                 }
             }
@@ -102,7 +101,7 @@ fun FinanceScreen(vm: FinanceViewModel) {
                 if (state.recurring.isEmpty()) item { Text("No recurring expenses. Add a daily, weekly or monthly payment.") }
                 items(state.recurring, key = { "recurring-${it.id}" }) { value ->
                     FinanceRecord(value.name, Money.format(value.cents), "${value.frequency} · ${if (value.enabled) "Next ${value.nextDate}" else "Paused"}") {
-                        recurringSeed = value; editorId = value.id; editor = "Recurring"
+                        editorId = value.id; editor = "Recurring"
                     }
                 }
             }
@@ -127,7 +126,7 @@ fun FinanceScreen(vm: FinanceViewModel) {
             })
     }
     operationError?.let { message ->
-        AlertDialog(onDismissRequest = vm::dismissError, title = { Text("Unable to update record") }, text = { Text(message) },
+        AlertDialog(onDismissRequest = vm::dismissError, title = { Text("Unable to update record") }, text = { PrivacyDialogWindow(); Text(message) },
             confirmButton = { TextButton(onClick = vm::dismissError) { Text("OK") } })
     }
 }

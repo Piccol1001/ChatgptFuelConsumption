@@ -3,12 +3,20 @@ package my.fuelledger.data
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import my.fuelledger.domain.*
+import java.time.LocalDate
 
 val backupJson = Json { prettyPrint = true; encodeDefaults = true; ignoreUnknownKeys = false }
 @Serializable
 data class Backup(val format: String, val version: Int,
     val createdAt: Long, val categories: List<Category>, val expenses: List<Expense>,
-    val refuels: List<Refuel>, val settings: AppSettings)
+    val refuels: List<Refuel>, val settings: AppSettings,
+    val incomes: List<FinanceIncome> = emptyList(), val budgets: List<FinanceBudget> = emptyList(),
+    val recurring: List<FinanceRecurring> = emptyList())
+
+private val receiptFileName = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.jpg")
+private fun validateReceiptFile(name: String?) {
+    require(name == null || receiptFileName.matches(name)) { "Invalid receipt file name." }
+}
 
 fun validateExpense(expense: Expense) {
     require(expense.id.isNotBlank() && expense.id.length <= 100) { "Invalid expense ID." }
@@ -16,15 +24,20 @@ fun validateExpense(expense: Expense) {
     require(expense.cents in 1..MAX_CENTS) { "Amount must be positive." }
     require(expense.description.length <= 200 && expense.notes.length <= 2000) { "Description or notes are too long." }
     require(expense.payment in paymentMethods) { "Choose a valid payment method." }
+    require(expense.fuelId == null || (expense.fuelId.isNotBlank() && expense.fuelId.length <= 100)) { "Invalid linked refuel ID." }
+    validateReceiptFile(expense.receiptFile)
+    require((expense.recurringRuleId == null) == (expense.recurringDate == null)) { "Recurring payment metadata is incomplete." }
+    expense.recurringRuleId?.let { id ->
+        require(id.isNotBlank() && id.length <= 64 && expense.fuelId == null) { "Invalid recurring payment reference." }
+        val date = LocalDate.parse(requireNotNull(expense.recurringDate))
+        require(date.year in 1970..3000 && date.toString() == expense.recurringDate) { "Invalid recurring payment date." }
+    }
 }
 fun validateRefuel(refuel: Refuel) {
     require(refuel.id.isNotBlank() && refuel.id.length <= 100 && refuel.timestamp in 0..32_503_680_000_000L) { "Invalid refuel ID or date." }
     require(refuel.station.length <= 100 && refuel.notes.length <= 2000) { "Station or notes are too long." }
     require(refuel.fuelType.length <= 50 && refuel.stationLocation.length <= 200) { "Fuel type or station location is too long." }
-    require(refuel.receiptFile == null ||
-        Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.jpg").matches(refuel.receiptFile)) {
-        "Invalid receipt file name."
-    }
+    validateReceiptFile(refuel.receiptFile)
     validateSequence(listOf(refuel.point()))
 }
 fun validateCategory(category: Category) {
@@ -32,10 +45,16 @@ fun validateCategory(category: Category) {
     require(category.icon in categoryIcons && category.color in categoryColors) { "Choose a supported icon and colour." }
 }
 fun Backup.validate() {
-    require(format == "my.fuelledger.backup" && version in 1..2) { "This is not a compatible Fuel & Expense Tracker backup." }
-    require(categories.size in 7..500 && expenses.size <= 100_000 && refuels.size <= 100_000) { "Backup contains too many records or is missing default categories." }
+    require(format == "my.fuelledger.backup" && version in 1..3) { "This is not a compatible Fuel & Expense Tracker backup." }
+    require(createdAt in 0..32_503_680_000_000L) { "Invalid backup creation date." }
+    require(categories.size in 7..500 && expenses.size <= 100_000 && refuels.size <= 100_000 &&
+        incomes.size <= 100_000 && budgets.size <= 100_000 && recurring.size <= 100_000) {
+        "Backup contains too many records or is missing default categories."
+    }
     require(categories.map { it.id }.distinct().size == categories.size &&
-        expenses.map { it.id }.distinct().size == expenses.size && refuels.map { it.id }.distinct().size == refuels.size) { "Backup contains duplicate IDs." }
+        expenses.map { it.id }.distinct().size == expenses.size && refuels.map { it.id }.distinct().size == refuels.size &&
+        incomes.map { it.id }.distinct().size == incomes.size && budgets.map { it.id }.distinct().size == budgets.size &&
+        recurring.map { it.id }.distinct().size == recurring.size) { "Backup contains duplicate IDs." }
     require(categories.map { it.name.lowercase(java.util.Locale.ROOT) }.distinct().size == categories.size) { "Backup contains duplicate category names." }
     categories.forEach(::validateCategory)
     defaultCategories.forEach { default -> require(categories.any { it == default }) { "Default category definitions are missing or modified." } }
@@ -46,6 +65,17 @@ fun Backup.validate() {
     val categoryIds = categories.map { it.id }.toSet()
     val fuelById = refuels.associateBy { it.id }
     require(expenses.all { it.categoryId in categoryIds }) { "Expense refers to a missing category." }
+    incomes.forEach(::validateFinanceIncome)
+    budgets.forEach(::validateFinanceBudget)
+    recurring.forEach(::validateFinanceRecurring)
+    require(budgets.all { it.categoryId.isEmpty() || it.categoryId in categoryIds } &&
+        recurring.all { it.categoryId in categoryIds }) { "A financial record refers to a missing category." }
+    require(budgets.map { it.month to it.categoryId }.distinct().size == budgets.size) {
+        "Backup contains duplicate budgets for a month and category."
+    }
+    val occurrences = expenses.filter { it.recurringRuleId != null }.map { it.recurringRuleId to it.recurringDate }
+    require(occurrences.distinct().size == occurrences.size) { "Backup contains duplicate recurring payment occurrences." }
+    // A rule may have been deleted after a payment was created. Keep that historical provenance.
     val linked = expenses.filter { it.fuelId != null }
     require(linked.map { it.fuelId }.distinct().size == linked.size && linked.size == refuels.size) { "Fuel links are missing or duplicated." }
     linked.forEach { expense ->

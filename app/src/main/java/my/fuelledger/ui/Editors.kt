@@ -1,6 +1,5 @@
 package my.fuelledger.ui
 
-import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -9,11 +8,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.SecureFlagPolicy
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import my.fuelledger.LedgerViewModel
 import my.fuelledger.data.*
@@ -23,20 +22,22 @@ import java.time.*
 @Composable
 fun EditorShell(title: String, busy: Boolean, error: String?, dismiss: () -> Unit, save: () -> Unit,
     delete: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
-    Dialog(onDismissRequest = { if (!busy) dismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    val interaction = rememberAppLockInteraction()
+    Dialog(onDismissRequest = { if (!busy) dismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, securePolicy = SecureFlagPolicy.SecureOn)) {
+        PrivacyDialogWindow()
         Surface(Modifier.fillMaxWidth().widthIn(max = 560.dp).padding(12.dp).heightIn(max = 720.dp), shape = MaterialTheme.shapes.large) {
             Column(Modifier.imePadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(title, style = MaterialTheme.typography.titleLarge)
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
-                Button(onClick = save, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Button(onClick = { if (interaction()) save() }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                     Text(if (busy) "Saving…" else "Save")
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (delete != null) TextButton(onClick = delete, enabled = !busy, modifier = Modifier.weight(1f)) {
+                    if (delete != null) TextButton(onClick = { if (interaction()) delete() }, enabled = !busy, modifier = Modifier.weight(1f)) {
                         Text("Delete", color = MaterialTheme.colorScheme.error)
                     }
-                    TextButton(onClick = dismiss, enabled = !busy, modifier = Modifier.weight(1f)) { Text("Cancel") }
+                    TextButton(onClick = { if (interaction()) dismiss() }, enabled = !busy, modifier = Modifier.weight(1f)) { Text("Cancel") }
                 }
             }
         }
@@ -44,24 +45,29 @@ fun EditorShell(title: String, busy: Boolean, error: String?, dismiss: () -> Uni
 }
 @Composable
 fun NumericField(value: String, change: (String) -> Unit, label: String) {
-    OutlinedTextField(value, { if (it.length <= 24) change(it) }, label = { Text(label) }, singleLine = true,
+    val interaction = rememberAppLockInteraction()
+    OutlinedTextField(value, { if (interaction() && it.length <= 24) change(it) }, label = { Text(label) }, singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
 }
 @Composable
 fun TextField(value: String, change: (String) -> Unit, label: String, max: Int, multiline: Boolean = false) {
-    OutlinedTextField(value, { if (it.length <= max) change(it) }, label = { Text(label) }, singleLine = !multiline,
+    val interaction = rememberAppLockInteraction()
+    OutlinedTextField(value, { if (interaction() && it.length <= max) change(it) }, label = { Text(label) }, singleLine = !multiline,
         minLines = if (multiline) 2 else 1, maxLines = if (multiline) 4 else 1, modifier = Modifier.fillMaxWidth())
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Choice(label: String, selected: String, values: List<Pair<String, String>>, change: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = !open }) {
+    val locked = LocalAppLocked.current
+    val interaction = rememberAppLockInteraction()
+    LaunchedEffect(locked) { if (locked) open = false }
+    ExposedDropdownMenuBox(expanded = open && !locked, onExpandedChange = { if (interaction()) open = !open }) {
         OutlinedTextField(values.firstOrNull { it.first == selected }?.second ?: selected, {}, readOnly = true,
             label = { Text(label) }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
             modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable))
-        ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            values.forEach { (id, name) -> DropdownMenuItem(text = { Text(name) }, onClick = { change(id); open = false }) }
+        ExposedDropdownMenu(expanded = open && !locked, onDismissRequest = { open = false }) {
+            values.forEach { (id, name) -> DropdownMenuItem(text = { Text(name) }, onClick = { if (interaction()) change(id); open = false }) }
         }
     }
 }
@@ -69,31 +75,42 @@ fun Choice(label: String, selected: String, values: List<Pair<String, String>>, 
 @Composable
 fun DateButton(date: LocalDate, label: String, change: (LocalDate) -> Unit, modifier: Modifier = Modifier) {
     var open by remember { mutableStateOf(false) }
-    OutlinedButton(onClick = { open = true }, modifier = modifier) { Text("$label: ${dateLabel(date)}") }
+    val interaction = rememberAppLockInteraction()
+    OutlinedButton(onClick = { if (interaction()) open = true }, modifier = modifier) { Text("$label: ${dateLabel(date)}") }
     if (open) {
         val picker = rememberDatePickerState(initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
         DatePickerDialog(onDismissRequest = { open = false },
             confirmButton = { TextButton(onClick = {
-                picker.selectedDateMillis?.let { change(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()) }
+                if (interaction()) picker.selectedDateMillis?.let { change(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()) }
                 open = false
             }) { Text("Select") } }, dismissButton = { TextButton(onClick = { open = false }) { Text("Cancel") } }) {
+            PrivacyDialogWindow()
             DatePicker(picker)
         }
     }
 }
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DateTimeFields(date: String, time: String, changeDate: (String) -> Unit, changeTime: (String) -> Unit) {
-    val context = LocalContext.current
+    var timeOpen by rememberSaveable { mutableStateOf(false) }
+    val interaction = rememberAppLockInteraction()
     DateButton(LocalDate.parse(date), "Date", { changeDate(it.toString()) }, Modifier.fillMaxWidth())
-    OutlinedButton(onClick = {
+    OutlinedButton(onClick = { if (interaction()) timeOpen = true }, modifier = Modifier.fillMaxWidth()) { Text("Time: $time · device local time") }
+    if (timeOpen) {
         val selected = LocalTime.parse(time)
-        TimePickerDialog(context, { _, hour, minute -> changeTime(LocalTime.of(hour, minute).toString()) }, selected.hour, selected.minute, false).show()
-    }, modifier = Modifier.fillMaxWidth()) { Text("Time: $time · device local time") }
+        val picker = rememberTimePickerState(initialHour = selected.hour, initialMinute = selected.minute, is24Hour = true)
+        LaunchedEffect(picker.hour, picker.minute) { interaction() }
+        AlertDialog(onDismissRequest = { timeOpen = false }, title = { Text("Time") },
+            properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOn),
+            text = { PrivacyDialogWindow(); TimeInput(picker) },
+            confirmButton = { TextButton(onClick = { if (interaction()) { changeTime(LocalTime.of(picker.hour, picker.minute).toString()); timeOpen = false } }) { Text("Select") } },
+            dismissButton = { TextButton(onClick = { timeOpen = false }) { Text("Cancel") } })
+    }
 }
 fun timestamp(date: String, time: String) = LocalDate.parse(date).atTime(LocalTime.parse(time)).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
 @Composable
-fun ExpenseEditor(seed: Expense?, id: String, categories: List<Category>, busy: Boolean, dismiss: () -> Unit,
+fun ExpenseEditor(seed: Expense?, id: String, categories: List<Category>, busy: Boolean, vm: LedgerViewModel, dismiss: () -> Unit,
     save: (Expense) -> Unit, delete: () -> Unit) {
     val initial = remember(id) { Instant.ofEpochMilli(seed?.timestamp ?: System.currentTimeMillis()).atZone(ZoneId.systemDefault()) }
     var amount by rememberSaveable(id) { mutableStateOf(seed?.let { Money.decimal(it.cents) }.orEmpty()) }
@@ -103,14 +120,22 @@ fun ExpenseEditor(seed: Expense?, id: String, categories: List<Category>, busy: 
     var description by rememberSaveable(id) { mutableStateOf(seed?.description.orEmpty()) }
     var notes by rememberSaveable(id) { mutableStateOf(seed?.notes.orEmpty()) }
     var payment by rememberSaveable(id) { mutableStateOf(seed?.payment ?: "Cash") }
+    var receiptFile by rememberSaveable(id) { mutableStateOf(seed?.receiptFile) }
     var error by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     EditorShell(if (seed == null) "Add expense" else "Edit expense", busy, error, dismiss, {
-        runCatching { Expense(id, Money.parse(amount), category, timestamp(date, time), description.trim(), notes.trim(), payment).also(::validateExpense) }
+        runCatching { Expense(id, Money.parse(amount), category, timestamp(date, time), description.trim(), notes.trim(), payment,
+            fuelId = seed?.fuelId, receiptFile = receiptFile, recurringRuleId = seed?.recurringRuleId, recurringDate = seed?.recurringDate).also(::validateExpense) }
             .onSuccess { error = null; save(it) }.onFailure { error = it.message }
     }, if (seed != null) ({ confirmDelete = true }) else null) {
         NumericField(amount, { amount = it }, "Amount (RM)")
         Choice("Category", category, categories.map { it.id to it.name }) { category = it }
+        ReceiptAttachment(id, receiptFile, vm, busy, { receiptFile = it }, categories = categories, fuelReceipt = false) { scanned ->
+            scanned.amount?.let { amount = it }
+            scanned.station?.let { description = it }
+            scanned.date?.let { date = it }; scanned.time?.let { time = it }
+            scanned.suggestedCategoryId?.takeIf { suggested -> categories.any { it.id == suggested } }?.let { category = it }
+        }
         DateTimeFields(date, time, { date = it }, { time = it })
         TextField(description, { description = it }, "Description (optional)", 200)
         Choice("Payment method", payment, paymentMethods.map { it to it }) { payment = it }
@@ -189,7 +214,9 @@ fun RefuelEditor(seed: Refuel?, id: String, busy: Boolean, vm: LedgerViewModel, 
 }
 @Composable
 fun DeleteConfirmation(title: String, detail: String, busy: Boolean, cancel: () -> Unit, confirm: () -> Unit) {
-    AlertDialog(onDismissRequest = { if (!busy) cancel() }, title = { Text(title) }, text = { Text(detail) },
-        confirmButton = { TextButton(onClick = confirm, enabled = !busy) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+    val interaction = rememberAppLockInteraction()
+    AlertDialog(onDismissRequest = { if (!busy) cancel() }, title = { Text(title) }, text = { PrivacyDialogWindow(); Text(detail) },
+        properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOn),
+        confirmButton = { TextButton(onClick = { if (interaction()) confirm() }, enabled = !busy) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = cancel, enabled = !busy) { Text("Cancel") } })
 }

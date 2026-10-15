@@ -8,7 +8,7 @@ import my.fuelledger.finance.RecurringWorker
 open class LedgerApplication : Application() {
     val vault by lazy { createVault() }
     protected open fun createVault(): LocalVault = LocalVault(this)
-    protected open fun createDatabase(): LedgerDatabase = LedgerDatabase.open(this)
+    protected open fun createDatabase(): LedgerDatabase = LedgerDatabase.open(this, vault)
     val repository by lazy { LedgerRepository(createDatabase(), SettingsStore(this, vault)) }
     val financeRepository by lazy { FinanceRepository(repository.database) }
     open fun scheduleRecurring() { RecurringWorker.schedule(this) }

@@ -116,12 +116,12 @@ class RepositoryTest {
         assertEquals(saved.settings, prefs.settings.first())
         assertNull(db.dao().pendingSettings())
     }
-    @Test fun optionalRefuelMetadataRoundTripsInVersionTwoBackupAndCsv() = runBlocking {
+    @Test fun optionalRefuelMetadataRoundTripsInVersionThreeBackupAndCsv() = runBlocking {
         val refuel = fuel().copy(fullTank = false, station = "Petronas", fuelType = "RON 95",
             stationLocation = "Jalan Ampang, Kuala Lumpur", receiptFile = "12345678-abcd-1234-abcd-123456789abc.jpg")
         repo.saveRefuel(refuel)
         val saved = backupJson.decodeFromString<Backup>(backupJson.encodeToString(repo.backup()))
-        assertEquals(2, saved.version)
+        assertEquals(3, saved.version)
         saved.validate()
         repo.deleteRefuel(refuel.id)
         repo.restore(saved)
@@ -149,7 +149,7 @@ class RepositoryTest {
         assertEquals("", db.dao().allRefuels().single().fuelType)
         assertEquals("", db.dao().allRefuels().single().stationLocation)
         assertNull(db.dao().allRefuels().single().receiptFile)
-        assertEquals(2, repo.backup().version)
+        assertEquals(3, repo.backup().version)
     }
     @Test fun invalidReceiptNamesAndOversizedMetadataNeverChangeExistingRecords() = runBlocking {
         repo.saveRefuel(fuel())
@@ -217,13 +217,16 @@ class RepositoryTest {
             old.execSQL("INSERT INTO pending_settings VALUES (1, ?)", arrayOf("pending preferences"))
             old.version = 1
         }
-        val migrated = LedgerDatabase.open(context)
+        // Host tests deliberately use Room's platform helper. Production open() always requires
+        // SQLCipher and the Android Keystore; it never falls back to plaintext for these tests.
+        val migrated = Room.databaseBuilder(context, LedgerDatabase::class.java, databaseName)
+            .addMigrations(LedgerDatabase.MIGRATION_1_2, LedgerDatabase.MIGRATION_2_3).build()
         try {
             assertEquals(originalRefuel, migrated.dao().allRefuels().single())
             assertEquals(originalExpense, migrated.dao().allExpenses().single())
             assertEquals(defaultCategories.toSet(), migrated.dao().allCategories().toSet())
             assertEquals("pending preferences", migrated.dao().pendingSettings()?.payload)
-            assertEquals(2, migrated.openHelper.readableDatabase.version)
+            assertEquals(3, migrated.openHelper.readableDatabase.version)
             migrated.dao().deleteRefuel(originalRefuel.id)
             assertTrue(migrated.dao().allExpenses().isEmpty())
         } finally {
@@ -244,13 +247,108 @@ class RepositoryTest {
     @Test fun restoreSettingsIntentIsReplayedAfterInterruptedPreferenceWrite() = runBlocking {
         val saved = repo.backup().copy(settings = AppSettings("3.10", 8.0, "Dark"), expenses = listOf(Expense("restored", 1000, "food", 1000)))
         prefs.fail = true
-        try { repo.restore(saved); fail("Expected storage failure") } catch (_: IllegalStateException) {}
+        try { repo.restore(saved); fail("Expected storage failure") } catch (_: RestoreSettingsPendingException) {}
         assertNotNull(db.dao().pendingSettings())
         prefs.fail = false
         repo.initialize()
         assertEquals(saved.settings, prefs.settings.first())
         assertEquals(saved.expenses, db.dao().allExpenses())
         assertNull(db.dao().pendingSettings())
+    }
+    @Test fun versionThreeBackupRestoresIncomeBudgetsRulesAndHistoricalReceiptMetadata() = runBlocking {
+        val finance = FinanceRepository(db)
+        finance.saveIncome(FinanceIncome("salary", 350000, 1000, "Salary", "Private note"))
+        finance.saveBudget(FinanceBudget("overall", "2026-10", 100000))
+        finance.saveBudget(FinanceBudget("food-limit", "2026-10", 20000, "food"))
+        finance.saveRecurring(FinanceRecurring("rent", "Rent", 80000, "bills", "Monthly",
+            "2026-10-01", "2026-10-01", enabled = false, payment = "Debit Card", notes = "Home"))
+        val receipt = "12345678-abcd-1234-abcd-123456789abc.jpg"
+        repo.saveExpense(Expense("historical", 1500, "food", 1000, "Lunch", receiptFile = receipt,
+            recurringRuleId = "deleted-rule", recurringDate = "2026-10-01"))
+        repo.saveRefuel(fuel().copy(receiptFile = receipt))
+        val snapshot = backupJson.decodeFromString<Backup>(backupJson.encodeToString(repo.backup()))
+        assertEquals(3, snapshot.version)
+        snapshot.validate()
+        repo.restore(snapshot.copy(expenses = emptyList(), refuels = emptyList(), incomes = emptyList(),
+            budgets = emptyList(), recurring = emptyList()))
+        repo.restore(snapshot)
+        val restored = repo.backup()
+        assertEquals(snapshot.copy(createdAt = restored.createdAt), restored)
+        assertEquals(receipt, restored.expenses.first { it.id == "historical" }.receiptFile)
+        assertEquals("deleted-rule", restored.expenses.first { it.id == "historical" }.recurringRuleId)
+        assertEquals(receipt, restored.expenses.first { it.fuelId != null }.receiptFile)
+    }
+    @Test fun oldBackupVersionsDefaultNewFieldsAndReplaceCurrentFinanceOnlyAfterValidation() = runBlocking {
+        repo.saveExpense(Expense("old", 2500, "food", 1000))
+        val oldJson = JSONObject(backupJson.encodeToString(repo.backup())).apply {
+            remove("incomes"); remove("budgets"); remove("recurring")
+            getJSONArray("expenses").getJSONObject(0).apply {
+                remove("receiptFile"); remove("recurringRuleId"); remove("recurringDate")
+            }
+        }
+        for (version in 1..2) {
+            oldJson.put("version", version)
+            db.financeDao().putIncome(FinanceIncome("current", 5000, 2000))
+            db.financeDao().putBudget(FinanceBudget("current-budget", "2026-10", 2000))
+            val legacy = backupJson.decodeFromString<Backup>(oldJson.toString())
+            assertTrue(legacy.incomes.isEmpty() && legacy.budgets.isEmpty() && legacy.recurring.isEmpty())
+            assertNull(legacy.expenses.single().receiptFile)
+            assertNull(legacy.expenses.single().recurringRuleId)
+            repo.restore(legacy)
+            assertEquals(legacy.expenses, db.dao().allExpenses())
+            assertTrue(db.financeDao().allIncome().isEmpty())
+            assertTrue(db.financeDao().allBudgets().isEmpty())
+            assertEquals(3, repo.backup().version)
+        }
+    }
+    @Test fun invalidFinanceAndOccurrenceMetadataCannotReplaceAnyCurrentRecords() = runBlocking {
+        repo.saveExpense(Expense("original", 1000, "food", 1000))
+        db.financeDao().putIncome(FinanceIncome("original-income", 100000, 2000))
+        val before = repo.backup()
+        val income = FinanceIncome("i", 20000, 3000)
+        val budget = FinanceBudget("b", "2026-10", 10000, "food")
+        val rule = FinanceRecurring("r", "Coffee", 500, "food", "Monthly", "2026-10-01", "2026-10-01", false)
+        val occurrence = Expense("occurrence", 500, "food", 3000, recurringRuleId = "deleted-rule", recurringDate = "2026-10-01")
+        val invalid = listOf(
+            before.copy(incomes = listOf(income, income)),
+            before.copy(incomes = listOf(income.copy(cents = -1))),
+            before.copy(budgets = listOf(budget, budget.copy(id = "duplicate"))),
+            before.copy(budgets = listOf(budget.copy(categoryId = "missing"))),
+            before.copy(budgets = listOf(budget.copy(month = "2026-13"))),
+            before.copy(recurring = listOf(rule.copy(categoryId = "missing"))),
+            before.copy(recurring = listOf(rule.copy(nextDate = "2026-09-01"))),
+            before.copy(expenses = listOf(occurrence, occurrence.copy(id = "duplicate-occurrence"))),
+            before.copy(expenses = listOf(occurrence.copy(recurringDate = null))),
+            before.copy(expenses = listOf(occurrence.copy(recurringDate = "2026-02-30"))),
+            before.copy(expenses = before.expenses.map { it.copy(receiptFile = "../private.jpg") })
+        )
+        invalid.forEach { bad ->
+            var rejected = false
+            try { repo.restore(bad) } catch (_: Exception) { rejected = true }
+            assertTrue("Invalid metadata must be rejected", rejected)
+            val after = repo.backup()
+            assertEquals(before.copy(createdAt = after.createdAt), after)
+            assertNull(db.dao().pendingSettings())
+        }
+    }
+    @Test fun databaseFailureDuringRestoreRollsBackFinanceExpensesAndSettingsIntent() = runBlocking {
+        repo.saveExpense(Expense("original", 1000, "food", 1000))
+        db.financeDao().putIncome(FinanceIncome("original-income", 100000, 2000))
+        val before = repo.backup()
+        val replacement = before.copy(expenses = listOf(Expense("blocked", 2000, "groceries", 3000)),
+            incomes = listOf(FinanceIncome("replacement-income", 50000, 4000)), settings = AppSettings("3.10", 8.0, "Dark"))
+        replacement.validate()
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER test_restore_abort BEFORE INSERT ON expenses WHEN NEW.id = 'blocked' BEGIN SELECT RAISE(ABORT, 'Restore blocked'); END")
+        try {
+            var rejected = false
+            try { repo.restore(replacement) } catch (_: Exception) { rejected = true }
+            assertTrue(rejected)
+            val after = repo.backup()
+            assertEquals(before.copy(createdAt = after.createdAt), after)
+            assertNull(db.dao().pendingSettings())
+        } finally {
+            db.openHelper.writableDatabase.execSQL("DROP TRIGGER test_restore_abort")
+        }
     }
     @Test fun csvUsesExactMoneyQuotesAndSanitizesSpreadsheetFormulas() = runBlocking {
         repo.saveExpense(Expense("e", 1234, "food", 1000, "=HYPERLINK(\"bad\")", "comma,newline\ntext"))

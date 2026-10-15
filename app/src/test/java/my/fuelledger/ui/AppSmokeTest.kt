@@ -20,11 +20,14 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
+import org.robolectric.annotation.GraphicsMode
+import my.fuelledger.testing.TestLedgerApplication
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [26, 35], application = LedgerApplication::class)
+@Config(sdk = [26, 35], application = TestLedgerApplication::class, qualifiers = "w393dp-h851dp-xxhdpi")
 @LooperMode(LooperMode.Mode.PAUSED)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class AppSmokeTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
@@ -44,13 +47,13 @@ class AppSmokeTest {
     private fun field(label: String) = compose.onNode(hasText(label) and hasSetTextAction())
 
     private fun navigate(destination: String) {
-        compose.onNodeWithContentDescription(destination).performClick()
+        compose.onNode(hasText(destination) and hasClickAction() and isSelectable()).performClick()
     }
 
     private fun captureScreen(name: String) {
         if (Build.VERSION.SDK_INT != 35) return
         runCatching {
-            val workingDirectory = File(System.getProperty("user.dir"))
+            val workingDirectory = File(requireNotNull(System.getProperty("user.dir")))
             val appDirectory = if (File(workingDirectory, "src/main/AndroidManifest.xml").isFile) workingDirectory
                 else File(workingDirectory, "app")
             val directory = File(appDirectory, "build/reports/ui-screenshots")
@@ -72,6 +75,10 @@ class AppSmokeTest {
         field("Description (optional)").performScrollTo().performTextInput("Coffee smoke test")
         compose.onNodeWithText("Save").performClick()
         waitForEditorToClose("Add expense")
+        // Material's transient snackbar can cover the first history row on a tall phone.
+        compose.mainClock.advanceTimeBy(6_000)
+        compose.waitForIdle()
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("Expense saved").fetchSemanticsNodes().isEmpty() }
         scrollScreenTo(hasText("Coffee smoke test"))
         waitFor("Coffee smoke test")
         compose.onNodeWithText("Coffee smoke test").performClick()
