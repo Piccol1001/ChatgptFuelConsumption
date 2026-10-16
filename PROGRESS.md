@@ -1,3 +1,63 @@
+# Current progress — Press feedback refinement
+
+Updated 16 October 2026 (Malaysia time), continuing from `b2d6706`. Implementation is complete; prior reports are preserved below.
+
+## Completed features and source of the old overlay
+
+- Material3's explicit ripple/state layers, plus the un-clipped rectangular selectable regions inside JourneyTypeToggle, caused the unwanted grey press effect. Replacing LocalIndication alone would miss Material3 controls.
+- A shared interaction provider disables Material3 ripples and supplies scale-only feedback for Foundation clickable/selectable controls. Reusable Material adapters share each native interaction source and scale the entire rounded surface, not only its label.
+- Buttons, text/outlined/tonal/icon buttons, chips, navigation items, clickable cards, dropdown items, switches, checkboxes and allocation sliders share the policy. Existing click, drag, disabled state, sizing, roles and selected semantics remain native. The journey rail explicitly clips children to its rounded outline. Selected categories/toggles/chips/navigation retain clean accent backgrounds/borders.
+- Draw-only scaling reaches about 0.97× while pressed (90ms) and returns over 130ms. Layout and hit regions do not shrink. Rounded accent keyboard-focus outlines replace the focus indication lost by disabling ripples. Stable indication nodes retain focus across theme changes.
+- Android animator duration scale is observed and re-read on resume. Scale0 disables even instant shrinking; Compose also respects nonzero duration scaling. App code never changes system motion settings. Previews avoid registering Android setting observers.
+- Root app, dialogs, app-lock UI and screen previews use the same LedgerTheme policy. Standard picker/input internals keep their native editing and selection behavior; ripple overlays are suppressed globally.
+- No business logic, Room entities/migrations, financial calculations, records, preference values, dependencies or manifest permissions changed. App name/version remain 1.4.0 / code6; offline architecture and previous work are preserved.
+
+## Verification / current work
+
+**226 host tests pass** with zero failures/errors/skipped, including 8 new API26/35 interaction executions. Native pixel assertions check light/dark scale ratio, unchanged accent colour, rounded corners, stable touch/semantics bounds, release/cancel, disabled actions, selected chip/navigation behavior and zero-motion click behavior. Existing entry, planning, receipt, lock and persistence regressions pass. Signed debug and optimized unsigned release APKs build successfully; release vital lint and debug/release 16KiB ZIP alignment checks pass. Debug lint has 0 errors, the same 10 advisory warnings and 1 hint as the preceding build (details in VALIDATION.md). Native API26 in-place installation succeeds, launch reports `Status: ok`, and MainActivity is the resumed foreground activity. This native check covers startup; prior financial/OCR instrumentation results are preserved below.
+
+## APK
+
+- `downloads/Fuel-Expense-Tracker-v1.4.0-press-feedback-debug.apk` — 76,098,095 bytes, signed debug build, Android 8.0+.
+- SHA256 `4d1afc37dfdd04e0c48daebd5cd83af9ba14adac3661596e9964fd77020122d2`. Original package/signing certificate and app metadata retained for in-place updates. Older APKs/checksums are preserved.
+- Optimized unsigned release output requires private signing. Do not commit private signing keys.
+
+## Remaining tasks / known limits
+
+No known compilation errors or implementation work remain for this request. Physical-phone haptics, TalkBack/keyboard behavior across OEMs and all device motion-setting variants remain manual checks. Standard Material picker internals expose no shared press source; they retain native input/selection feedback rather than a custom per-day/dial animation. System-owned picker/authentication windows retain platform interaction behavior. Lint/Gradle advisories are recorded in VALIDATION.md.
+
+## Files created or modified
+
+- [`PROGRESS.md`](PROGRESS.md)
+- [`README.md`](README.md)
+- [`VALIDATION.md`](VALIDATION.md)
+- [`app/src/main/java/my/fuelledger/ui/AppLockSettings.kt`](app/src/main/java/my/fuelledger/ui/AppLockSettings.kt)
+- [`app/src/main/java/my/fuelledger/ui/FintechTheme.kt`](app/src/main/java/my/fuelledger/ui/FintechTheme.kt)
+- [`app/src/main/java/my/fuelledger/ui/LedgerApp.kt`](app/src/main/java/my/fuelledger/ui/LedgerApp.kt)
+- [`app/src/main/java/my/fuelledger/ui/PressComponents.kt`](app/src/main/java/my/fuelledger/ui/PressComponents.kt)
+- [`app/src/main/java/my/fuelledger/ui/PressFeedback.kt`](app/src/main/java/my/fuelledger/ui/PressFeedback.kt)
+- [`app/src/main/java/my/fuelledger/ui/RefinedControls.kt`](app/src/main/java/my/fuelledger/ui/RefinedControls.kt)
+- [`app/src/main/java/my/fuelledger/ui/ScreenPreviews.kt`](app/src/main/java/my/fuelledger/ui/ScreenPreviews.kt)
+- [`app/src/test/java/my/fuelledger/ui/PressFeedbackTest.kt`](app/src/test/java/my/fuelledger/ui/PressFeedbackTest.kt)
+- [`downloads/Fuel-Expense-Tracker-v1.4.0-press-feedback-debug.apk`](downloads/Fuel-Expense-Tracker-v1.4.0-press-feedback-debug.apk)
+- [`downloads/SHA256SUMS`](downloads/SHA256SUMS)
+
+## Exact resumption instructions
+
+```sh
+cd /workspace/ChatgptFuelConsumption
+git status --short --branch
+source /workspace/.tooling/fuel-ledger-env.sh
+./gradlew :app:testDebugUnitTest :app:assembleDebug
+./gradlew :app:assembleRelease
+./gradlew :app:lintDebug
+```
+
+Use the existing checkout and pinned toolchain; preserve package, version, signing identity and Room schema 4. Finish source edits before running lint, and run release assembly and debug lint sequentially. Targeted interaction tests: `./gradlew :app:testDebugUnitTest --tests my.fuelledger.ui.PressFeedbackTest` (8 executions on APIs26/35). Do not clear/uninstall app data. Reuse `LedgerTheme`/`PremiumInteractions` for new theme roots and the shared Material adapters for new app controls. Foundation indications can only scale content drawn inside their modifier; put custom foreground backgrounds inside that scope or use outer `Modifier.pressFeedback` with the shared interaction source. Keep prior APKs and append basename-only checksums. Keys, databases, passwords and build caches stay outside Git.
+
+<details>
+<summary>Preserved progress before press-feedback refinement</summary>
+
 # Current progress — Expense entry and filter layout refresh
 
 Updated 16 October 2026 (Malaysia time). Both user requests are delivered separately: commit `69f0aa3` moves one existing heading above the unchanged Expenses filter row; the Add Expense redesign follows in its own checkpoint. Previous work and reports remain below.
@@ -726,6 +786,8 @@ Statuses: **A** new, **M** modified, **D** previously removed/replaced launcher 
 | M | `app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt` |
 
 Total: **65 changed files**, including this document.
+
+</details>
 
 </details>
 

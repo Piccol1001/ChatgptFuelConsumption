@@ -60,7 +60,7 @@ fun AppLockGate(theme: String = "System", content: @Composable () -> Unit) {
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (blocked) 0f else 1f }
             .focusProperties { canFocus = !blocked }
             .then(if (blocked) Modifier.clearAndSetSemantics { } else Modifier)) { content() }
-        if (blocked) MaterialTheme(colorScheme = if (when (theme) { "Dark" -> true; "Light" -> false; else -> androidx.compose.foundation.isSystemInDarkTheme() }) LedgerDarkColors else LedgerLightColors, typography = LedgerTypography, shapes = LedgerShapes) {
+        if (blocked) LedgerTheme(dark = when (theme) { "Dark" -> true; "Light" -> false; else -> androidx.compose.foundation.isSystemInDarkTheme() }) {
             Surface(Modifier.fillMaxSize().pointerInput(Unit) {
                 // Register a hit target over blank space as well as the Unlock button.
                 // Underlying transparent ledger nodes must never receive a touch.

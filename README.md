@@ -4,7 +4,7 @@ A native Android app for personal spending and car fuel records. Kotlin, Jetpack
 
 ## Download the APK
 
-[**Download Fuel & Expense Tracker for Android**](https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/downloads/Fuel-Expense-Tracker-v1.4.0-expense-entry-debug.apk)
+[**Download Fuel & Expense Tracker for Android**](https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/downloads/Fuel-Expense-Tracker-v1.4.0-press-feedback-debug.apk)
 
 Version 1.4.0, signed debug build, Android 8.0 or later. Open this link on your phone, download the `.apk` file, then open it to install. If Android asks, allow installation for the browser or file manager you used. The APK is also available in this repository's `downloads` folder. Its SHA-256 checksum is in `downloads/SHA256SUMS`; build and test evidence is in [VALIDATION.md](VALIDATION.md).
 
@@ -66,6 +66,10 @@ Tap **Add Expense**, choose an icon in the horizontal category row (custom categ
 Choose **Cash**, **Card** or **E-Wallet**. The last selected method is saved in encrypted local DataStore, including when cancelling the draft, and highlighted for the next new expense (initially Cash). Existing Credit Card/Debit Card payments display as Card but retain their original stored strings when edited within that group. Historical Not specified records remain intact and prompt for an explicit method before saving changes. Existing amounts initialize directly from their stored sen; untouched transaction timestamps retain their original precision.
 
 Open **Details & receipt** for date, time, description, notes, Photo Picker/camera and offline OCR review. Collapsing the section retains the attachment. The expense list's category filters now sit directly below **Transaction history**; their filtering, scrolling and ordering are unchanged. The app name/version metadata and prior header cleanup remain unchanged (1.4.0 / code 6).
+
+### Touch feedback
+
+App controls use a subtle 0.97× press animation instead of grey ripple overlays. The drawing shrinks for roughly 90ms and returns smoothly over 130ms; touch targets, layout and accessibility semantics keep their original bounds. Selected categories, chips, navigation and the journey toggle use accent colours, and keyboard focus has a rounded accent outline. Android's Remove animations / animator duration scale is respected: scaling is disabled at zero, and the app only reads that system preference. The shared policy covers the app, dialogs, app-lock screen and previews in both themes. Standard date/time input internals retain their native selection/editing behavior with the grey ripple suppressed.
 
 ## Receipt photos and offline scanning
 

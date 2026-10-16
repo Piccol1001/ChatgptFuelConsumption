@@ -11,6 +11,16 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+
+@Composable
+fun LedgerTheme(dark: Boolean, content: @Composable () -> Unit) {
+    MaterialTheme(colorScheme = if (dark) LedgerDarkColors else LedgerLightColors,
+        typography = LedgerTypography, shapes = LedgerShapes) {
+        PremiumInteractions(content)
+    }
+}
 
 val LedgerDarkColors = darkColorScheme(
     primary = Color(0xFF4DE0B1), onPrimary = Color(0xFF062D25),

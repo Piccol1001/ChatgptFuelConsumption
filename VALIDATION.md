@@ -1,3 +1,34 @@
+# Press-feedback validation
+
+Verified 16 October 2026 (Malaysia time). Package `my.fuelledger`, unchanged version1.4.0/code6 and schema4. No business/data/configuration changes.
+
+- **226 host tests passed**, zero failures/errors/skipped. New PressFeedbackTest has 8 executions across APIs26/35; all prior218 executions also pass.
+- New native-rendered pixel checks hold Material buttons and raw clickable foregrounds: visible width ratio is approximately0.97, accent colour stays unchanged, rounded-corner pixels retain the surrounding surface, and accessible hit bounds stay constant. Pointer release/cancel and disabled/selected semantics are verified. Android animator scale0 preserves stationary visuals and clicks.
+- The test runner's manually paused Compose clock did not reliably redraw a dynamic theme switch before capture; final light/dark pixel cases use independent initial themes and explicit Android-frame synchronization. Assertions were preserved, not relaxed. Existing app theme-persistence tests remain in the full suite.
+- Signed debug and optimized unsigned release APKs build successfully. Release vital lint and debug/release 16KiB ZIP alignment checks pass. Debug lint reports 0 errors, 10 existing advisory warnings and 1 hint: six unused app-name/version resource entries from the preserved header cleanup, one SQLite update suggestion, one state-backed offset suggestion, two optional KTX suggestions and one primitive-state hint. Gradle reports existing deprecation advisories. No new lint issue is introduced by this change.
+- Native API26 in-place `install -r` succeeds without clearing data. Launch reports `Status: ok` and `my.fuelledger/.MainActivity`; ActivityManager confirms it is the resumed foreground activity. This is a startup smoke check, not a rerun of the historical financial/OCR instrumentation suite.
+- Debug signing certificate SHA256 remains `4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8`; debug 16KiB ZIP alignment verifies. Packaged permissions are unchanged, with no Internet/network-state/camera/public-storage permission.
+- Final APK retains21 bundled OCR model assets, no DataTransport runtime/CCT or Firebase Analytics/Crashlytics definitions and four reviewed no-op telemetry sinks.
+- Versioned download: `Fuel-Expense-Tracker-v1.4.0-press-feedback-debug.apk`, 76,098,095 bytes, SHA256 `4d1afc37dfdd04e0c48daebd5cd83af9ba14adac3661596e9964fd77020122d2`. All previous APKs remain unchanged and `downloads/SHA256SUMS` verifies the artifacts.
+
+## Commands / evidence
+
+```sh
+cd /workspace/ChatgptFuelConsumption
+git status --short --branch
+source /workspace/.tooling/fuel-ledger-env.sh
+./gradlew :app:testDebugUnitTest :app:assembleDebug
+./gradlew :app:assembleRelease
+./gradlew :app:lintDebug
+```
+
+Use the existing checkout and pinned toolchain; preserve package, version, signing identity and Room schema 4. Finish source edits before running lint, and run release assembly and debug lint sequentially. Targeted interaction tests: `./gradlew :app:testDebugUnitTest --tests my.fuelledger.ui.PressFeedbackTest` (8 executions on APIs26/35). Do not clear/uninstall app data. Reuse `LedgerTheme`/`PremiumInteractions` for new theme roots and the shared Material adapters for new app controls. Foundation indications can only scale content drawn inside their modifier; put custom foreground backgrounds inside that scope or use outer `Modifier.pressFeedback` with the shared interaction source. Keep prior APKs and append basename-only checksums. Keys, databases, passwords and build caches stay outside Git.
+
+Logs: `/tmp/fuel-press-validation.log`, `/tmp/fuel-press-release.log`, `/tmp/fuel-press-lint.log`, `/tmp/fuel-press-native.log`. XML and prior sample screenshots are ignored build outputs under `app/build/test-results` and `app/build/reports`. This task reran the full host suite and uses a native startup smoke check; prior native financial/OCR/migration instrumentation results belong to their recorded builds and are not claimed as rerun for this UI-only change. No physical device was available. Standard Material date/time internals retain native selection/input feedback with global ripple disabled.
+
+<details>
+<summary>Preserved validation before press-feedback refinement</summary>
+
 # Expense-entry refresh validation
 
 Verified 16 October 2026 (Malaysia time). Package `my.fuelledger`, unchanged version **1.4.0 / code 6**, schema **4**. Separate Expenses filter-only commit: `69f0aa3` (one heading moved, 10 existing Compose smoke executions passed, debug build passed before restoring the separate expense redesign work).
@@ -460,6 +491,8 @@ The complete setup script was exercised, including wrapper activation, SDK setup
 ## Remaining verification
 
 No physical phone or hardware emulator was attached (`/dev/kvm` is absent). Robolectric tests are automated Android simulations, not physical-device tests. On your phone, verify the document picker, CSV export, backup/restore, keyboard behavior, accessibility/font scaling and updates with the same signing key before depending on it for irreplaceable records. The app supports one vehicle and MYR; backups replace existing data after confirmation and are not encrypted. CSV import is not provided.
+
+</details>
 
 </details>
 

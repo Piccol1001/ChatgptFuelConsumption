@@ -57,8 +57,7 @@ fun LedgerApp(vm: LedgerViewModel) {
         }
         onDispose { }
     }
-    MaterialTheme(colorScheme = if (dark) LedgerDarkColors else LedgerLightColors,
-        typography = LedgerTypography, shapes = LedgerShapes) {
+    LedgerTheme(dark) {
         val snackbar = remember { SnackbarHostState() }
         LaunchedEffect(vm) { vm.messages.collect { snackbar.showSnackbar(it) } }
         var tab by rememberSaveable { mutableStateOf("Home") }

@@ -39,7 +39,7 @@ private fun sampleLedger(): LedgerState {
 
 @Composable
 private fun PreviewLedger(dark: Boolean = true, content: @Composable (LedgerState) -> Unit) {
-    MaterialTheme(colorScheme = if (dark) LedgerDarkColors else LedgerLightColors, typography = LedgerTypography, shapes = LedgerShapes) {
+    LedgerTheme(dark) {
         Surface(color = MaterialTheme.colorScheme.background) {
             Box(Modifier.fillMaxSize()) { content(sampleLedger()) }
         }

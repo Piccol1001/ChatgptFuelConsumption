@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -43,7 +44,7 @@ fun JourneyTypeToggle(roundTrip: Boolean, change: (Boolean) -> Unit) {
     var dragging by remember { mutableStateOf<Float?>(null) }
     val shape = RoundedCornerShape(28.dp)
     BoxWithConstraints(Modifier.fillMaxWidth().heightIn(min = 56.dp)
-        .background(MaterialTheme.colorScheme.surfaceContainerHighest, shape).selectableGroup()
+        .clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHighest, shape).selectableGroup()
         .pointerInput(rtl) {
             detectHorizontalDragGestures(onDragStart = { point ->
                 dragging = ((point.x - size.width / 4f) / (size.width / 2f)).coerceIn(0f, 1f)
