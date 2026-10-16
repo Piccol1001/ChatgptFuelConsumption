@@ -56,14 +56,19 @@ fun PremiumInteractions(content: @Composable () -> Unit) {
         onDispose { resolver.unregisterContentObserver(observer); lifecycle.removeObserver(resume) }
     }
     val durationScale = rememberCoroutineScope().coroutineContext[MotionDurationScale]?.scaleFactor ?: 1f
-    val motion = systemMotion && durationScale > 0f
+    val preferences = LocalUiPreferences.current
+    val motion = systemMotion && durationScale > 0f && !preferences.reducedMotion
+    val deviceHaptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val haptic = remember(deviceHaptic, preferences.haptics) { object : androidx.compose.ui.hapticfeedback.HapticFeedback {
+        override fun performHapticFeedback(hapticFeedbackType: androidx.compose.ui.hapticfeedback.HapticFeedbackType) { if (preferences.haptics) deviceHaptic.performHapticFeedback(hapticFeedbackType) }
+    } }
     val accent = MaterialTheme.colorScheme.primary
     // Keep indication nodes (and their keyboard focus) across theme/motion changes.
     val currentMotion = rememberUpdatedState(motion)
     val currentAccent = rememberUpdatedState(accent)
     val indication = remember { ScalePressIndication(currentMotion, currentAccent) }
     CompositionLocalProvider(LocalRippleConfiguration provides null, LocalIndication provides indication,
-        LocalPressMotionEnabled provides motion, content = content)
+        LocalPressMotionEnabled provides motion, androidx.compose.ui.platform.LocalHapticFeedback provides haptic, content = content)
 }
 
 /** Scale drawing only: layout, pointer hit regions, focus and semantics keep their original bounds. */

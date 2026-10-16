@@ -116,7 +116,7 @@ class SettingsStoreTest {
         assertEquals("System", store.settings.first().theme)
         assertEquals("Review", store.settings.first().receiptSaveMode)
         for (theme in listOf("Dark", "Light", "System")) {
-            val preferences = AppSettings("2.95", 6.75, theme, true, "Smart", false)
+            val preferences = AppSettings("2.95", 6.75, theme, true, "Smart", false).copy(lastExpenseCategory = "shopping", mainSwipeEnabled = false, swipeStart = "Duplicate", swipeEnd = "Delete", haptics = false, reducedMotion = true, privacyMode = true, widgetPrivacy = false, dashboardOrder = listOf("actions", "budget", "upcoming", "plan"), dashboardHidden = listOf("upcoming"))
             store.save(preferences)
             active.coroutineContext[Job]?.cancelAndJoin()
             active = scope(); store = SettingsStore(context, vault, active)

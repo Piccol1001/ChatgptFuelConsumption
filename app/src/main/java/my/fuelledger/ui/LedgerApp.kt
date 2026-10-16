@@ -62,6 +62,7 @@ fun LedgerApp(vm: LedgerViewModel) {
         }
         onDispose { }
     }
+    CompositionLocalProvider(LocalUiPreferences provides state.settings) {
     LedgerTheme(dark) {
         val snackbar = remember { SnackbarHostState() }
         LaunchedEffect(vm, snackbar) { vm.undoAvailable.collect { id ->
@@ -141,7 +142,7 @@ fun LedgerApp(vm: LedgerViewModel) {
                     NavigationBarItem(selected = pager.currentPage == index, onClick = {
                         scannerOpen = false
                         navigationJob?.cancel()
-                        navigationJob = navigationScope.launch { pager.animateScrollToPage(index) }
+                        navigationJob = navigationScope.launch { if (state.settings.reducedMotion) pager.scrollToPage(index) else pager.animateScrollToPage(index) }
                     }, icon = { Icon(ledgerSymbol(destination.symbol), destination.label) }, label = { Text(destination.label) })
                 }
             } },
@@ -170,7 +171,7 @@ fun LedgerApp(vm: LedgerViewModel) {
                     { legacyImport.launch(arrayOf("application/zip", "application/json", "text/*", "application/octet-stream")) },
                     { financeSection = "Expected Income"; financeOpen = true })
                 else pageState.SaveableStateProvider("main-screens") {
-                    MainPager(pager, enabled = !incomeOpen && !locked && !addExpense && expenseEditor == null && !addRefuel && refuelEditor == null &&
+                    MainPager(pager, enabled = state.settings.mainSwipeEnabled && !incomeOpen && !locked && !addExpense && expenseEditor == null && !addRefuel && refuelEditor == null &&
                         restore == null && operationError == null && pendingBackupOutput == null && pendingRestoreInput == null) { page ->
                         when (mainDestinations[page].key) {
                             "Journey" -> JourneyScreen(state.settings, journeyVm, state.refuels, saveFallback = { value -> vm.saveSettings(state.settings.copy(consumption = value, consumptionFallbackEnabled = true)) {} }, openSettings = openSettings, expenses = state.expenses)
@@ -181,7 +182,8 @@ fun LedgerApp(vm: LedgerViewModel) {
                                 MonthlyPlanner(financeState, financeVm, compact = true, openDetails = { financeSection = "Planner"; financeOpen = true })
                             }, scanReceipt = { vm.clearReceiptWork(); vm.clearReceiptSuccess(); scannerOpen = true }, openSettings = openSettings, finance = financeState,
                                 openCalendar = { calendarOpen = true }, addIncome = { incomeId = UUID.randomUUID().toString(); incomeOpen = true },
-                                openPlanner = { financeSection = "Planner"; financeOpen = true }, upcoming = { financeSection = "Fixed Monthly Expenses"; financeOpen = true })
+                                openPlanner = { financeSection = "Planner"; financeOpen = true }, upcoming = { financeSection = "Fixed Monthly Expenses"; financeOpen = true },
+                                togglePrivacy = { vm.saveSettings(state.settings.copy(privacyMode = !state.settings.privacyMode)) {} })
                         }
                     }
                 }
@@ -232,6 +234,8 @@ fun LedgerApp(vm: LedgerViewModel) {
                 properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOn))
         }
     }
+}
+
 }
 
 /** Passwords are deliberately absent from saved instance state and are discarded on lock. */

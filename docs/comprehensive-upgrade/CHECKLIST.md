@@ -9,7 +9,7 @@ Existing Room version 4, SQLCipher, encrypted DataStore and receipt storage; mig
 - [x] 2. Expenses: favourites, memory, refunds, Undo, duplicates, search, swipe actions, calendar.
 - [x] 3. Fuel/Journey: historical comparisons, recorded costs, reverse/scenarios/actual links/export.
 - [x] 4. Analysis: ranges, actual/planned comparisons, local insights, CSV/PDF reports.
-- [ ] 5. Settings: dashboard order/visibility, gestures, haptics, reduced motion, privacy, About.
+- [x] 5. Settings: dashboard order/visibility, gestures, haptics, reduced motion, privacy, About.
 - [ ] 6. Security review, notifications, local management, three offline widgets.
 - [ ] 7. Full integration and migration tests, offline manifest/dependency audit, APK delivery.
 
@@ -22,3 +22,5 @@ Milestone 1: compileDebugKotlin and two OverviewDashboardTest cases passed. Ligh
 Milestones 2–3: combined AppSmokeTest, ExpenseToolsTest and VehicleJourneyUpgradeTest run passed (32 executions). Room 4→5 adds expense merchant/refund metadata, merchant preferences, favourites and encrypted transaction Undo journal. Old monetary/payment values are unchanged. CSV/backup format 5 preserves new fields and reads formats 1–4. Undo retains old referenced receipt images until explicitly cleared. Journey summary exports use temporary app-private files granted only through Android sharing. Physical sharing-app verification remains pending.
 
 Milestone 4: FinancialReportTest and OverviewDashboardTest passed (4 executions). Analysis supports actual income/expense trends, paid fixed/variable spending, budgets, planned forecasts/reserves, deterministic insights and local CSV/PDF document generation. Export picker cancellation/process recreation remains a device check.
+
+Milestone 5: encrypted SettingsStore round-trip tests now include all interaction, dashboard and privacy preferences; press, reference render and accessibility masking tests passed. Amount masking changes display/semantics only. Widgets remain hidden by default; app screen protection stays enabled.

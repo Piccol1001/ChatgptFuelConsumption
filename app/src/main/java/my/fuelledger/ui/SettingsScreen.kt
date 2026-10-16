@@ -65,6 +65,7 @@ fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, expor
                 }
             }
         }
+        item { PersonalizationSettings(state, vm, busy) }
         item { Text("Financial Planning", style = MaterialTheme.typography.titleMedium) }
         item {
             OutlinedButton(onClick = openFinance, modifier = Modifier.fillMaxWidth(), enabled = !busy) {
@@ -141,7 +142,7 @@ fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, expor
             }
         }
         item {
-            Text(stringResource(R.string.app_display_name) + "\nOffline · MYR · Local dates\nBack up before uninstalling: uninstalling removes local records.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("About · " + context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty() + "\nOffline · MYR · Local dates\nBack up before uninstalling: uninstalling removes local records.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
     if (addMerchantRule || merchantRule != null) {

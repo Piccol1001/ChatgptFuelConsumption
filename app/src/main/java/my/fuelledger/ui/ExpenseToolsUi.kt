@@ -137,7 +137,7 @@ import java.util.UUID
                                     color = if (date == selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer) {
                                     Column(Modifier.padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                         Text(day.toString(), style = MaterialTheme.typography.labelLarge)
-                                        if (values.isNotEmpty()) Text(Money.decimal(values.sumOf { it.cents }), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                        if (values.isNotEmpty()) Text(if (LocalUiPreferences.current.privacyMode) "••••" else Money.decimal(values.sumOf { it.cents }), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                                     }
                                 }
                             }

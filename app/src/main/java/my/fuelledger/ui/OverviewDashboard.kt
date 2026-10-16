@@ -26,7 +26,7 @@ import java.time.format.DateTimeFormatter
 
 @Composable
 fun OverviewDashboard(state: LedgerState, finance: FinanceState, expense: () -> Unit, income: () -> Unit,
-    scan: () -> Unit, calendar: () -> Unit, settings: (() -> Unit)?, planner: () -> Unit, upcoming: () -> Unit) {
+    scan: () -> Unit, calendar: () -> Unit, settings: (() -> Unit)?, planner: () -> Unit, upcoming: () -> Unit, togglePrivacy: () -> Unit = {}) {
     val now = currentCalendar()
     val month = YearMonth.from(now.today)
     val plan = finance.months.find { it.month == month.toString() }?.occurrences() ?: plannedOccurrences(finance.recurring, month)
@@ -42,10 +42,12 @@ fun OverviewDashboard(state: LedgerState, finance: FinanceState, expense: () -> 
                     Text(month.format(DateTimeFormatter.ofPattern("MMMM yyyy", Malaysia)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("Overview", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
                 }
+                IconButton(togglePrivacy) { Icon(if (state.settings.privacyMode) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, "Hide or reveal amounts") }
                 if (settings != null) IconButton(settings) { Icon(ledgerSymbol("settings"), "Settings") }
             }
         }
-        item {
+        state.settings.dashboardOrder.filterNot { it in state.settings.dashboardHidden }.forEach { card -> when(card) {
+            "plan" -> item {
             Surface(Modifier.fillMaxWidth().clickable(onClick = planner), color = if (isDark) Color(0xFF14283D) else MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(24.dp)) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Available After Fixed Commitments", style = MaterialTheme.typography.labelLarge)
@@ -65,7 +67,7 @@ fun OverviewDashboard(state: LedgerState, finance: FinanceState, expense: () -> 
                 }
             }
         }
-        item {
+        "budget" -> item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val usage = if (budget != null && budget > 0) money.actualExpenses.toDouble() / budget else null
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -80,7 +82,7 @@ fun OverviewDashboard(state: LedgerState, finance: FinanceState, expense: () -> 
                 }
             }
         }
-        item {
+        "actions" -> item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(Triple("Expense", Icons.Outlined.Add, expense), Triple("Income", Icons.Outlined.SouthWest, income),
                     Triple("Scan", Icons.Outlined.DocumentScanner, scan), Triple("Calendar", Icons.Outlined.CalendarMonth, calendar)).forEach { (label, icon, action) ->
@@ -91,7 +93,7 @@ fun OverviewDashboard(state: LedgerState, finance: FinanceState, expense: () -> 
                 }
             }
         }
-        item {
+        "upcoming" -> item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Upcoming Payments", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                 IconButton(upcoming) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "Recurring payments") }
@@ -107,6 +109,7 @@ fun OverviewDashboard(state: LedgerState, finance: FinanceState, expense: () -> 
                 }
             }
         }
+        } }
     }
 }
 

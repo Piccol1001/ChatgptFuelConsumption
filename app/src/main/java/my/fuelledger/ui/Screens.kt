@@ -38,8 +38,8 @@ private val shortMonthFormat = DateTimeFormatter.ofPattern("MMM yy", Malaysia)
 fun HomeScreen(state: LedgerState, addExpense: () -> Unit, addRefuel: () -> Unit, edit: (Expense) -> Unit,
     planner: (@Composable () -> Unit)? = null, scanReceipt: (() -> Unit)? = null, openSettings: (() -> Unit)? = null,
     finance: my.fuelledger.FinanceState = my.fuelledger.FinanceState(), addIncome: () -> Unit = {},
-    openCalendar: () -> Unit = {}, openPlanner: () -> Unit = {}, upcoming: () -> Unit = openPlanner) {
-    OverviewDashboard(state, finance, addExpense, addIncome, scanReceipt ?: {}, openCalendar, openSettings, openPlanner, upcoming)
+    openCalendar: () -> Unit = {}, openPlanner: () -> Unit = {}, upcoming: () -> Unit = openPlanner, togglePrivacy: () -> Unit = {}) {
+    OverviewDashboard(state, finance, addExpense, addIncome, scanReceipt ?: {}, openCalendar, openSettings, openPlanner, upcoming, togglePrivacy)
 }
 
 @Composable
@@ -158,13 +158,15 @@ fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit,
     var query by rememberSaveable { mutableStateOf("") }
     var sort by rememberSaveable { mutableStateOf("Newest") }
     var filtersOpen by rememberSaveable { mutableStateOf(false) }
+    var paymentFilter by rememberSaveable { mutableStateOf("") }
+    var kindFilter by rememberSaveable { mutableStateOf("") }
     val start = LocalDate.parse(startText)
     val end = LocalDate.parse(endText)
     val rangeValid = !end.isBefore(start)
     val totals = remember(state.expenses, calendar.zone) { spending(state, calendar.zone) }
-    val filtered = remember(state.expenses, start, end, category, query, sort) {
+    val filtered = remember(state.expenses, start, end, category, query, sort, paymentFilter, kindFilter) {
         val records = state.expenses.filter { rangeValid && localDate(it.timestamp) in start..end &&
-            (category.isEmpty() || it.categoryId == category) && matchesExpense(it, query, state.categories, calendar.zone) }
+            (category.isEmpty() || it.categoryId == category) && (paymentFilter.isEmpty() || expensePaymentGroup(it.payment) == paymentFilter) && (kindFilter.isEmpty() || it.kind == kindFilter) && matchesExpense(it, query, state.categories, calendar.zone) }
         when (sort) { "Oldest" -> records.sortedBy { it.timestamp }; "Highest" -> records.sortedByDescending { it.cents }; else -> records.sortedByDescending { it.timestamp } }
     }
     val groups = filtered.groupBy { localDate(it.timestamp) }.entries.toList().let { entries ->
@@ -209,6 +211,8 @@ fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit,
                             endText = maxOf(today, state.expenses.maxOfOrNull { localDate(it.timestamp) } ?: today).toString()
                         }) { Text("All history") }
                     }
+                    Choice("Payment", paymentFilter, listOf("" to "All payment methods") + expensePaymentOptions.map { it to it }) { paymentFilter = it }
+                    Choice("Transaction type", kindFilter, listOf("" to "All", "Expense" to "Expenses", "Refund" to "Refunds")) { kindFilter = it }
                     Choice("Sort", sort, listOf("Newest", "Oldest", "Highest").map { it to it }) { sort = it }
                 }
                 if (!rangeValid) Text("End date must be on or after start date.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -361,6 +365,7 @@ fun AnalyticsScreen(state: LedgerState, finance: my.fuelledger.FinanceState? = n
 
 @Composable
 private fun DailySpending(totals: Spending, start: LocalDate, end: LocalDate) {
+    val privacy = LocalUiPreferences.current.privacyMode
     val chartStart = maxOf(start, end.minusDays(30))
     val days = generateSequence(chartStart) { it.plusDays(1) }.takeWhile { it <= end }.toList()
     val data = days.map { totals.today(it) }
@@ -370,8 +375,8 @@ private fun DailySpending(totals: Spending, start: LocalDate, end: LocalDate) {
         Text("${dateLabel(chartStart)} – ${dateLabel(end)}${if (chartStart > start) " · latest 31 days in period" else ""} · swipe across · MYR", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
             data.forEachIndexed { index, cents ->
-                Column(Modifier.widthIn(min = 54.dp).clearAndSetSemantics { contentDescription = "${dateLabel(days[index])}: ${Money.format(cents)}" }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(Money.decimal(cents), style = MaterialTheme.typography.labelSmall)
+                Column(Modifier.widthIn(min = 54.dp).clearAndSetSemantics { contentDescription = maskAmounts("${dateLabel(days[index])}: ${Money.format(cents)}", privacy) }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(if (LocalUiPreferences.current.privacyMode) "••••" else Money.decimal(cents), style = MaterialTheme.typography.labelSmall)
                     Box(Modifier.height(110.dp).width(22.dp), contentAlignment = Alignment.BottomCenter) {
                         Box(Modifier.fillMaxWidth().height(if (cents > 0) (110 * cents.toDouble() / max).dp else 2.dp)
                             .background(if (cents > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(5.dp)))

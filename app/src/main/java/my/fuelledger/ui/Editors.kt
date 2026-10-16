@@ -23,6 +23,7 @@ import java.time.*
 fun EditorShell(title: String, busy: Boolean, error: String?, dismiss: () -> Unit, save: () -> Unit,
     delete: (() -> Unit)? = null, saveEnabled: Boolean = true, compact: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     val interaction = rememberAppLockInteraction()
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     Dialog(onDismissRequest = { if (!busy) dismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, securePolicy = SecureFlagPolicy.SecureOn)) {
         PrivacyDialogWindow()
         val width = if (compact) Modifier.widthIn(max = 560.dp).fillMaxWidth() else Modifier.fillMaxWidth().widthIn(max = 560.dp)
@@ -34,7 +35,7 @@ fun EditorShell(title: String, busy: Boolean, error: String?, dismiss: () -> Uni
                 }
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp), content = content)
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
-                Button(onClick = { if (interaction()) save() }, enabled = !busy && saveEnabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Button(onClick = { if (interaction()) { haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm); save() } }, enabled = !busy && saveEnabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                     Text(if (busy) "Saving…" else "Save")
                 }
                 if (!compact || delete != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

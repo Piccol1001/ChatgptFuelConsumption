@@ -36,6 +36,8 @@ fun ExpandableHelp(title: String = "How it works", content: @Composable () -> Un
 
 @Composable
 fun JourneyTypeToggle(roundTrip: Boolean, change: (Boolean) -> Unit) {
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val reduced = LocalUiPreferences.current.reducedMotion
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val interaction = rememberAppLockInteraction()
     val latestInteraction by rememberUpdatedState(interaction)
@@ -51,12 +53,12 @@ fun JourneyTypeToggle(roundTrip: Boolean, change: (Boolean) -> Unit) {
             }, onHorizontalDrag = { event, delta ->
                 event.consume(); dragging = ((dragging ?: if (latestRoundTrip != rtl) 1f else 0f) + delta / (size.width / 2f)).coerceIn(0f, 1f)
             }, onDragEnd = {
-                dragging?.let { if (latestInteraction()) latestChange((it >= .5f) != rtl) }; dragging = null
+                dragging?.let { if (latestInteraction()) { latestChange((it >= .5f) != rtl); haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove) } }; dragging = null
             }, onDragCancel = { dragging = null })
         }) {
         val half = maxWidth / 2
         val fraction = dragging ?: if (roundTrip != rtl) 1f else 0f
-        val animated by animateDpAsState(half * fraction, tween(180), label = "Journey type thumb")
+        val animated by animateDpAsState(half * fraction, tween(if (reduced) 0 else 180), label = "Journey type thumb")
         Box(Modifier.matchParentSize()) {
             Box(Modifier.absoluteOffset(x = if (dragging != null) half * fraction else animated)
                 .width(half).fillMaxHeight().padding(4.dp).background(MaterialTheme.colorScheme.primaryContainer, shape))
@@ -64,7 +66,7 @@ fun JourneyTypeToggle(roundTrip: Boolean, change: (Boolean) -> Unit) {
         Row(Modifier.fillMaxWidth()) {
             listOf(false to "One Way", true to "Round Trip").forEach { (value, label) ->
                 Box(Modifier.weight(1f).heightIn(min = 56.dp).selectable(selected = roundTrip == value,
-                    onClick = { if (interaction()) change(value) }, role = Role.RadioButton).padding(horizontal = 8.dp, vertical = 14.dp), contentAlignment = Alignment.Center) {
+                    onClick = { if (interaction()) { change(value); haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove) } }, role = Role.RadioButton).padding(horizontal = 8.dp, vertical = 14.dp), contentAlignment = Alignment.Center) {
                     Text(label, style = MaterialTheme.typography.labelLarge,
                         color = if (roundTrip == value) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
                 }

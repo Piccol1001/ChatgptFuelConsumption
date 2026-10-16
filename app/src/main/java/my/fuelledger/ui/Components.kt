@@ -214,11 +214,12 @@ fun ExpenseRow(expense: Expense, category: Category?, onClick: () -> Unit) {
 
 @Composable
 fun SpendingBars(title: String, data: List<Pair<String, Long>>, color: Color = MaterialTheme.colorScheme.primary) {
+    val privacy = LocalUiPreferences.current.privacyMode
     val max = data.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1L
     LedgerCard(Modifier.chartGestureRegion()) {
         Text(title, style = MaterialTheme.typography.titleMedium)
         data.forEach { (label, value) ->
-            Column(verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.clearAndSetSemantics { contentDescription = "$label: ${Money.format(value)}" }) {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.clearAndSetSemantics { contentDescription = maskAmounts("$label: ${Money.format(value)}", privacy) }) {
                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                     Text(Money.format(value), style = MaterialTheme.typography.labelMedium)
@@ -285,12 +286,13 @@ fun FuelTrend(data: List<Pair<String, Double>>, description: String = "Per-fill 
 
 @Composable
 fun CategoryDonut(distribution: List<Pair<Category?, Long>>, total: Long) {
+    val privacy = LocalUiPreferences.current.privacyMode
     val colors = distribution.map { categoryTint(it.first) }
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
     LedgerCard(Modifier.chartGestureRegion()) {
         Text("Where your money goes", style = MaterialTheme.typography.titleMedium)
         Box(Modifier.align(Alignment.CenterHorizontally).size(188.dp).clearAndSetSemantics {
-            contentDescription = "Category spending. " + distribution.joinToString { "${it.first?.name ?: "Other"}: ${Money.format(it.second)}, ${number(if (total > 0) it.second * 100.0 / total else 0.0, 1)} percent" }
+            contentDescription = "Category spending. " + distribution.joinToString { maskAmounts("${it.first?.name ?: "Other"}: ${Money.format(it.second)}, ${number(if (total > 0) it.second * 100.0 / total else 0.0, 1)} percent", privacy) }
         }, contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize().padding(12.dp)) {
                 val stroke = 19.dp.toPx()

@@ -134,6 +134,25 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
         database.toolsDao().putFavourite(value)
     }
     suspend fun deleteFavourite(id: String) = writes.withLock { database.toolsDao().deleteFavourite(id) }
+    suspend fun removeReceiptImages() = writes.withLock {
+        database.withTransaction {
+            dao.allRefuels().filter { it.receiptFile != null }.forEach { dao.putRefuel(it.copy(receiptFile = null)) }
+            dao.allExpenses().filter { it.receiptFile != null }.forEach { dao.putExpense(it.copy(receiptFile = null)) }
+            database.toolsDao().allUndo().forEach { entry ->
+                val change = entry.change()
+                database.toolsDao().putUndo(entry.copy(payload = backupJson.encodeToString(change.copy(before = change.before.copy(receiptFile = null), after = change.after?.copy(receiptFile = null)))))
+            }
+        }
+    }
+    suspend fun clearUndoHistory() = writes.withLock { database.toolsDao().clearUndo() }
+    suspend fun deleteHistorical(start: LocalDate, end: LocalDate, zone: ZoneId) = writes.withLock {
+        require(end >= start) { "Choose a valid date range." }
+        database.withTransaction {
+            dao.allExpenses().filter { Instant.ofEpochMilli(it.timestamp).atZone(zone).toLocalDate() in start..end }.forEach {
+                if (it.fuelId != null) dao.deleteRefuel(it.fuelId) else { recordUndo(it, null); dao.deleteExpense(it.id) }
+            }
+        }
+    }
     suspend fun saveRefuel(refuel: Refuel) = writes.withLock {
         validateRefuel(refuel)
         database.withTransaction {

@@ -228,6 +228,13 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
         cleanupAfterCommit(previous)
         }
     }
+    fun deleteReceiptImages() = perform("Receipt images deleted; transactions kept") {
+        receiptWrites.withLock { repository.removeReceiptImages(); _receiptWork.value = null; pruneUnusedReceipts() }
+    }
+    fun clearUndoHistory() = perform("Undo history cleared") { receiptWrites.withLock { repository.clearUndoHistory(); pruneUnusedReceipts() } }
+    fun deleteHistorical(start: java.time.LocalDate, end: java.time.LocalDate) = perform("Selected transactions deleted") {
+        receiptWrites.withLock { repository.deleteHistorical(start, end, java.time.ZoneId.systemDefault()); pruneUnusedReceipts() }
+    }
     fun saveCategory(category: Category, done: () -> Unit) = perform("Category saved", done) { repository.saveCategory(category) }
     fun deleteCategory(id: String, done: () -> Unit) = perform("Category deleted; transactions moved to Others", done) { repository.deleteCategory(id) }
     fun saveSettings(settings: AppSettings, done: () -> Unit) = perform("Preferences saved", done) { repository.saveSettings(settings); my.fuelledger.finance.PlannerReminders.update(app, repository) }
