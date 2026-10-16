@@ -1,0 +1,5 @@
+Home heading=Rect.fromLTRB(80.0, 15.0, 204.0, 45.0) navigation=Rect.fromLTRB(0.0, 771.0, 73.0, 851.0)
+Fuel heading=Rect.fromLTRB(80.0, 15.0, 214.0, 45.0) navigation=Rect.fromLTRB(81.0, 771.0, 153.0, 851.0)
+Expenses heading=Rect.fromLTRB(80.0, 15.0, 190.0, 45.0) navigation=Rect.fromLTRB(161.0, 771.0, 233.0, 851.0)
+Journey heading=Rect.fromLTRB(80.0, 27.0, 264.0, 57.0) navigation=Rect.fromLTRB(241.0, 771.0, 313.0, 851.0)
+Origin=Rect.fromLTRB(40.0, 155.0, 353.0, 220.0) Destination=Rect.fromLTRB(40.0, 248.0, 353.0, 313.0) gap=28.0

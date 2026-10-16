@@ -1,3 +1,59 @@
+# Current progress — Journey layout root-cause fix
+
+Updated 16 October 2026 (Malaysia time), continuing from `313d66e`. Implementation and visual verification are complete. Earlier work is preserved below.
+
+## Completed
+
+- Compared the actual Home, Fuel, Expenses, Journey, shared Scaffold, theme, cards, inputs, navigation and press-feedback implementations.
+- Fixed Journey's 20dp top padding to reuse the existing 8dp reference value (horizontal margins remain 20dp; bottom now shares 28dp).
+- Removed empty location-suggestion Row nodes that doubled field spacing from 14dp to 28dp. Matching suggestions retain their original behavior.
+- Shortened the screen heading and redundant input labels to avoid extra heading/input lines on 320dp phones. Form-card heading and total-label typography now use the existing semantic roles; shared font scale, hero amount, cards, buttons and controls remain intact.
+- Captured and inspected all four real app screens under matching API35 native-rendered configurations: 393×851dp Light/Dark, 320×640dp Dark, and 393×851dp Light at Android font scale 1.6, all mdpi. All nine reference-screen images with before/after pairs are byte-for-byte identical.
+- No whole-screen scaling, density override, new Scaffold or system-inset handling. No financial, journey-state, database, permission, version or navigation-order changes.
+
+## Verification / current work
+
+All **230 host tests pass**, zero failures/errors/skipped, including four new layout comparison cases and the existing journey calculation/save/load/history tests. Debug APK builds. Signed debug and optimized unsigned release APKs build successfully. Release vital lint and debug/release 16KiB ZIP alignment checks pass. Debug lint has 0 errors, the same 10 advisory warnings and 1 hint as the baseline: six preserved unused app-name/version entries, one SQLite update suggestion, one state-backed offset suggestion, two KTX suggestions and one primitive-state hint. Native API26 in-place installation succeeds without clearing data; launch reports `Status: ok`, and MainActivity is confirmed as the resumed foreground activity. This native check covers startup, not a rerun of the historical financial/OCR instrumentation suite.
+
+Detailed causes, resolved measurements, screenshot links, modified components and verification limitations: [Journey layout report](docs/journey-layout/README.md).
+
+## APK
+
+- `downloads/Fuel-Expense-Tracker-v1.4.0-journey-layout-debug.apk` — 76,098,095 bytes; Android 8.0+, unchanged version 1.4.0 / code 6.
+- SHA256 `efcaff409f5ae2694d161764af0637053e72e61678ebc684e30c94f7edf2551d`.
+- Original package/signing certificate retained for in-place updates; all older APKs remain available. Private release signing keys are not included.
+
+## Files created or modified
+
+- `app/src/main/java/my/fuelledger/ui/JourneyScreen.kt`
+- `app/src/main/java/my/fuelledger/ui/Components.kt` (shared existing padding token)
+- `app/src/main/java/my/fuelledger/ui/Screens.kt` (same values via relocated token)
+- `app/src/test/java/my/fuelledger/ui/JourneyLayoutTest.kt`
+- `app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt` (label selectors only)
+- `docs/journey-layout/README.md`, `docs/journey-layout/before/`, `docs/journey-layout/after/` (test screenshots and measured geometry)
+- `README.md`, `PROGRESS.md`, `VALIDATION.md`
+- `downloads/Fuel-Expense-Tracker-v1.4.0-journey-layout-debug.apk`, `downloads/SHA256SUMS`
+
+## Remaining tasks / known limits
+
+No known compilation errors or Journey-specific layout defect remains in the verified configurations. Shared Expenses/Analytics navigation labels wrap at 160% font size on every screen; this existing behavior is unchanged. Physical-device/OEM, actual TalkBack and system-bar visual checks remain manual. Screens retain natural scrolling and accessibility-driven height growth. Home/Fuel/Journey list spacing remains 16dp; Expenses retains its original 14dp.
+
+## Exact resumption instructions
+
+```sh
+cd /workspace/ChatgptFuelConsumption
+git status --short --branch
+source /workspace/.tooling/fuel-ledger-env.sh
+./gradlew :app:testDebugUnitTest :app:assembleDebug
+./gradlew :app:assembleRelease
+./gradlew :app:lintDebug
+```
+
+For layout-only verification: `./gradlew :app:testDebugUnitTest --tests my.fuelledger.ui.JourneyLayoutTest`. Captures are regenerated under `app/build/reports/journey-layout`. Compare the same navigation item across screens when measuring semantics: long labels can give different items different heights at large fonts. Keep all screen configuration parameters matched. Retain `ledgerScreenPadding`, shared card/input controls, native font scaling, package/version/signing identity and Room schema 4. Finish source edits before running lint; assemble release and lint sequentially. Do not uninstall/clear app data or reapply the old WIP stash. Keep previous APKs and baseline visual evidence. Keys, passwords, databases and build caches stay outside Git.
+
+<details>
+<summary>Preserved progress before Journey layout correction</summary>
+
 # Current progress — Press feedback refinement
 
 Updated 16 October 2026 (Malaysia time), continuing from `b2d6706`. Implementation is complete; prior reports are preserved below.
@@ -786,6 +842,8 @@ Statuses: **A** new, **M** modified, **D** previously removed/replaced launcher 
 | M | `app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt` |
 
 Total: **65 changed files**, including this document.
+
+</details>
 
 </details>
 

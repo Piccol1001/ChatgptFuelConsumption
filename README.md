@@ -4,7 +4,7 @@ A native Android app for personal spending and car fuel records. Kotlin, Jetpack
 
 ## Download the APK
 
-[**Download Fuel & Expense Tracker for Android**](https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/downloads/Fuel-Expense-Tracker-v1.4.0-press-feedback-debug.apk)
+[**Download Fuel & Expense Tracker for Android**](https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/downloads/Fuel-Expense-Tracker-v1.4.0-journey-layout-debug.apk)
 
 Version 1.4.0, signed debug build, Android 8.0 or later. Open this link on your phone, download the `.apk` file, then open it to install. If Android asks, allow installation for the browser or file manager you used. The APK is also available in this repository's `downloads` folder. Its SHA-256 checksum is in `downloads/SHA256SUMS`; build and test evidence is in [VALIDATION.md](VALIDATION.md).
 
@@ -41,6 +41,8 @@ The project includes a Gradle wrapper, with the distribution checksum pinned. Do
 Configure `ANDROID_HOME` or let Android Studio create the ignored `local.properties` with `sdk.dir=/path/to/Android/Sdk`. Do not commit machine-specific paths. SDKs, downloaded dependencies and signing keys are outside source control.
 
 ## Using the app
+
+Journey now shares the reference screens' content margins, omits empty suggestion spacing, and uses concise labels that fit small phones. See the [measured layout investigation and matching screenshots](docs/journey-layout/README.md).
 
 - **Home:** a compact Monthly Money Planner summary (Available After Fixed Commitments, Expected Income and Fixed Expenses, with details on demand) alongside a navy-and-emerald dashboard with a prominent monthly expenditure card, today/monthly-fuel cards, large quick actions and recent transactions. No fictional account balance is shown.
 - **Fuel:** ODO-based per-fill efficiency estimates, consumption trend, monthly fuel costs, compact refuelling history and vehicle statistics. Tap a refuel to view, edit, scan its receipt or delete it. The weighted full-tank historical average is the primary consumption source. Fuel spending offers rolling 3/6/12-month views including the current month, with zero for empty months.

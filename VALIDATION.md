@@ -1,3 +1,23 @@
+# Journey layout validation
+
+Verified 16 October 2026 (Malaysia time), from baseline `313d66e`. Version 1.4.0 / code 6, Room schema 4 and original signing identity are preserved.
+
+- **230 host tests pass**, zero failures/errors/skipped. This includes four new real-app layout cases, all prior 226 executions, journey save/load, live historical consumption, explicit override, known RM21.53 estimation, receipt/finance/data/security and navigation regressions.
+- Before/after geometry reproduces and fixes 12dp extra top padding and a 28dp field gap caused by empty suggestion containers. At 320dp, the shortened heading and distance label avoid extra lines; input geometry matches Expenses' shared search control. Details and all screenshots: [Journey layout investigation](docs/journey-layout/README.md).
+- Captures use the actual MainActivity, identical per-row device settings and Robolectric native graphics: API35/mdpi, 393×851dp Light/Dark, 320×640dp Dark, and 393×851dp Light/160% font. All nine paired Home/Fuel/Expenses images are byte-identical to the baseline. The four-screen comparisons were visually inspected.
+- The first large-font test compared different navigation items and failed because Expenses wraps while Home does not. The corrected assertion compares the same Home item across all screens. This does not alter the app or hide Journey-specific alignment differences; all screen-heading, field-gap, width, input-height and touch-target assertions remain.
+- Signed debug and optimized unsigned release APKs build successfully. Release vital lint and debug/release 16KiB ZIP alignment checks pass. Debug lint has 0 errors, the same 10 advisory warnings and 1 hint as the baseline: six preserved unused app-name/version entries, one SQLite update suggestion, one state-backed offset suggestion, two KTX suggestions and one primitive-state hint. Native API26 in-place installation succeeds without clearing data; launch reports `Status: ok`, and MainActivity is confirmed as the resumed foreground activity. This native check covers startup, not a rerun of the historical financial/OCR instrumentation suite.
+- Debug signature and 16KiB ZIP alignment pass. Original certificate SHA256: `4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8`.
+- Final binary has unchanged permissions, no INTERNET permission, 21 bundled OCR model assets, no DataTransport runtime/CCT or Firebase Analytics/Crashlytics definitions, and the four reviewed no-op telemetry sinks.
+- APK: `downloads/Fuel-Expense-Tracker-v1.4.0-journey-layout-debug.apk`, 76,098,095 bytes, SHA256 `efcaff409f5ae2694d161764af0637053e72e61678ebc684e30c94f7edf2551d`. Older artifacts are preserved.
+
+The shared bottom navigation still wraps long labels at 160% font size on all screens. No physical-device/OEM/TalkBack verification is claimed. Historical native financial/OCR/migration instrumentation results below apply to their recorded builds, not this UI-only update.
+
+Logs: `/tmp/fuel-journey-before.log`, `/tmp/fuel-journey-targeted.log`, `/tmp/fuel-journey-validation.log`, `/tmp/fuel-journey-release.log`, `/tmp/fuel-journey-lint.log`, `/tmp/fuel-journey-native.log`. Resumption commands are in PROGRESS.md; test captures and geometry are retained in `docs/journey-layout/`.
+
+<details>
+<summary>Preserved validation before Journey layout correction</summary>
+
 # Press-feedback validation
 
 Verified 16 October 2026 (Malaysia time). Package `my.fuelledger`, unchanged version1.4.0/code6 and schema4. No business/data/configuration changes.
@@ -491,6 +511,8 @@ The complete setup script was exercised, including wrapper activation, SDK setup
 ## Remaining verification
 
 No physical phone or hardware emulator was attached (`/dev/kvm` is absent). Robolectric tests are automated Android simulations, not physical-device tests. On your phone, verify the document picker, CSV export, backup/restore, keyboard behavior, accessibility/font scaling and updates with the same signing key before depending on it for irreplaceable records. The app supports one vehicle and MYR; backups replace existing data after confirmation and are not encrypted. CSV import is not provided.
+
+</details>
 
 </details>
 

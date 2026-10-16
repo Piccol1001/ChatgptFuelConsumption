@@ -30,7 +30,6 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
-private val screenPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 28.dp)
 private fun spending(state: LedgerState, zone: ZoneId) = Spending(state.expenses.map { it.point() }, zone)
 private val monthFormat = DateTimeFormatter.ofPattern("MMMM yyyy", Malaysia)
 private val shortMonthFormat = DateTimeFormatter.ofPattern("MMM yy", Malaysia)
@@ -42,7 +41,7 @@ fun HomeScreen(state: LedgerState, addExpense: () -> Unit, addRefuel: () -> Unit
     val month = YearMonth.from(today)
     val totals = remember(state.expenses, calendar.zone) { spending(state, calendar.zone) }
     val fuel = state.refuels.filter { YearMonth.from(localDate(it.timestamp)) == month }.sumOf { it.cents }
-    LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(contentPadding = ledgerScreenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item { ScreenHeading("Dashboard", today.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Malaysia)), ledgerSymbol("home"), openSettings) }
         item { HeroAmount("Total spent this month", Money.format(totals.month(month)), "${month.format(monthFormat)} · includes fuel payments") }
         item { ResponsivePair(
@@ -76,7 +75,7 @@ fun FuelScreen(state: LedgerState, add: () -> Unit, edit: (Refuel) -> Unit, open
     val measuredAverage = if (measured.isEmpty()) null else measured.sumOf { it.distance } / measured.sumOf { it.litres }
     val newest = state.refuels.maxByOrNull { it.timestamp }
     val records = state.refuels.sortedByDescending { it.timestamp }
-    LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(contentPadding = ledgerScreenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item { ScreenHeading("Fuel tracker", "Refuelling records and statistics", ledgerSymbol("fuel"), openSettings) }
         item {
             LedgerCard(emphasized = true) {
@@ -188,7 +187,7 @@ fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit,
     val groups = filtered.groupBy { localDate(it.timestamp) }.entries.toList().let { entries ->
         if (sort == "Oldest") entries.sortedBy { it.key } else entries.sortedByDescending { it.key }
     }
-    LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyColumn(contentPadding = ledgerScreenPadding, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { ScreenHeading("Expenses", "Recorded transactions", ledgerSymbol("expenses"), openSettings) }
         item { HeroAmount("This month's expenditure", Money.format(totals.month(currentMonth)), "${currentMonth.format(monthFormat)} · fuel counted once") }
         item { ResponsivePair(
@@ -279,7 +278,7 @@ fun AnalyticsScreen(state: LedgerState, finance: my.fuelledger.FinanceState? = n
     val trendMonths = if (valid) generateSequence(firstTrendMonth) { it.plusMonths(1) }.takeWhile { it <= trendEndMonth }.toList() else emptyList()
     fun trendBounds(m: YearMonth): Pair<LocalDate, LocalDate> =
         if (customRange) maxOf(m.atDay(1), start) to minOf(m.atEndOfMonth(), end) else m.atDay(1) to m.atEndOfMonth()
-    LazyColumn(contentPadding = screenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(contentPadding = ledgerScreenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item { ScreenHeading("Analytics", "Understand your spending, at your own pace.", ledgerSymbol("analytics"), openSettings) }
         if (finance != null && !customRange) item {
             val plan = finance.months.find { it.month == month.toString() }?.occurrences() ?: plannedOccurrences(finance.recurring, month)

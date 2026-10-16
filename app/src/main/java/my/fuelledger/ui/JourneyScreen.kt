@@ -70,17 +70,17 @@ fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel, refuels: List<Ref
     val consumptionSource = if (input.consumptionOverride) "Override" else if (historical != null) "History" else "Fallback"
     val estimate = runCatching { journeyCost(input.plan(effectiveConsumption, consumptionSource)) }
     val locations = journeys.flatMap { listOf(it.plan().origin, it.plan().destination) }.distinct().sorted()
-    LazyColumn(state = listState, contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { ScreenHeading("Journey Planner", "Offline journey estimates", ledgerSymbol("route"), openSettings) }
+    LazyColumn(state = listState, contentPadding = ledgerScreenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item { ScreenHeading("Journey", "Offline journey estimates", ledgerSymbol("route"), openSettings) }
         item {
             LedgerCard {
-                Text(if (saved != null) "Edit saved journey" else "Plan a journey", style = MaterialTheme.typography.titleLarge)
+                Text(if (saved != null) "Edit saved journey" else "Plan a journey", style = MaterialTheme.typography.titleMedium)
                 TextField(input.origin, { update(input.copy(origin = it)) }, "Origin", 200)
                 LocationSuggestions(input.origin, locations) { update(input.copy(origin = it)) }
                 TextField(input.destination, { update(input.copy(destination = it)) }, "Destination", 200)
                 LocationSuggestions(input.destination, locations) { update(input.copy(destination = it)) }
                 Text("Enter distance manually or load a saved route.", style = MaterialTheme.typography.bodySmall)
-                NumericField(input.outbound, { update(input.copy(outbound = it)) }, "One-way / outbound distance (km)")
+                NumericField(input.outbound, { update(input.copy(outbound = it)) }, "Outbound distance (km)")
                 JourneyTypeToggle(input.roundTrip) { round ->
                     update(input.copy(roundTrip = round, returnDistance = input.returnDistance.ifBlank { input.outbound }))
                 }
@@ -103,7 +103,7 @@ fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel, refuels: List<Ref
                 }
                 if (historical == null || input.consumptionOverride) {
                     NumericField(if (input.consumptionOverride) input.consumption else fallback, { update(input.copy(consumption = it)) },
-                        if (input.consumptionOverride) "Journey override (L/100 km)" else "Fallback consumption (L/100 km)")
+                        if (input.consumptionOverride) "Override (L/100 km)" else "Fallback (L/100 km)")
                     if (historical == null && saveFallback != null) TextButton({
                         runCatching { measurement(if (input.consumptionOverride) input.consumption else fallback, "Fallback consumption").also { require(it <= 1000) } }
                             .onSuccess(saveFallback).onFailure { error = "Enter a fallback between 0 and 1000 L/100 km." }
@@ -118,13 +118,13 @@ fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel, refuels: List<Ref
         item {
             LedgerCard {
                 Text("Parking", style = MaterialTheme.typography.titleMedium)
-                NumericField(input.parking, { update(input.copy(parking = it)) }, "Total parking for the journey (RM)")
+                NumericField(input.parking, { update(input.copy(parking = it)) }, "Parking (RM)")
                 Text("Journey total; not doubled for return travel.", style = MaterialTheme.typography.bodySmall)
             }
         }
         item {
             LedgerCard(emphasized = true) {
-                Text("Total estimated journey cost", style = MaterialTheme.typography.titleLarge)
+                Text("Total estimated journey cost", style = MaterialTheme.typography.labelLarge)
                 estimate.getOrNull()?.let { cost ->
                     JourneyCostSummary(cost)
                 } ?: Text(estimate.exceptionOrNull()?.message ?: "Check the journey inputs.", color = MaterialTheme.colorScheme.error)
@@ -162,8 +162,11 @@ fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel, refuels: List<Ref
 
 @Composable
 private fun LocationSuggestions(value: String, locations: List<String>, choose: (String) -> Unit) {
+    val suggestions = locations.filter { it.startsWith(value, ignoreCase = true) && it != value }.take(6)
+    // An empty Row still adds a slot to LedgerCard's spaced Column. Emit nothing instead.
+    if (suggestions.isEmpty()) return
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        locations.filter { it.startsWith(value, ignoreCase = true) && it != value }.take(6).forEach {
+        suggestions.forEach {
             SuggestionChip(onClick = { choose(it) }, label = { Text(it) }, modifier = Modifier.heightIn(min = 48.dp))
         }
     }
