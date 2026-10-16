@@ -17,9 +17,12 @@ import my.fuelledger.domain.*
         coverage?.let {
             Text("Fuel-only: RM ${number(it.fuelRmPerKm, 4)}/km", style = MaterialTheme.typography.titleMedium)
             Text("Recorded operating: RM ${number(it.recordedRmPerKm, 4)}/km", style = MaterialTheme.typography.titleMedium)
-            Text("${dateLabel(localDate(it.start))} – ${dateLabel(localDate(it.end))} · ${number(it.distance)} measured km", style = MaterialTheme.typography.bodySmall)
+            Text("${dateLabel(localDate(it.start))} – ${dateLabel(localDate(it.end))} · ${number(it.distance)} km in valid measured intervals", style = MaterialTheme.typography.bodySmall)
             Text("Includes fuel and recorded ${state.categories.filter { c -> c.id in it.categoryIds }.joinToString { c -> c.name }}. Complete ownership cost is unavailable.", style = MaterialTheme.typography.bodySmall)
         } ?: Text("Cost per kilometre needs a complete full-tank interval.", style = MaterialTheme.typography.bodySmall)
+        fuelCostDrivers(state.refuels.map { it.point() })?.let { driver ->
+            Text("Measured cost/km change · price RM ${number(driver.priceRmPerKm, 4)} · consumption RM ${number(driver.consumptionRmPerKm, 4)}", style = MaterialTheme.typography.bodySmall)
+        }
         val recent = state.refuels.sortedBy { it.timestamp }.takeLast(2)
         if (recent.size == 2) Text("Last price change: RM ${number(recent[1].pricePerLitre - recent[0].pricePerLitre, 3)}/L. Price changes and consumption changes are measured separately.", style = MaterialTheme.typography.bodySmall)
     }

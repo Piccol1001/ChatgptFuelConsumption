@@ -3,15 +3,15 @@
     android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"
     android:padding="16dp" android:background="@drawable/widget_background">
     <TextView android:id="@+id/widget_title" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="Fuel &amp; Expense Tracker" android:textSize="13sp" android:textColor="@color/widget_secondary" />
+        android:text="@string/widget_app_name" android:textSize="13sp" android:textColor="@color/widget_secondary" />
     <TextView android:id="@+id/widget_main" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="RM ••••" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/widget_text" android:layout_marginTop="6dp" />
+        android:text="@string/widget_masked_amount" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/widget_text" android:layout_marginTop="6dp" />
     <TextView android:id="@+id/widget_detail" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="Open app to refresh" android:textSize="12sp" android:textColor="@color/widget_secondary" android:layout_marginTop="4dp" />
+        android:text="@string/widget_open_refresh" android:textSize="12sp" android:textColor="@color/widget_secondary" android:layout_marginTop="4dp" />
     <LinearLayout android:id="@+id/widget_actions" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:orientation="horizontal" android:visibility="gone" android:layout_marginTop="8dp">
-        <Button android:id="@+id/widget_expense" android:layout_width="0dp" android:layout_height="wrap_content" android:minHeight="48dp" android:layout_weight="1" android:text="Expense" android:textSize="12sp" android:textAllCaps="false" />
-        <Button android:id="@+id/widget_income" android:layout_width="0dp" android:layout_height="wrap_content" android:minHeight="48dp" android:layout_weight="1" android:text="Income" android:textSize="12sp" android:textAllCaps="false" />
-        <Button android:id="@+id/widget_scan" android:layout_width="0dp" android:layout_height="wrap_content" android:minHeight="48dp" android:layout_weight="1" android:text="Scan" android:textSize="12sp" android:textAllCaps="false" />
+        style="?android:attr/buttonBarStyle" android:orientation="horizontal" android:visibility="gone" android:layout_marginTop="8dp">
+        <Button style="?android:attr/buttonBarButtonStyle" android:background="@drawable/widget_action_background" android:textColor="@color/widget_text" android:stateListAnimator="@null" android:minWidth="0dp" android:paddingHorizontal="4dp" android:layout_marginHorizontal="2dp" android:id="@+id/widget_expense" android:layout_width="0dp" android:layout_height="wrap_content" android:minHeight="48dp" android:layout_weight="1" android:text="@string/widget_expense_action" android:textSize="12sp" android:textAllCaps="false" />
+        <Button style="?android:attr/buttonBarButtonStyle" android:background="@drawable/widget_action_background" android:textColor="@color/widget_text" android:stateListAnimator="@null" android:minWidth="0dp" android:paddingHorizontal="4dp" android:layout_marginHorizontal="2dp" android:id="@+id/widget_income" android:layout_width="0dp" android:layout_height="wrap_content" android:minHeight="48dp" android:layout_weight="1" android:text="@string/widget_income_action" android:textSize="12sp" android:textAllCaps="false" />
+        <Button style="?android:attr/buttonBarButtonStyle" android:background="@drawable/widget_action_background" android:textColor="@color/widget_text" android:stateListAnimator="@null" android:minWidth="0dp" android:paddingHorizontal="4dp" android:layout_marginHorizontal="2dp" android:id="@+id/widget_scan" android:layout_width="0dp" android:layout_height="wrap_content" android:minHeight="48dp" android:layout_weight="1" android:text="@string/widget_scan_action" android:textSize="12sp" android:textAllCaps="false" />
     </LinearLayout>
 </LinearLayout>

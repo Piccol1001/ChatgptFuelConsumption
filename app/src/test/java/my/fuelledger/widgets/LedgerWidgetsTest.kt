@@ -30,6 +30,10 @@ class LedgerWidgetsTest {
         assertEquals(1500L, summary.expenses); assertEquals(100000L, summary.income); assertTrue(summary.hidden)
         assertEquals("RM ••••", summary.money(summary.expenses))
         repo.saveSettings(AppSettings(widgetPrivacy = false))
+        repo.database.financeDao().putBudget(FinanceBudget("food-budget", YearMonth.from(today).toString(), 3000, "food"))
+        val categoryBudget = widgetSummary(repo.backup(), YearMonth.from(today), ZoneId.systemDefault())
+        assertEquals(3000L, categoryBudget.budget); assertEquals(1500L, categoryBudget.budgetSpent)
+        assertTrue(categoryBudget.budgetLine().contains("50% used"))
         assertEquals("RM 15.00", widgetSummary(repo.backup(), YearMonth.from(today), ZoneId.systemDefault()).money(1500))
     }
     @Test fun allThreeRealRemoteViewsInflateAndRefreshWithoutNetwork() = runBlocking {

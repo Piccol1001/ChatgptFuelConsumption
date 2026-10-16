@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,7 +50,6 @@ fun FuelScreen(state: LedgerState, add: () -> Unit, edit: (Refuel) -> Unit, open
     var chartMonths by rememberSaveable { mutableStateOf(3) }
     val current = state.refuels.filter { YearMonth.from(localDate(it.timestamp)) == month }
     val estimates = remember(state.refuels) { fillEstimates(state.refuels.map { it.point() }) }
-    val latest = estimates.lastOrNull()
     val measured = remember(state.refuels) { efficiencies(state.refuels.map { it.point() }) }
     val measuredLast = measured.lastOrNull()
     val measuredAverage = if (measured.isEmpty()) null else measured.sumOf { it.distance } / measured.sumOf { it.litres }
@@ -67,7 +67,7 @@ fun FuelScreen(state: LedgerState, add: () -> Unit, edit: (Refuel) -> Unit, open
                 Text(historicalConsumption(state.refuels.map { it.point() })?.let { "${number(it)} L/100 km" } ?: "Complete two full-tank readings to begin.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = .18f))
                 Text("WEIGHTED · FULL-TANK INTERVALS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                ExpandableHelp("Per-fill estimates") { Text("Distance since the previous fill ÷ litres purchased. Tank levels vary; journey planning uses complete full-tank cycles instead.", style = MaterialTheme.typography.bodySmall) }
+                ExpandableHelp("Fuel calculation") { Text("Total litres consumed ÷ total measured distance × 100 across complete full-tank intervals. Partial fills within each interval are included once. Per-fill estimates remain in refuelling history.", style = MaterialTheme.typography.bodySmall) }
             }
         }
         item { ResponsivePair(
@@ -158,6 +158,8 @@ fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit,
     var query by rememberSaveable { mutableStateOf("") }
     var sort by rememberSaveable { mutableStateOf("Newest") }
     var filtersOpen by rememberSaveable { mutableStateOf(false) }
+    val favouriteEntries = if (vm != null) vm.favourites.collectAsStateWithLifecycle().value else emptyList()
+    val undoEntries = if (vm != null) vm.undoHistory.collectAsStateWithLifecycle().value else emptyList()
     var paymentFilter by rememberSaveable { mutableStateOf("") }
     var kindFilter by rememberSaveable { mutableStateOf("") }
     val start = LocalDate.parse(startText)
@@ -181,8 +183,8 @@ fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit,
         ) }
         item { LedgerAction("Add Expense", ledgerSymbol("add"), Modifier.fillMaxWidth(), onClick = add) }
         item { TextButton(openCalendar) { Text("Spending Calendar") } }
-        if (vm != null) item { ExpenseFavourites(vm, state, add, duplicate) }
-        if (vm != null) item { TransactionUndoBar(vm) }
+        if (vm != null && favouriteEntries.isNotEmpty()) item(key = "favourites") { ExpenseFavourites(vm, state, duplicate, favouriteEntries) }
+        if (vm != null && undoEntries.isNotEmpty()) item(key = "transaction-undo") { TransactionUndoBar(vm, undoEntries.firstOrNull()) }
         item { SectionTitle("Transaction history", "${dateLabel(start)} – ${dateLabel(end)}") }
         item {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -276,10 +278,9 @@ fun AnalyticsScreen(state: LedgerState, finance: my.fuelledger.FinanceState? = n
             val money = monthlyMoney(month, plan, finance.income, state.expenses, calendar.zone)
             LedgerCard {
                 Text("Monthly plan vs actual · $month", style = MaterialTheme.typography.titleMedium)
-                Text("Expected income ${Money.format(money.expected)} · fixed commitments ${Money.format(money.fixed)}")
-                Text("Planned available ${Money.format(money.plannedAvailable)}")
-                Text("Actual income ${Money.format(money.actualIncome)} · actual expenses ${Money.format(money.actualExpenses)}")
-                Text("Actual net cash flow ${Money.format(money.actualNet)}")
+                Text("Expected income ${Money.format(money.expected)} · fixed commitments ${Money.format(money.fixed)}", style = MaterialTheme.typography.bodySmall)
+                Text("Planned available ${Money.format(money.plannedAvailable)}", style = MaterialTheme.typography.titleMedium)
+                Text("Actual net cash flow ${Money.format(money.actualNet)}", style = MaterialTheme.typography.titleSmall)
                 val allocations = (finance.allocations.find { it.scope == month.toString() } ?: finance.allocations.find { it.scope == "default" })?.categories() ?: defaultAllocations
                 val savings = allocationAmounts(money.plannedAvailable, allocations, state.expenses, month, calendar.zone, plan).filter { it.category.savings }.sumOf { it.allocated }
                 Text("Planned savings reserve ${Money.format(savings)} · no transfer recorded", style = MaterialTheme.typography.bodySmall)

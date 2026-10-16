@@ -288,7 +288,7 @@ class ReceiptBackupArchive(
             }
         }
         val backup = parseManifest(staging, requireNotNull(manifest) { "Backup is missing manifest.json." })
-        require(backup.version in 2..4) { "A ZIP backup must use format version 2, 3 or 4." }
+        require(backup.version in 2..5) { "A ZIP backup must use format version 2 through 5." }
         val references = backup.receiptNames()
         require(photos.keys.containsAll(references)) { "Backup is missing one or more receipt photos." }
         require(references.containsAll(photos.keys)) { "Backup contains unreferenced receipt photos." }

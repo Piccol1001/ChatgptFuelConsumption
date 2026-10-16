@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.semantics
@@ -28,12 +29,11 @@ import my.fuelledger.domain.Money
 import java.time.*
 import java.util.UUID
 
-@Composable fun TransactionUndoBar(vm: LedgerViewModel) {
-    val history by vm.undoHistory.collectAsStateWithLifecycle()
-    history.firstOrNull()?.let { entry ->
+@Composable fun TransactionUndoBar(vm: LedgerViewModel, current: TransactionUndo?) {
+    current?.let { entry ->
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Transaction ${if (entry.change().after == null) "deleted" else "updated"}", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-            TextButton({ vm.undoTransaction(entry.id) }) { Text("Undo") }
+            TextButton({ vm.undoTransaction(entry.id) }, modifier = Modifier.testTag("transaction-undo-action")) { Text("Undo") }
         }
     }
 }
@@ -51,7 +51,7 @@ import java.util.UUID
             else if (distance <= -threshold) action(state.settings.swipeEnd)
         }, onDragCancel = { distance = 0f }) { change, drag -> change.consume(); distance += drag }
     }
-    Column(gesture.semantics { customActions = listOf(CustomAccessibilityAction("Transaction actions") { menu = true; true }) }) {
+    Column(Modifier.testTag("transaction-${expense.id}").then(gesture).semantics { customActions = listOf(CustomAccessibilityAction("Transaction actions") { menu = true; true }) }) {
         ExpenseRow(expense, state.categories.find { it.id == expense.categoryId }) { edit(expense) }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             if (expense.kind == "Refund") Text("Refund", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
@@ -71,8 +71,7 @@ import java.util.UUID
     }
 }
 
-@Composable fun ExpenseFavourites(vm: LedgerViewModel, state: LedgerState, add: () -> Unit, review: (Expense) -> Unit) {
-    val favourites by vm.favourites.collectAsStateWithLifecycle()
+@Composable fun ExpenseFavourites(vm: LedgerViewModel, state: LedgerState, review: (Expense) -> Unit, favourites: List<FavouriteExpense>) {
     var editing by remember { mutableStateOf<FavouriteExpense?>(null) }
     var deleting by remember { mutableStateOf<FavouriteExpense?>(null) }
     if (favourites.isNotEmpty()) {
@@ -80,10 +79,10 @@ import java.util.UUID
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             favourites.forEach { value ->
                 Column {
-                    FilledTonalButton({
+                    FilledTonalButton(onClick = {
                         val e = value.expense().copy(id = UUID.randomUUID().toString(), timestamp = System.currentTimeMillis())
                         if (likelyDuplicates(e, state.expenses).isEmpty()) vm.saveExpense(e) {} else review(e)
-                    }) { Text("${value.name} · ${Money.format(value.expense().cents)}") }
+                    }, modifier = Modifier.testTag("favourite-${value.id}")) { Text("${value.name} · ${Money.format(value.expense().cents)}") }
                     Row { TextButton({ editing = value }) { Text("Edit") }; TextButton({ deleting = value }) { Text("Remove") } }
                 }
             }
@@ -91,17 +90,21 @@ import java.util.UUID
     }
     editing?.let { original ->
         var name by remember(original.id) { mutableStateOf(original.name) }
+        var description by remember(original.id) { mutableStateOf(original.expense().description) }
+        var merchant by remember(original.id) { mutableStateOf(original.expense().merchant) }
+        var notes by remember(original.id) { mutableStateOf(original.expense().notes) }
         var amount by remember(original.id) { mutableLongStateOf(original.expense().cents) }
         var category by remember(original.id) { mutableStateOf(original.expense().categoryId) }
         var payment by remember(original.id) { mutableStateOf(original.expense().payment) }
         var error by remember { mutableStateOf<String?>(null) }
         EditorShell("Edit favourite", false, error, { editing = null }, {
-            runCatching { favourite(original.id, name, original.expense().copy(cents = amount, categoryId = category, payment = payment)) }
+            runCatching { favourite(original.id, name, original.expense().copy(cents = amount, categoryId = category, payment = payment, description = description, merchant = merchant, notes = notes)) }
                 .onSuccess { vm.saveFavourite(it) { editing = null } }.onFailure { error = it.message }
-        }, saveEnabled = amount > 0) {
+        }, saveEnabled = amount > 0 && expensePaymentGroup(payment) != null) {
             TextField(name, { name = it }, "Name", 100); ExpenseAmount(amount)
             ExpenseCategoryRow(state.categories, category, true) { category = it }; ExpensePaymentRow(payment, true) { payment = it }
             CentsKeypad(amount, true, { amount = it }, {})
+            ExpandableHelp("Favourite details") { TextField(merchant, { merchant = it }, "Merchant", 200); TextField(description, { description = it }, "Description", 200); TextField(notes, { notes = it }, "Notes", 2000, true) }
         }
     }
     deleting?.let { value -> DeleteConfirmation("Remove favourite?", "Existing transactions are kept.", false, { deleting = null }) { vm.deleteFavourite(value.id); deleting = null } }
@@ -133,7 +136,7 @@ import java.util.UUID
                             val day = row * 7 + col - offset + 1
                             if (day !in 1..month.lengthOfMonth()) Spacer(Modifier.weight(1f)) else {
                                 val date = month.atDay(day); val values = grouped[date].orEmpty()
-                                Surface(onClick = { selectedText = date.toString() }, Modifier.weight(1f).heightIn(min = 60.dp), shape = MaterialTheme.shapes.small,
+                                Surface(onClick = { selectedText = date.toString() }, Modifier.weight(1f).heightIn(min = 60.dp).testTag("calendar-date-$date"), shape = MaterialTheme.shapes.small,
                                     color = if (date == selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer) {
                                     Column(Modifier.padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                         Text(day.toString(), style = MaterialTheme.typography.labelLarge)

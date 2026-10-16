@@ -119,7 +119,7 @@ internal fun overviewSample(): Pair<LedgerState, FinanceState> {
     val rules = listOf(FinanceRecurring("salary", "Salary", 300000, "", "Monthly", month.atDay(1).toString(), month.atDay(1).toString(), kind = "Income", manualPayment = true),
         FinanceRecurring("wifi", "Wi-Fi", 12000, "bills", "Monthly", month.atEndOfMonth().toString(), month.atEndOfMonth().toString(), manualPayment = true),
         FinanceRecurring("rent", "Rent", 101000, "bills", "Monthly", month.atDay(1).toString(), month.atDay(1).toString(), manualPayment = true))
-    return LedgerState(categories = defaultCategories, expenses = listOf(Expense("sample", 126000, "food", date))) to
+    return LedgerState(categories = defaultCategories, expenses = listOf(Expense("sample", 25000, "food", date), Expense("sample-rent", 101000, "bills", date, recurringRuleId = "rent", recurringDate = month.atDay(1).toString()))) to
         FinanceState(budgets = listOf(FinanceBudget("sample", month.toString(), 168000)), recurring = rules)
 }
 @Preview(name = "Overview reference dark", widthDp = 393, heightDp = 851)

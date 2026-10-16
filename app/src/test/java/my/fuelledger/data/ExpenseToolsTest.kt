@@ -29,6 +29,11 @@ class ExpenseToolsTest {
         assertTrue(db.financeDao().allIncome().isEmpty())
         assertTrue(runCatching { repo.saveExpense(e.copy(id = "over", cents = -1600, kind = "Refund", refundOf = e.id)) }.isFailure)
         assertEquals(2, db.dao().allExpenses().size)
+        assertTrue(runCatching { repo.saveExpense(e.copy(cents = 400)) }.isFailure)
+        repo.deleteExpense(e.id)
+        val refund = db.dao().expense("refund")!!
+        repo.saveExpense(refund.copy(notes = "Original purchase removed; keep provenance"))
+        assertEquals(e.id, db.dao().expense("refund")!!.refundOf)
     }
     @Test fun undoSurvivesRepositoryRecreationAndRefusesToOverwriteNewEdits() = runBlocking {
         val e = Expense("e", 1200, "food", 1000)
@@ -80,4 +85,41 @@ class ExpenseToolsTest {
         val migrated = Room.databaseBuilder(context, LedgerDatabase::class.java, name).addMigrations(LedgerDatabase.MIGRATION_4_5).build()
         try { val e = migrated.dao().expense("old")!!; assertEquals(1234L, e.cents); assertEquals("Credit Card", e.payment); assertEquals("Expense", e.kind); assertEquals("", e.merchant); assertNull(e.refundOf); assertEquals(5, migrated.openHelper.readableDatabase.version) } finally { migrated.close(); context.deleteDatabase(name) }
     }
+    @Test fun refuelUndoRestoresBothRecordsAtomicallyAndRejectsInvalidOdometerRestores() = runBlocking {
+        val fuel = Refuel("fill", 1000, 1000.0, 40.0, 8000, true)
+        repo.saveRefuel(fuel)
+        repo.saveRefuel(fuel.copy(cents = 9000))
+        repo.undoTransaction(db.toolsDao().allUndo().single().id)
+        assertEquals(fuel, db.dao().allRefuels().single())
+        assertEquals(8000L, db.dao().allExpenses().single().cents)
+        repo.deleteRefuel(fuel.id)
+        assertTrue(db.dao().allExpenses().isEmpty())
+        repo.undoTransaction(db.toolsDao().allUndo().single().id)
+        assertEquals(fuel, db.dao().allRefuels().single())
+        assertEquals(fuel.cents, db.dao().allExpenses().single().cents)
+    }
+    @Test fun undoRestoresReceiptReferenceAndExplicitImageDeletionKeepsTransactions() = runBlocking {
+        val photo = "12345678-abcd-1234-abcd-123456789abc.jpg"
+        val e = Expense("e", 2000, "food", 1000, receiptFile = photo)
+        repo.saveExpense(e); repo.deleteExpense(e.id)
+        repo.undoTransaction(db.toolsDao().allUndo().single().id)
+        assertEquals(photo, db.dao().expense(e.id)!!.receiptFile)
+        repo.saveExpense(e.copy(cents = 2100)); repo.removeReceiptImages()
+        assertNull(db.dao().expense(e.id)!!.receiptFile)
+        assertNull(db.toolsDao().allUndo().single().change().before.receiptFile)
+        assertEquals(2100L, db.dao().expense(e.id)!!.cents)
+    }
+    @Test fun actualExpenseAttributionCannotBeDuplicatedAcrossJourneys() = runBlocking {
+        val e = Expense("toll", 1000, FUEL_CATEGORY, 1000)
+        repo.saveExpense(e)
+        val journeys = JourneyRepository(db)
+        val plan = JourneyPlan("A", "B", 100.0, actualLinks = listOf(JourneyActualLink(e.id, "Tolls")))
+        journeys.save(savedJourney("one", plan))
+        assertTrue(runCatching { journeys.save(savedJourney("two", plan)) }.isFailure)
+        assertEquals(1, db.journeyDao().allJourneys().size)
+        assertEquals(1, db.dao().allExpenses().size)
+        repo.deleteExpense(e.id)
+        assertNull(journeyActual(db.journeyDao().allJourneys().single().plan(), emptyList()).tolls)
+    }
+
 }

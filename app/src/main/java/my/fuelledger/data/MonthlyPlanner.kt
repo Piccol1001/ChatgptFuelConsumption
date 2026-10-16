@@ -73,7 +73,8 @@ fun makeFinanceMonth(month: YearMonth, rules: List<FinanceRecurring>) = FinanceM
 fun variableExpensesForMonth(month: YearMonth, occurrences: List<PlannedOccurrence>, expenses: List<Expense>, zone: ZoneId): List<Expense> {
     val reserved = occurrences.filter { it.kind == "Expense" }.map { it.ruleId to it.date }.toSet()
     return expenses.filter { YearMonth.from(Instant.ofEpochMilli(it.timestamp).atZone(zone)) == month &&
-        (it.recurringRuleId == null || (it.recurringRuleId to it.recurringDate) !in reserved) }
+        (it.recurringRuleId == null || (it.recurringRuleId to it.recurringDate) !in reserved) &&
+        !(it.kind == "Refund" && expenses.any { original -> original.id == it.refundOf && (original.recurringRuleId to original.recurringDate) in reserved }) }
 }
 data class MonthlyMoney(val expected: Long, val fixed: Long, val actualIncome: Long, val actualExpenses: Long,
     val variableExpenses: Long) {

@@ -95,8 +95,8 @@ fun LedgerApp(vm: LedgerViewModel) {
         val newRefuel: () -> Unit = { newRefuelId = UUID.randomUUID().toString(); addRefuel = true }
         val mainActivity = context as? my.fuelledger.MainActivity
         val quickAction by (mainActivity?.quickAction ?: remember { kotlinx.coroutines.flow.MutableStateFlow<String?>(null) }).collectAsStateWithLifecycle()
-        LaunchedEffect(quickAction, ready, locked, busy) {
-            if (ready && !locked && !busy && quickAction != null) {
+        LaunchedEffect(quickAction, ready, locked, busy, addExpense, expenseEditId, addRefuel, refuelEditId, incomeOpen) {
+            if (ready && !locked && !busy && !addExpense && expenseEditId == null && !addRefuel && refuelEditId == null && !incomeOpen && quickAction != null) {
                 settingsOpen = false; financeOpen = false; calendarOpen = false; scannerOpen = false
                 when (quickAction) {
                     "Expense" -> newExpense()
@@ -128,7 +128,7 @@ fun LedgerApp(vm: LedgerViewModel) {
         }
         val duplicateExpense: (Expense) -> Unit = { expense ->
             newExpenseId = UUID.randomUUID().toString()
-            expenseDraft = backupJson.encodeToString(Expense(newExpenseId, kotlin.math.abs(expense.cents), expense.categoryId, System.currentTimeMillis(), expense.description, expense.notes, expensePaymentGroup(expense.payment) ?: "Cash", merchant = expense.merchant))
+            expenseDraft = backupJson.encodeToString(Expense(newExpenseId, expense.cents, expense.categoryId, System.currentTimeMillis(), expense.description, expense.notes, expensePaymentGroup(expense.payment) ?: "Cash", merchant = expense.merchant, kind = expense.kind, refundOf = expense.refundOf))
             expenseDate = null; addExpense = true
         }
         val refundExpense: (Expense) -> Unit = { expense ->
@@ -173,8 +173,11 @@ fun LedgerApp(vm: LedgerViewModel) {
                     // Reuse activity models only after that existing readiness gate has completed.
                     val financeVm: FinanceViewModel = viewModel(factory = financialViewModelFactory)
                     val financeState by financeVm.state.collectAsStateWithLifecycle()
+                    val financeBusy by financeVm.busy.collectAsStateWithLifecycle()
+                    val financeError by financeVm.error.collectAsStateWithLifecycle()
                     val journeyVm: my.fuelledger.JourneyViewModel = viewModel(factory = financialViewModelFactory)
-                    if (incomeOpen) FinanceIncomeEditor(null, incomeId, busy, { incomeOpen = false }, { financeVm.saveIncome(it) { incomeOpen = false } }, null)
+                    if (incomeOpen) FinanceIncomeEditor(null, incomeId, financeBusy, { incomeOpen = false }, { financeVm.saveIncome(it) { incomeOpen = false } }, null)
+                    if (incomeOpen && financeError != null) AlertDialog(onDismissRequest = financeVm::dismissError, title = { Text("Income could not be saved") }, text = { PrivacyDialogWindow(); Text(financeError!!) }, confirmButton = { TextButton(financeVm::dismissError) { Text("OK") } })
                     if (calendarOpen) SpendingCalendar(state, onExpense, { date -> newExpense(); expenseDate = date.toString() })
                     else if (scannerOpen) { SmartReceiptScreen(state, vm) } else if (financeOpen) {
                     FinanceScreen(financeVm, initialSection = financeSection)

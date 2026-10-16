@@ -1,6 +1,9 @@
 package my.fuelledger.ui
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import my.fuelledger.FinanceState
 import my.fuelledger.LedgerState
@@ -10,6 +13,7 @@ import java.time.*
 
 @Composable fun FinancialAnalysisDetails(state: LedgerState, finance: FinanceState, month: YearMonth,
     start: LocalDate, end: LocalDate, today: LocalDate, zone: ZoneId) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
     val report = financialReport(state, finance, start, end, zone)
     LedgerCard {
         Text("Actual financial activity", style = MaterialTheme.typography.titleMedium)
@@ -43,4 +47,5 @@ import java.time.*
         if (insights.isEmpty()) Text("More recorded history is needed for comparisons.", style = MaterialTheme.typography.bodySmall)
         insights.forEach { Text(it, style = MaterialTheme.typography.bodyMedium) }
     }
+}
 }

@@ -31,6 +31,9 @@ val financeFrequencies = listOf("Daily", "Weekly", "Monthly")
 
 @Dao
 interface FinanceDao {
+    @Query("SELECT * FROM finance_budgets WHERE month = :month") suspend fun monthBudgets(month: String): List<FinanceBudget>
+    @Query("SELECT COALESCE(SUM(cents), 0) FROM finance_income WHERE timestamp >= :start AND timestamp < :end") suspend fun sumIncome(start: Long, end: Long): Long
+    @Query("SELECT * FROM finance_budgets WHERE month = :month AND categoryId = '' LIMIT 1") suspend fun overallBudget(month: String): FinanceBudget?
     @Query("SELECT * FROM finance_income ORDER BY timestamp DESC, id") fun income(): Flow<List<FinanceIncome>>
     @Query("SELECT * FROM finance_budgets ORDER BY month DESC, categoryId") fun budgets(): Flow<List<FinanceBudget>>
     @Query("SELECT * FROM finance_recurring ORDER BY name, id") fun recurring(): Flow<List<FinanceRecurring>>

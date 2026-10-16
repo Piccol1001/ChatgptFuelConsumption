@@ -1,1 +1,1 @@
-<resources><color name="widget_background">#18263B</color><color name="widget_text">#F3F6FA</color><color name="widget_secondary">#ADBED0</color></resources>
+<resources><color name="widget_background">#18263B</color><color name="widget_text">#F3F6FA</color><color name="widget_secondary">#ADBED0</color><color name="widget_action">#223249</color><color name="widget_pressed">#123C36</color></resources>

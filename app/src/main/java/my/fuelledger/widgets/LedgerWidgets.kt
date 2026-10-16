@@ -8,6 +8,8 @@ import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.first
+import androidx.room.withTransaction
 import my.fuelledger.LedgerApplication
 import my.fuelledger.MainActivity
 import my.fuelledger.R
@@ -34,14 +36,21 @@ class ExpenseSummaryWidget : LedgerWidgetProvider()
 class QuickAddWidget : LedgerWidgetProvider()
 class FinancialOverviewWidget : LedgerWidgetProvider()
 
-data class WidgetSummary(val month: String, val expenses: Long, val income: Long, val budget: Long?, val hidden: Boolean) {
+data class WidgetSummary(val month: String, val expenses: Long, val income: Long, val budget: Long?, val hidden: Boolean, val budgetSpent: Long = expenses, val budgetLabel: String = "Overall budget") {
     fun money(value: Long) = if (hidden) "RM ••••" else Money.format(value)
-    fun budgetLine() = budget?.let { if (hidden) "Budget usage hidden" else "${expenses * 100 / it}% used · ${Money.format(it - expenses)} remaining" } ?: "Monthly budget not configured"
+    fun budgetLine() = budget?.let { if (hidden) "Budget usage hidden" else "$budgetLabel · ${budgetSpent * 100 / it}% used · ${Money.format(it - budgetSpent)} remaining" } ?: "Monthly budget not configured"
 }
-fun widgetSummary(snapshot: Backup, month: YearMonth, zone: ZoneId): WidgetSummary = WidgetSummary(month.toString(),
-    snapshot.expenses.filter { YearMonth.from(Instant.ofEpochMilli(it.timestamp).atZone(zone)) == month }.sumOf { it.cents },
-    financeMonthlyIncome(snapshot.incomes, month, zone), snapshot.budgets.find { it.month == month.toString() && it.categoryId.isEmpty() }?.cents,
-    snapshot.settings.widgetPrivacy || snapshot.settings.privacyMode)
+fun widgetSummary(snapshot: Backup, month: YearMonth, zone: ZoneId): WidgetSummary {
+    val expenses = snapshot.expenses.filter { YearMonth.from(Instant.ofEpochMilli(it.timestamp).atZone(zone)) == month }
+    val budgets = snapshot.budgets.filter { it.month == month.toString() }
+    val overall = budgets.find { it.categoryId.isEmpty() }
+    val budget = overall?.cents ?: budgets.takeIf { it.isNotEmpty() }?.sumOf { it.cents }
+    val categoryIds = budgets.map { it.categoryId }.toSet()
+    return WidgetSummary(month.toString(), expenses.sumOf { it.cents }, financeMonthlyIncome(snapshot.incomes, month, zone), budget,
+        snapshot.settings.widgetPrivacy || snapshot.settings.privacyMode,
+        if (overall != null) expenses.sumOf { it.cents } else expenses.filter { it.categoryId in categoryIds }.sumOf { it.cents },
+        if (overall != null) "Overall budget" else "Category budgets")
+}
 
 object LedgerWidgets {
     private val providers = listOf(ExpenseSummaryWidget::class.java, QuickAddWidget::class.java, FinancialOverviewWidget::class.java)
@@ -54,12 +63,25 @@ object LedgerWidgets {
         if (ids.values.all { it.isEmpty() }) return
         val repository = (context.applicationContext as LedgerApplication).repository
         repository.initialize()
-        val summary = widgetSummary(repository.backup(), YearMonth.now(), ZoneId.systemDefault())
+        val month = YearMonth.now(); val zone = ZoneId.systemDefault()
+        val start = month.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val end = month.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val summary = repository.database.withTransaction {
+            val settings = repository.preferences.settings.first()
+            val budgets = repository.database.financeDao().monthBudgets(month.toString())
+            val overall = budgets.find { it.categoryId.isEmpty() }
+            val total = repository.dao.sumExpenses(start, end)
+            WidgetSummary(month.toString(), total, repository.database.financeDao().sumIncome(start, end),
+                overall?.cents ?: budgets.takeIf { it.isNotEmpty() }?.sumOf { it.cents }, settings.widgetPrivacy || settings.privacyMode,
+                if (overall != null) total else if (budgets.isNotEmpty()) repository.dao.sumCategoryExpenses(start, end, budgets.map { it.categoryId }) else 0,
+                if (overall != null) "Overall budget" else "Category budgets")
+        }
         for ((provider, widgets) in ids) widgets.forEach { id ->
             val view = RemoteViews(context.packageName, R.layout.ledger_widget)
             view.setTextViewText(R.id.widget_title, when(provider) { ExpenseSummaryWidget::class.java -> "${summary.month} · Expenses"; QuickAddWidget::class.java -> "Quick add"; else -> "${summary.month} · Actual cash flow" })
             view.setTextViewText(R.id.widget_main, when(provider) { ExpenseSummaryWidget::class.java -> summary.money(summary.expenses); QuickAddWidget::class.java -> "Fuel & Expense Tracker"; else -> "Income ${summary.money(summary.income)}\nExpenses ${summary.money(summary.expenses)}" })
-            view.setTextViewText(R.id.widget_detail, when(provider) { ExpenseSummaryWidget::class.java -> summary.budgetLine(); QuickAddWidget::class.java -> "Open a secure entry form"; else -> "Net ${summary.money(summary.income - summary.expenses)}\nCash flow · not a bank balance" })
+            view.setViewVisibility(R.id.widget_main, if (provider == QuickAddWidget::class.java) android.view.View.GONE else android.view.View.VISIBLE)
+            view.setTextViewText(R.id.widget_detail, when(provider) { ExpenseSummaryWidget::class.java -> summary.budgetLine(); QuickAddWidget::class.java -> "Open entry form"; else -> "Net ${summary.money(summary.income - summary.expenses)}\nCash flow · not a bank balance" })
             view.setOnClickPendingIntent(R.id.widget_root, pending(context, "Home"))
             view.setViewVisibility(R.id.widget_actions, if (provider == QuickAddWidget::class.java) android.view.View.VISIBLE else android.view.View.GONE)
             view.setOnClickPendingIntent(R.id.widget_expense, pending(context, "Expense"))

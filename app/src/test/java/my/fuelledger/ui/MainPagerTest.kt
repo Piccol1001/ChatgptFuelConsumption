@@ -149,17 +149,17 @@ class MainPagerTest {
 
     @Test fun formsScannerAndPlannerSliderKeepTheirExistingScopeAndBackBehavior() {
         ready(dark = true)
-        scroll("Home", hasText("Add Expense")); compose.onNode(hasText("Add Expense") and hasClickAction()).performClick(); settle()
+        scroll("Home", hasContentDescription("Expense")); compose.onNodeWithContentDescription("Expense").performClick(); settle()
         compose.onNodeWithTag("expense-key-1").performClick()
         compose.onNode(isDialog()).performTouchInput { swipeLeft() }; settle(); selected("Home")
         compose.onNodeWithTag("expense-amount").assertTextEquals("RM 0.01")
         val dialog = org.robolectric.shadows.ShadowDialog.getLatestDialog() as androidx.activity.ComponentDialog
         compose.runOnUiThread { dialog.onBackPressedDispatcher.onBackPressed() }; settle()
         compose.onNode(isDialog()).assertDoesNotExist(); selected("Home")
-        scroll("Home", hasText("Scan Receipt")); compose.onNode(hasText("Scan Receipt") and hasClickAction()).performClick(); settle()
+        scroll("Home", hasContentDescription("Scan")); compose.onNodeWithContentDescription("Scan").performClick(); settle()
         compose.onAllNodesWithTag("main-pager").assertCountEquals(0)
         back(); selected("Home")
-        scroll("Home", hasText("Scan Receipt")); compose.onNode(hasText("Scan Receipt") and hasClickAction()).performClick(); settle()
+        scroll("Home", hasContentDescription("Scan")); compose.onNodeWithContentDescription("Scan").performClick(); settle()
         navigate("Fuel"); compose.onNodeWithTag("main-pager").assertExists()
         navigate("Home")
         scroll("Home", hasContentDescription("Settings")); compose.onNodeWithContentDescription("Settings").performClick(); settle()

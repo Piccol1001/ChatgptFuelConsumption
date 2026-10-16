@@ -20,6 +20,11 @@ class VehicleJourneyUpgradeTest {
         assertEquals(14.285714, change.percent, .00001)
         assertEquals(2.0, averageFuelPrice(fills())!!, .001)
         assertEquals(7.5, historicalConsumption(points)!!, .001)
+        val priced = fills().mapIndexed { index, fill -> if (index >= 4) fill.copy(cents = 8800) else fill }
+        val drivers = fuelCostDrivers(priced.map { it.point() })!!
+        assertEquals(.014, drivers.priceRmPerKm, .00001)
+        assertEquals(.022, drivers.consumptionRmPerKm, .00001)
+        assertEquals(drivers.totalChangeRmPerKm, drivers.priceRmPerKm + drivers.consumptionRmPerKm, .00001)
     }
     @Test fun operatingCoverageCountsLinkedFuelOnceAndExcludesBaselineAndUncoveredCosts() {
         val fuels = fills()

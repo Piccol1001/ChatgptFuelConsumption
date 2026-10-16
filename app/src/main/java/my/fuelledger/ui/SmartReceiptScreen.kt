@@ -38,8 +38,8 @@ fun SmartReceiptScreen(state: LedgerState, vm: LedgerViewModel) {
     var merchant by rememberSaveable(fingerprint) { mutableStateOf(suggestions?.station.orEmpty()) }
     var amount by rememberSaveable(fingerprint) { mutableStateOf(suggestions?.amount.orEmpty()) }
     var date by rememberSaveable(fingerprint) { mutableStateOf(suggestions?.date.orEmpty()) }
-    var category by rememberSaveable(fingerprint, merchants) { mutableStateOf(merchants.find { it.merchant == merchantKey(suggestions?.station.orEmpty()) }?.categoryId ?: suggestions?.suggestedCategoryId.orEmpty()) }
-    var paymentMethod by rememberSaveable(fingerprint) { mutableStateOf("Not specified") }
+    var category by rememberSaveable(fingerprint) { mutableStateOf(merchants.find { it.merchant == merchantKey(suggestions?.station.orEmpty()) }?.categoryId ?: suggestions?.suggestedCategoryId.orEmpty()) }
+    var paymentMethod by rememberSaveable(fingerprint) { mutableStateOf(merchants.find { it.merchant == merchantKey(suggestions?.station.orEmpty()) }?.payment?.takeIf { it in expensePaymentOptions } ?: state.settings.lastExpensePayment) }
     var keep by rememberSaveable { mutableStateOf(state.settings.keepReceiptPhotos) }
     var rememberMerchant by rememberSaveable { mutableStateOf(false) }
     var distinctPurchase by rememberSaveable(fingerprint) { mutableStateOf(false) }
@@ -86,7 +86,6 @@ fun SmartReceiptScreen(state: LedgerState, vm: LedgerViewModel) {
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { it?.let(::newScan) }
     LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { ScreenHeading("Receipt Scanner", "Bundled on-device recognition. No connection or account required.", ledgerSymbol("receipt")) }
         item {
             LedgerCard {
                 Text(if (state.settings.receiptSaveMode == "Smart") "Smart Auto-Save" else "Review Before Saving", style = MaterialTheme.typography.titleMedium)
@@ -124,7 +123,7 @@ fun SmartReceiptScreen(state: LedgerState, vm: LedgerViewModel) {
                 NumericField(amount, { amount = it }, "Final amount (RM)")
                 TextField(date, { date = it }, "Receipt date (YYYY-MM-DD)", 10)
                 Choice("Expense category", category, listOf("" to "Choose category") + state.categories.map { it.id to it.name }) { category = it }
-                Choice("Payment method", paymentMethod, paymentMethods.map { it to it }) { paymentMethod = it }
+                ExpensePaymentRow(paymentMethod, !busy) { paymentMethod = it; vm.rememberExpensePayment(it) }
                 Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(rememberMerchant, { rememberMerchant = it }); Text("Remember this merchant's category", Modifier.weight(1f)) }
                 if (knownScan) Text("This receipt was already saved. Select its existing transaction to retain the photo without a second charge.", color = MaterialTheme.colorScheme.error)
                 if (possibleDuplicate || category == FUEL_CATEGORY) {

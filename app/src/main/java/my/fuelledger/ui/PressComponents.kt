@@ -11,6 +11,7 @@ import androidx.compose.material3.Card as MaterialCard
 import androidx.compose.material3.Checkbox as MaterialCheckbox
 import androidx.compose.material3.DropdownMenuItem as MaterialDropdownMenuItem
 import androidx.compose.material3.FilledTonalButton as MaterialFilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton as MaterialFilledTonalIconButton
 import androidx.compose.material3.FilterChip as MaterialFilterChip
 import androidx.compose.material3.IconButton as MaterialIconButton
 import androidx.compose.material3.NavigationBarItem as MaterialNavigationBarItem
@@ -297,4 +298,13 @@ fun Slider(
 ) {
     MaterialSlider(value, onValueChange, modifier.pressFeedback(interactionSource), enabled,
         valueRange, steps, onValueChangeFinished, colors, interactionSource)
+}
+
+@Composable
+fun FilledTonalIconButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
+    shape: Shape = MaterialTheme.shapes.large, colors: IconButtonColors = IconButtonDefaults.filledTonalIconButtonColors(),
+    interactionSource: MutableInteractionSource? = null, content: @Composable () -> Unit) {
+    val source = pressSource(interactionSource)
+    MaterialFilledTonalIconButton(onClick = onClick, modifier = modifier.pressFeedback(source, shape), enabled = enabled,
+        shape = shape, colors = colors, interactionSource = source, content = content)
 }

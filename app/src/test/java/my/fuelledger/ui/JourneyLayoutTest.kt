@@ -68,7 +68,7 @@ class JourneyLayoutTest {
         var navTop: Float? = null
         var headingTop: Float? = null
         var headingHeight: Float? = null
-        for ((tab, title) in listOf("Home" to "Overview", "Fuel" to "Fuel tracker", "Expenses" to "Expenses", "Journey" to "Journey")) {
+        for ((tab, title) in listOf("Home" to "Overview", "Fuel" to "Fuel tracker", "Expenses" to "Expenses", "Journey" to "Journey", "Analysis" to "Analytics")) {
             navigate(tab)
             waitFor(title)
             compose.mainClock.advanceTimeBy(500)
@@ -76,17 +76,22 @@ class JourneyLayoutTest {
             val bounds = heading(title).fetchSemanticsNode().boundsInRoot
             // Compare the same nav item across screens. Different labels may wrap at large fonts.
             val nav = compose.onNode(hasText("Home") and hasClickAction() and isSelectable()).fetchSemanticsNode().boundsInRoot
-            if (headingLeft == null) { headingLeft = bounds.left; navTop = nav.top; headingTop = bounds.top; headingHeight = bounds.height }
-            assertEquals("Same heading alignment: $tab", headingLeft, bounds.left, .5f)
+            if (headingLeft == null && tab != "Home") { headingLeft = bounds.left; navTop = nav.top; headingTop = bounds.top; headingHeight = bounds.height }
+            if (tab == "Home") assertEquals("Overview uses the shared content margin", 16f, bounds.left, .5f)
+            else assertEquals("Same heading alignment: $tab", headingLeft!!, bounds.left, .5f)
+            if (navTop == null) navTop = nav.top
             assertEquals("Same navigation alignment: $tab", navTop!!, nav.top, .5f)
-            if (RuntimeEnvironment.getFontScale() == 1f) assertEquals("Same heading top: $tab", headingTop!!, bounds.top, 1.1f)
-            assertEquals("No extra heading line: $tab", headingHeight!!, bounds.height, .5f)
+            if (tab != "Home" && RuntimeEnvironment.getFontScale() == 1f) assertEquals("Same heading top: $tab", headingTop!!, bounds.top, 1.1f)
+            if (tab != "Home") assertEquals("No extra heading line: $tab", headingHeight!!, bounds.height, .5f)
             measurements += "$tab heading=$bounds navigation=$nav"
             capture("$size-$theme-$tab")
         }
+        navigate("Journey"); compose.mainClock.advanceTimeBy(500); compose.waitForIdle()
+        field("Destination").performScrollTo()
         val origin = field("Origin").fetchSemanticsNode().boundsInRoot
         val destination = field("Destination").fetchSemanticsNode().boundsInRoot
-        assertEquals("No empty suggestion slots", 14f, destination.top - origin.bottom, .5f)
+        assertTrue("Gap contains only the compact reverse action", destination.top - origin.bottom in 62f..90f)
+        field("Outbound distance (km)").performScrollTo()
         val outbound = field("Outbound distance (km)").fetchSemanticsNode().boundsInRoot
         if (RuntimeEnvironment.getFontScale() == 1f) assertEquals("Distance label must not inflate the control", origin.height, outbound.height, .5f)
         assertTrue("Inputs keep accessible touch targets", origin.height >= 48f && outbound.height >= 48f)

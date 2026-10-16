@@ -462,4 +462,19 @@ class ReceiptBackupArchiveTest {
         assertTrue(password.all { it == '\u0000' })
         assertTrue(restoreStages().isEmpty())
     }
+    @Test fun versionFiveEncryptedArchivePreservesRefundsFavouritesMerchantMemoryAndPreferences() = runBlocking {
+        val expense = Expense("meal", 2000, "food", 5000, "Lunch", payment = "Card", merchant = "Cafe")
+        val original = backup().let { it.copy(version = 5, expenses = it.expenses + expense + expense.copy(id = "refund", cents = -500, kind = "Refund", refundOf = expense.id),
+            favourites = listOf(favourite("favourite", "Lunch", expense)),
+            receiptMerchants = listOf(ReceiptMerchant(merchantKey("Cafe"), "Cafe", "food", "Card", "Lunch")),
+            settings = it.settings.copy(privacyMode = true, mainSwipeEnabled = false, swipeEnd = "Delete")) }
+        original.validate()
+        val output = ByteArrayOutputStream()
+        archive.writeEncrypted(output, original, "Version five test password".toCharArray())
+        archive.readEncrypted(ByteArrayInputStream(output.toByteArray()), "Version five test password".toCharArray()).use { prepared ->
+            assertEquals(original, prepared.backup)
+            assertEquals(original, archive.materialize(prepared))
+        }
+    }
+
 }

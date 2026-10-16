@@ -49,8 +49,8 @@ class EncryptedStorageTest {
         }
     }
 
-    @Test fun plaintextVersionsOneThroughThreeBecomeEncryptedVersionFourWithoutLosingRecords() = runBlocking {
-        for (version in 1..3) {
+    @Test fun plaintextVersionsOneThroughFourBecomeEncryptedVersionFiveWithoutLosingRecords() = runBlocking {
+        for (version in 1..4) {
             val name = name()
             val (refuel, linked) = createPlaintext(name, version)
             val encrypted = database(name)

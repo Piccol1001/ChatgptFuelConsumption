@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import androidx.core.graphics.createBitmap
 import my.fuelledger.data.*
 import my.fuelledger.domain.Money
 import java.io.File
@@ -33,7 +34,7 @@ fun journeySummary(plan: JourneyPlan): String {
             val directory = File(context.cacheDir, "local-exports").apply { mkdirs() }
             val file = File.createTempFile("journey-", ".png", directory)
             val lines = text.lines().flatMap { it.chunked(48) }
-            val bitmap = Bitmap.createBitmap(1000, 100 + lines.size * 48, Bitmap.Config.ARGB_8888)
+            val bitmap = createBitmap(1000, 100 + lines.size * 48)
             try {
                 val canvas = Canvas(bitmap); canvas.drawColor(Color.rgb(11, 18, 32))
                 val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(243, 246, 250); textSize = 32f }

@@ -20,9 +20,9 @@ fun favourite(id: String, name: String, expense: Expense) = FavouriteExpense(id,
 fun validateFavourite(value: FavouriteExpense) {
     require(value.id.isNotBlank() && value.id.length <= 100 && value.name.isNotBlank() && value.name.length <= 100) { "Enter a favourite name." }
     val expense = value.expense(); validateExpense(expense)
-    require(expense.fuelId == null && expense.receiptFile == null && expense.recurringRuleId == null && expense.kind == "Expense") { "A favourite must be an ordinary expense template." }
+    require(expense.fuelId == null && expense.receiptFile == null && expense.recurringRuleId == null && expense.kind == "Expense" && expensePaymentGroup(expense.payment) != null) { "A favourite must be an ordinary expense template." }
 }
-@Serializable data class TransactionChange(val before: Expense, val after: Expense?, val beforeRefuel: Refuel? = null, val afterRefuel: Refuel? = null)
+@Serializable data class TransactionChange(val before: Expense, val after: Expense?, val beforeRefuel: Refuel? = null, val afterRefuel: Refuel? = null, val receiptScans: List<ReceiptScan> = emptyList())
 @Entity(tableName = "transaction_undo")
 data class TransactionUndo(@PrimaryKey val id: String, val timestamp: Long, val payload: String) {
     fun change(): TransactionChange = backupJson.decodeFromString(payload)

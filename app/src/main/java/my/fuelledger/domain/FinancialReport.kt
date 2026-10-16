@@ -18,7 +18,7 @@ fun financialReport(state: LedgerState, finance: FinanceState, start: LocalDate,
     fun date(time: Long) = Instant.ofEpochMilli(time).atZone(zone).toLocalDate()
     val expenses = state.expenses.filter { date(it.timestamp) in start..end }
     val income = finance.income.filter { date(it.timestamp) in start..end }
-    val fixed = expenses.filter { it.recurringRuleId != null }.sumOf { it.cents }
+    val fixed = expenses.filter { it.recurringRuleId != null || it.kind == "Refund" && state.expenses.any { original -> original.id == it.refundOf && original.recurringRuleId != null } }.sumOf { it.cents }
     val categories = expenses.groupBy { it.categoryId }.mapValues { it.value.sumOf { e -> e.cents } }
     val names = state.categories.associate { it.id to it.name }
     val budgets = finance.budgets.filter { YearMonth.parse(it.month).atDay(1) <= end && YearMonth.parse(it.month).atEndOfMonth() >= start }

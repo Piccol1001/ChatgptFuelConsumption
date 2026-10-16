@@ -45,14 +45,18 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
                 recurringRuleId = existing.recurringRuleId, recurringDate = existing.recurringDate) else expense
             validateExpense(updated)
             if (updated.kind == "Refund" && updated.refundOf != null) {
-                val original = requireNotNull(dao.expense(updated.refundOf)) { "Original expense no longer exists. Choose an unlinked refund." }
-                require(original.kind == "Expense" && original.categoryId == updated.categoryId) { "A linked refund must use the original category." }
-                val refunded = dao.allExpenses().filter { it.id != updated.id && it.refundOf == original.id }.sumOf { -it.cents }
-                require(refunded - updated.cents <= original.cents) { "Refunds exceed the original expense." }
+                val original = dao.expense(updated.refundOf)
+                if (original == null) require(existing?.kind == "Refund" && existing.refundOf == updated.refundOf) { "Original expense no longer exists. Choose an unlinked refund." }
+                else {
+                    require(original.kind == "Expense" && original.categoryId == updated.categoryId) { "A linked refund must use the original category." }
+                    val refunded = dao.allExpenses().filter { it.id != updated.id && it.refundOf == original.id }.sumOf { -it.cents }
+                    require(refunded - updated.cents <= original.cents) { "Refunds exceed the original expense." }
+                }
             }
+            if (updated.kind == "Expense") require(dao.allExpenses().filter { it.refundOf == updated.id }.sumOf { -it.cents } <= updated.cents) { "Amount cannot be less than its linked refunds. Edit the refunds first." }
             if (existing != null && existing != updated) recordUndo(existing, updated)
             dao.putExpense(updated)
-            if (updated.merchant.isNotBlank()) database.receiptAutomationDao().putMerchant(
+            if (updated.kind == "Expense" && updated.merchant.isNotBlank()) database.receiptAutomationDao().putMerchant(
                 ReceiptMerchant(merchantKey(updated.merchant), updated.merchant, updated.categoryId, updated.payment, updated.description))
         }
     }
@@ -116,7 +120,7 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
         }
     }
     private suspend fun recordUndo(before: Expense, after: Expense?) {
-        database.toolsDao().putUndo(TransactionUndo(java.util.UUID.randomUUID().toString(), System.currentTimeMillis(), backupJson.encodeToString(TransactionChange(before, after))))
+        database.toolsDao().putUndo(TransactionUndo(java.util.UUID.randomUUID().toString(), System.currentTimeMillis(), backupJson.encodeToString(TransactionChange(before, after, receiptScans = if (after == null) database.receiptAutomationDao().allScans().filter { it.expenseId == before.id } else emptyList()))))
     }
     suspend fun undoTransaction(id: String) = writes.withLock {
         database.withTransaction {
@@ -132,6 +136,11 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
             if (change.before.kind == "Refund" && change.before.refundOf != null) {
                 val original = dao.expense(change.before.refundOf)
                 if (original != null) require(-change.before.cents + dao.allExpenses().filter { it.id != change.before.id && it.refundOf == original.id }.sumOf { -it.cents } <= original.cents) { "Restoring would exceed the original expense's refundable amount." }
+            }
+            change.receiptScans.forEach { scan ->
+                val current = database.receiptAutomationDao().scan(scan.fingerprint)
+                require(current == null || current == scan) { "This receipt has been used by another transaction. Review it before restoring." }
+                if (current == null) database.receiptAutomationDao().putScan(scan)
             }
             dao.putExpense(change.before)
             database.toolsDao().deleteUndo(id)
@@ -184,7 +193,7 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
     private suspend fun deleteRefuelWithUndo(id: String) {
         val refuel = dao.allRefuels().find { it.id == id }
         val expense = dao.linkedExpense(id)
-        if (refuel != null && expense != null) database.toolsDao().putUndo(TransactionUndo(java.util.UUID.randomUUID().toString(), System.currentTimeMillis(), backupJson.encodeToString(TransactionChange(expense, null, refuel, null))))
+        if (refuel != null && expense != null) database.toolsDao().putUndo(TransactionUndo(java.util.UUID.randomUUID().toString(), System.currentTimeMillis(), backupJson.encodeToString(TransactionChange(expense, null, refuel, null, database.receiptAutomationDao().allScans().filter { it.expenseId == expense.id }))))
         dao.deleteRefuel(id)
     }
     suspend fun saveCategory(category: Category) = writes.withLock {

@@ -1,0 +1,11 @@
+<resources>
+    <string name="widget_app_name">Fuel &amp; Expense Tracker</string>
+    <string name="widget_masked_amount">RM ••••</string>
+    <string name="widget_open_refresh">Open app to refresh</string>
+    <string name="widget_expense_action">Expense</string>
+    <string name="widget_income_action">Income</string>
+    <string name="widget_scan_action">Scan</string>
+    <string name="widget_expense_label">Monthly expense summary</string>
+    <string name="widget_quick_label">Quick add transactions</string>
+    <string name="widget_overview_label">Financial overview</string>
+</resources>

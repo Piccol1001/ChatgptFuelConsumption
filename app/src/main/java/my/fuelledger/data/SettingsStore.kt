@@ -39,7 +39,7 @@ data class AppSettings(val petrolPrice: String = "2.05", val consumption: Double
     fun validate() {
         require(swipeStart in listOf("Edit", "Duplicate", "Delete", "None") && swipeEnd in listOf("Edit", "Duplicate", "Delete", "None")) { "Invalid swipe action." }
         require(lastExpenseCategory.length <= 100) { "Invalid category preference." }
-        require(dashboardOrder.size == 4 && dashboardOrder.toSet() == setOf("plan", "budget", "actions", "upcoming") && dashboardHidden.all { it in setOf("budget", "upcoming") }) { "Invalid dashboard configuration." }
+        require(dashboardOrder.size == 4 && dashboardOrder.toSet() == setOf("plan", "budget", "actions", "upcoming") && dashboardHidden.size <= 2 && dashboardHidden.distinct().size == dashboardHidden.size && dashboardHidden.all { it in setOf("budget", "upcoming") }) { "Invalid dashboard configuration." }
         val price = petrolPrice.toBigDecimalOrNull()
         require(price != null && price > BigDecimal.ZERO && price <= BigDecimal("1000000") && price.scale() <= 4) {
             "Petrol price must be positive, with at most four decimal places."

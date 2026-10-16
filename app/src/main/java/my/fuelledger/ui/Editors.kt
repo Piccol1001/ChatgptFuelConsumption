@@ -118,12 +118,15 @@ fun timestamp(date: String, time: String) = LocalDate.parse(date).atTime(LocalTi
 fun ExpenseEditor(seed: Expense?, id: String, categories: List<Category>, busy: Boolean, vm: LedgerViewModel, dismiss: () -> Unit,
     save: (Expense) -> Unit, delete: () -> Unit, draft: Expense? = null, initialDate: LocalDate? = null) {
     val starting = seed ?: draft
+    val ledger by vm.state.collectAsStateWithLifecycle()
+    val frequent = remember(ledger.expenses) { ledger.expenses.filter { it.kind == "Expense" }.groupingBy { it.categoryId }.eachCount().filterValues { it >= 3 }.entries.sortedByDescending { it.value }.take(3).map { it.key } }
     val initial = remember(id) { Instant.ofEpochMilli(starting?.timestamp ?: initialDate?.atTime(12, 0)?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli() ?: System.currentTimeMillis()).atZone(ZoneId.systemDefault()) }
     var amount by rememberSaveable(id) { mutableLongStateOf(kotlin.math.abs(starting?.cents ?: 0L)) }
     var category by rememberSaveable(id) { mutableStateOf(starting?.categoryId ?: vm.state.value.settings.lastExpenseCategory.takeIf { id -> categories.any { it.id == id } } ?: displayCategories(categories).first().id) }
     var date by rememberSaveable(id) { mutableStateOf(initial.toLocalDate().toString()) }
     var time by rememberSaveable(id) { mutableStateOf(initial.toLocalTime().withSecond(0).withNano(0).toString()) }
     var description by rememberSaveable(id) { mutableStateOf(starting?.description.orEmpty()) }
+    var kind by rememberSaveable(id) { mutableStateOf(starting?.kind ?: "Expense") }
     var merchant by rememberSaveable(id) { mutableStateOf(starting?.merchant.orEmpty()) }
     var categoryExplicit by rememberSaveable(id) { mutableStateOf(seed != null) }
     var paymentExplicit by rememberSaveable(id) { mutableStateOf(seed != null) }
@@ -139,17 +142,17 @@ fun ExpenseEditor(seed: Expense?, id: String, categories: List<Category>, busy: 
     var confirmDelete by remember { mutableStateOf(false) }
     var details by rememberSaveable(id) { mutableStateOf(false) }
     val interaction = rememberAppLockInteraction()
-    EditorShell(if (starting?.kind == "Refund") "Record refund" else if (seed == null) "Add expense" else "Edit expense", busy, error, dismiss, {
+    EditorShell(if (kind == "Refund") "Record refund" else if (seed == null) "Add expense" else "Edit expense", busy, error, dismiss, {
         runCatching {
             require(expensePaymentGroup(payment) != null) { "Choose a payment method." }
             val savedTime = if (seed != null && date == initial.toLocalDate().toString() && time == initial.toLocalTime().withSecond(0).withNano(0).toString()) seed.timestamp else timestamp(date, time)
-            Expense(id, if (starting?.kind == "Refund") -amount else amount, category, savedTime, description.trim(), notes.trim(), payment,
-            fuelId = seed?.fuelId, receiptFile = receiptFile, recurringRuleId = seed?.recurringRuleId, recurringDate = seed?.recurringDate, merchant = merchant.trim(), kind = starting?.kind ?: "Expense", refundOf = starting?.refundOf).also(::validateExpense) }
+            Expense(id, if (kind == "Refund") -amount else amount, category, savedTime, description.trim(), notes.trim(), payment,
+            fuelId = seed?.fuelId, receiptFile = receiptFile, recurringRuleId = seed?.recurringRuleId, recurringDate = seed?.recurringDate, merchant = merchant.trim(), kind = kind, refundOf = if (kind == "Refund") starting?.refundOf else null).also(::validateExpense) }
             .onSuccess { error = null; if (likelyDuplicates(it, vm.state.value.expenses).isEmpty()) save(it) else duplicate = it }.onFailure { error = it.message }
     }, if (seed != null) ({ confirmDelete = true }) else null,
         saveEnabled = amount > 0 && expensePaymentGroup(payment) != null && categories.any { it.id == category }, compact = true) {
         ExpenseAmount(amount)
-        ExpenseCategoryRow(categories, category, !busy) { category = it; categoryExplicit = true }
+        ExpenseCategoryRow(categories, category, !busy, preferred = frequent) { category = it; categoryExplicit = true }
         ExpensePaymentRow(payment, !busy) { selected ->
             paymentExplicit = true
             payment = selectExpensePayment(payment, selected)
@@ -159,6 +162,9 @@ fun ExpenseEditor(seed: Expense?, id: String, categories: List<Category>, busy: 
         CentsKeypad(amount, !busy, { amount = it; error = null }, { error = "Maximum amount is ${Money.format(MAX_CENTS)}." })
         TextButton(onClick = { if (interaction()) details = !details }, modifier = Modifier.fillMaxWidth()) { Text(if (details) "Hide details & receipt" else "Details & receipt") }
         if (details) {
+            if (seed == null && starting?.refundOf == null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Expense", "Refund").forEach { value -> FilterChip(kind == value, { kind = value }, label = { Text(value) }) }
+            }
             DateTimeFields(date, time, { date = it }, { time = it })
             TextField(merchant, { merchant = it }, "Merchant (optional)", 200)
             suggestion?.let { memory ->
@@ -170,7 +176,7 @@ fun ExpenseEditor(seed: Expense?, id: String, categories: List<Category>, busy: 
             }
             TextField(description, { description = it }, "Description (optional)", 200)
             ExpandableHelp("Notes") { TextField(notes, { notes = it }, "Notes (optional)", 2000, true) }
-            TextButton({ favouriteOpen = true; favouriteName = description.ifBlank { merchant } }) { Text("Save as favourite") }
+            TextButton({ favouriteOpen = true; favouriteName = description.ifBlank { merchant } }, enabled = kind == "Expense") { Text("Save as favourite") }
         }
         // Keep attachment ownership/cleanup composed when its controls are collapsed.
         ReceiptAttachment(id, receiptFile, vm, busy, { receiptFile = it }, categories = categories, fuelReceipt = false, visible = details) { scanned ->

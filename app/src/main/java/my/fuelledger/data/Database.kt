@@ -63,6 +63,8 @@ val categoryColors = listOf(0xFFE98A57L, 0xFF629C77L, 0xFF9B80C5L, 0xFF449AADL, 
 
 @Dao
 interface LedgerDao {
+    @Query("SELECT COALESCE(SUM(cents), 0) FROM expenses WHERE timestamp >= :start AND timestamp < :end AND categoryId IN (:categories)") suspend fun sumCategoryExpenses(start: Long, end: Long, categories: List<String>): Long
+    @Query("SELECT COALESCE(SUM(cents), 0) FROM expenses WHERE timestamp >= :start AND timestamp < :end") suspend fun sumExpenses(start: Long, end: Long): Long
     @Query("SELECT * FROM categories ORDER BY custom, name") fun categories(): Flow<List<Category>>
     @Query("SELECT * FROM expenses ORDER BY timestamp DESC, id") fun expenses(): Flow<List<Expense>>
     @Query("SELECT * FROM refuels ORDER BY timestamp DESC, id") fun refuels(): Flow<List<Refuel>>

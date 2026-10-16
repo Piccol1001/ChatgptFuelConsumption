@@ -32,3 +32,16 @@ fun vehicleCoverage(refuels: List<Refuel>, expenses: List<Expense>, categories: 
         cycles.sumOf { it.distance }, fuel, fuel + extras, ids)
 }
 fun averageFuelPrice(refuels: List<Refuel>): Double? = refuels.takeIf { it.isNotEmpty() }?.let { values -> values.sumOf { it.cents } / 100.0 / values.sumOf { it.litres } }
+
+data class FuelCostDrivers(val priceRmPerKm: Double, val consumptionRmPerKm: Double, val totalChangeRmPerKm: Double)
+fun fuelCostDrivers(points: List<FuelPoint>): FuelCostDrivers? {
+    val cycles = efficiencies(points)
+    if (cycles.size < 4) return null
+    val prior = cycles.dropLast(2); val recent = cycles.takeLast(2)
+    val priorPrice = prior.sumOf { it.cents } / 100.0 / prior.sumOf { it.litres }
+    val recentPrice = recent.sumOf { it.cents } / 100.0 / recent.sumOf { it.litres }
+    val priorUse = prior.sumOf { it.litres } / prior.sumOf { it.distance }
+    val recentUse = recent.sumOf { it.litres } / recent.sumOf { it.distance }
+    return FuelCostDrivers((recentPrice - priorPrice) * priorUse, (recentUse - priorUse) * recentPrice,
+        recentUse * recentPrice - priorUse * priorPrice)
+}

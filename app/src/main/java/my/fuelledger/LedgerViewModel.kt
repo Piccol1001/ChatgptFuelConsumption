@@ -28,6 +28,7 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
     val messages = events.receiveAsFlow()
     private val undoEvents = Channel<String>(Channel.BUFFERED)
     val undoAvailable = undoEvents.receiveAsFlow()
+    private var pendingUndo: String? = null
     private val _busy = MutableStateFlow(false)
     val busy = _busy.asStateFlow()
     private val _ready = MutableStateFlow(false)
@@ -149,6 +150,7 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
     private fun perform(message: String?, done: () -> Unit = {}, cleanup: () -> Unit = {}, block: suspend () -> Unit) {
         if (_busy.value) { cleanup(); return }
         _busy.value = true
+        pendingUndo = null
         val job = viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
@@ -163,7 +165,7 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
             } catch (error: Exception) {
                 val detail = error.message ?: "Operation failed. Please try again."
                 if (!_ready.value) _startupError.value = detail else _operationError.value = detail
-            } finally { _busy.value = false }
+            } finally { _busy.value = false; pendingUndo?.let { undoEvents.trySend(it) }; pendingUndo = null }
         }
         // Also runs if cancellation prevents the coroutine/IO block from ever starting.
         job.invokeOnCompletion { cleanup() }
@@ -206,7 +208,7 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
         val previous = repository.dao.expense(expense.id)?.receiptFile
         val existing = repository.dao.expense(expense.id)
         repository.saveExpense(expense)
-        if (existing != null && existing != expense) repository.database.toolsDao().allUndo().firstOrNull()?.let { undoEvents.send(it.id) }
+        if (existing != null && existing != expense) repository.database.toolsDao().allUndo().firstOrNull()?.let { pendingUndo = it.id }
         val preferences = repository.preferences.settings.first()
         repository.saveSettings(preferences.copy(lastExpenseCategory = expense.categoryId, lastExpensePayment = expensePaymentGroup(expense.payment) ?: preferences.lastExpensePayment))
         if (previous != expense.receiptFile) cleanupAfterCommit(previous)
@@ -216,7 +218,7 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
         receiptWrites.withLock {
         val previous = repository.dao.expense(id)?.receiptFile
         repository.deleteExpense(id)
-        repository.database.toolsDao().allUndo().firstOrNull()?.let { undoEvents.send(it.id) }
+        repository.database.toolsDao().allUndo().firstOrNull()?.let { pendingUndo = it.id }
         cleanupAfterCommit(previous)
         }
     }
@@ -226,7 +228,7 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
         val previous = repository.dao.allRefuels().firstOrNull { it.id == refuel.id }?.receiptFile
         val original = repository.dao.allRefuels().find { it.id == refuel.id }
         repository.saveRefuel(refuel)
-        if (original != null && original != refuel) repository.database.toolsDao().allUndo().firstOrNull()?.let { undoEvents.send(it.id) }
+        if (original != null && original != refuel) repository.database.toolsDao().allUndo().firstOrNull()?.let { pendingUndo = it.id }
         if (previous != refuel.receiptFile) cleanupAfterCommit(previous)
         }
     }
@@ -234,7 +236,7 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
         receiptWrites.withLock {
         val previous = repository.dao.allRefuels().firstOrNull { it.id == id }?.receiptFile
         repository.deleteRefuel(id)
-        repository.database.toolsDao().allUndo().firstOrNull()?.let { undoEvents.send(it.id) }
+        repository.database.toolsDao().allUndo().firstOrNull()?.let { pendingUndo = it.id }
         cleanupAfterCommit(previous)
         }
     }

@@ -291,6 +291,7 @@ fun CategoryDonut(distribution: List<Pair<Category?, Long>>, total: Long) {
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
     LedgerCard(Modifier.chartGestureRegion()) {
         Text("Where your money goes", style = MaterialTheme.typography.titleMedium)
+        Text("Positive net category spending", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Box(Modifier.align(Alignment.CenterHorizontally).size(188.dp).clearAndSetSemantics {
             contentDescription = "Category spending. " + distribution.joinToString { maskAmounts("${it.first?.name ?: "Other"}: ${Money.format(it.second)}, ${number(if (total > 0) it.second * 100.0 / total else 0.0, 1)} percent", privacy) }
         }, contentAlignment = Alignment.Center) {
