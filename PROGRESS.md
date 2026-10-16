@@ -1,3 +1,58 @@
+# Current progress — Comprehensive offline Android upgrade
+
+Updated **17 October 2026 (Malaysia time)**. Implementation and final host verification are complete. The existing Kotlin/Compose app was extended in place from `ece52c2`, with milestone commits `e413fc6`, `640ffdf`, `14e319c`, `956887a` and `b509388`. Previous progress is preserved below.
+
+## 1. Features completed
+
+- Home Overview: planned income minus fixed commitments, actual budget progress, Expense/Income/Scan/Calendar shortcuts, upcoming payments and amount privacy.
+- Expenses: favourites, local merchant/category/payment memory, configurable transaction swipes, edit/duplicate/refund/delete actions, persistent conflict-safe Undo, duplicate review, advanced search and filters, retained receipt attachments and cents-first entry.
+- Spending Calendar: local-date records, month navigation, daily statistics, editing and date-seeded entry.
+- Fuel: weighted complete full-tank intervals including partial fills, recent/historical comparisons, price history and separate fuel/recorded operating costs per kilometre with coverage labels.
+- Journey: named routes/presets, recent locations, reverse direction, separate return distance/tolls, price scenarios, confirmed expense attribution, actual comparisons and local text/PNG sharing.
+- Analysis: actual income/net expenses, fixed/variable spending, budget performance, ranges and custom dates, planned forecasts/reserves, deterministic insights, CSV and PDF reports.
+- Personalization: one Monthly Money Planner entry, persistent themes, dashboard order/visibility, gestures, haptics, reduced motion, amount masking, installed-version About and confirmed local data management.
+- Three offline widgets, queued quick actions, private local budget reminders and local aggregate updates. Amounts are hidden in widgets by default.
+- Room 4→5 migration and backup format 5 compatibility; existing records, original payment strings, signing identity, version 1.4.0/code 6 and offline architecture are retained.
+
+## 2. Current implementation and verification
+
+No feature code is in progress. Final integration fixes include refund/Undo safeguards, format-5 encrypted receipt backup reading, widget budget fallbacks and rounded interaction styling, queued shortcut handling, preference scope for app lock, and observed Compose state instead of direct StateFlow reads.
+
+**283 host executions pass**, zero failures/errors/skipped. Debug, Android test and optimized unsigned release APKs build. Lint passes with **0 errors, 10 pre-existing advisory warnings and 1 hint**. Twenty matched five-screen renders plus two Home reference renders are retained. Nine native API26 offline/financial/backup/encryption/migration tests pass before the last UI-only polish; four additional OCR/permission/encryption checks pass on the exact delivered APK in airplane mode. Full provenance is recorded in [VALIDATION.md](VALIDATION.md).
+
+## 3. Files created or modified
+
+The full baseline-to-delivery inventory is [MODIFIED_FILES.txt](docs/comprehensive-upgrade/MODIFIED_FILES.txt). Feature details, UI components, schema changes, test coverage and limitations are in [IMPLEMENTATION.md](docs/comprehensive-upgrade/IMPLEMENTATION.md). Milestone checklist and original request are retained in the same directory. All old APKs and reports remain.
+
+APK: `downloads/Fuel-Expense-Tracker-v1.4.0-comprehensive-upgrade-debug.apk` (76,809,823 bytes).
+
+SHA256: `4b500a32be9046723c24bd66345fdc90a1276804759e3fe78b2e6fbea989b660`.
+
+## 4. Remaining tasks
+
+Feature implementation is complete. Physical camera/gallery, external share/document providers, launcher/OEM widget placement/resizing, TalkBack, large thermal receipts and sustained device performance need manual verification. Android15 native edge-back validation remains pending on a reliable device; the earlier software emulator had system-wide ANRs. Optional OCR tax/item extraction and Calendar category filtering are outside this delivery. No excluded maintenance, multi-vehicle, split-category, savings-goal or safe-to-spend subsystem was added.
+
+## 5. Known errors and compilation issues
+
+No known compilation or automated-test failure remains. Lint advisories are the preserved SQLite update suggestion, six unused name/version resource entries, an offset-overload suggestion, two KTX suggestions and one primitive-state hint. Gradle retains deprecation advisories. Native UIAutomator timed out while retrieving the hierarchy, so native UI shortcut/gesture success is not claimed from that attempt; the comprehensive host UI tests cover those paths. Known device-verification limits are listed above and in the implementation report.
+
+## 6. Exact instructions for resuming development
+
+```sh
+cd /workspace/ChatgptFuelConsumption
+git status --short --branch
+source /workspace/.tooling/fuel-ledger-env.sh
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew :app:assembleRelease
+./gradlew :app:lintDebug
+(cd downloads && sha256sum -c SHA256SUMS)
+```
+
+Read the original request, checklist, implementation report and latest validation before editing. Finish source changes before running lint; run release and lint sequentially. Keep Room migrations 1→2→3→4→5, exact integer-sen storage, activity-scoped ViewModels, stable pager state, receipt fingerprints, encrypted preferences and original signing identity. Never clear/uninstall the owner's app to create test fixtures. Use an isolated Android test user for fresh-install instrumentation and remove that fixture afterward. Do not reapply historical stashes or replace current schema 5 with older progress instructions. Keep signing keys, passwords, databases, build caches and machine paths outside Git. Push checkpoint commits with `git push origin HEAD:main`; never force push.
+
+<details>
+<summary>Preserved progress before comprehensive upgrade</summary>
+
 # Current progress — Horizontal main-screen swipe navigation
 
 Updated 16 October 2026 (Malaysia time), continuing from `a76e227`. Implementation and host verification are complete. Earlier progress is preserved below.
@@ -886,6 +941,8 @@ Statuses: **A** new, **M** modified, **D** previously removed/replaced launcher 
 | M | `app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt` |
 
 Total: **65 changed files**, including this document.
+
+</details>
 
 </details>
 

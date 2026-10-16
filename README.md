@@ -4,7 +4,7 @@ A native Android app for personal spending and car fuel records. Kotlin, Jetpack
 
 ## Download the APK
 
-[**Download Fuel & Expense Tracker for Android**](https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/downloads/Fuel-Expense-Tracker-v1.4.0-swipe-navigation-debug.apk)
+[**Download Fuel & Expense Tracker for Android**](https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/downloads/Fuel-Expense-Tracker-v1.4.0-comprehensive-upgrade-debug.apk)
 
 Version 1.4.0, signed debug build, Android 8.0 or later. Open this link on your phone, download the `.apk` file, then open it to install. If Android asks, allow installation for the browser or file manager you used. The APK is also available in this repository's `downloads` folder. Its SHA-256 checksum is in `downloads/SHA256SUMS`; build and test evidence is in [VALIDATION.md](VALIDATION.md).
 
@@ -42,16 +42,19 @@ Configure `ANDROID_HOME` or let Android Studio create the ignored `local.propert
 
 ## Using the app
 
-Swipe left/right between **Home → Fuel → Expenses → Journey → Analysis**, or tap the matching bottom tab. Pages stop at either end and retain their drafts and scroll positions. Category rows, the Journey toggle and chart regions keep their own gestures; forms, Settings, scanner and planner configuration retain their existing Back behavior. See [implementation and verification](SWIPE_NAVIGATION.md).
+Swipe left/right between **Home → Fuel → Expenses → Journey → Analysis**, or tap the matching bottom tab. Pages stop at either end and retain their drafts and scroll positions. Category rows, the Journey toggle and chart regions keep their own gestures; forms, Settings, scanner and planner configuration retain their existing Back behavior. Main-screen swipes can be disabled in Settings. See [current implementation and verification](docs/comprehensive-upgrade/IMPLEMENTATION.md).
 
 Journey now shares the reference screens' content margins, omits empty suggestion spacing, and uses concise labels that fit small phones. See the [measured layout investigation and matching screenshots](docs/journey-layout/README.md).
 
-- **Home:** a compact Monthly Money Planner summary (Available After Fixed Commitments, Expected Income and Fixed Expenses, with details on demand) alongside a navy-and-emerald dashboard with a prominent monthly expenditure card, today/monthly-fuel cards, large quick actions and recent transactions. No fictional account balance is shown.
-- **Fuel:** ODO-based per-fill efficiency estimates, consumption trend, monthly fuel costs, compact refuelling history and vehicle statistics. Tap a refuel to view, edit, scan its receipt or delete it. The weighted full-tank historical average is the primary consumption source. Fuel spending offers rolling 3/6/12-month views including the current month, with zero for empty months.
-- **Expenses:** deterministic category filters put Others last and sort custom categories consistently; add/edit/delete transactions; choose a date range and category, search descriptions, and sort by newest, oldest or highest amount. Daily subtotals and the filtered range's daily average are shown. Highest sorts globally by amount; a date header can repeat when its transactions occur at different places in that ordering.
-- **Analysis:** choose a month or a custom inclusive date range; see a category donut with labeled breakdown, daily bars, monthly trends, fuel history, month comparison and highest category. Long-range charts clearly cap the displayed daily detail to the latest 31 days and monthly detail to the latest 12 months. Values remain readable without relying on chart colours.
-- **Journey:** standalone offline journey estimates with saved routes, manual outbound/return distances, a tap/drag journey-type toggle, toll segments and parking. Historical fuel consumption updates automatically; an explicit override affects only the current journey. Planning never creates actual transactions.
-- **Settings** (gear button): set default petrol price, view calculated fuel consumption and optionally enable a fallback while history is insufficient, choose System/Light/Dark mode, manage categories, income, budgets and recurring payments, configure local app lock, export CSV, and create/restore encrypted backups.
+- **Home:** month/Overview header, planned available after fixed commitments, real monthly budget progress, Expense/Income/Scan/Calendar shortcuts, upcoming payments and an amount-privacy eye control. No bank balance or safe-to-spend recommendation is shown.
+- **Fuel:** weighted full-tank consumption and trends, retained per-fill history, recent change detection, actual price history and measured fuel/recorded transport costs per kilometre with coverage labels.
+- **Expenses:** favourites, merchant/category/payment memory, refunds, duplicate warnings, persistent Undo, configurable row swipes and advanced date/category/payment/type/search filters. Others stays last; category filters remain below Transaction history. Spending Calendar shows actual daily records and supports date-seeded entry.
+- **Analysis:** actual income and net expenses, category/daily/monthly trends, budget performance, paid fixed/variable spending, planned forecasts/reserves, local insights, vehicle statistics and local CSV/PDF reports. Select current/previous/3/6/12-month or custom ranges.
+- **Journey:** named local routes and presets, reverse direction, independent outbound/return distances and tolls, price scenarios, explicit existing-expense links, estimated/actual comparisons and text/PNG sharing. Planning/linking creates no transactions; missing actuals remain unavailable.
+- **Settings:** one Monthly Money Planner, existing allocation sliders, themes, dashboard order/visibility, swipe actions, haptics, reduced animation, privacy, app lock, local data cleanup, exports and encrypted backups. About shows the installed version.
+- **Home-screen widgets:** monthly expense/budget summary, quick-add shortcuts and actual income/expenses/net cash flow. Amounts are hidden by default; widgets use local updates and the device's light/dark appearance.
+
+[Full implementation, migrations, screenshots and limitations](docs/comprehensive-upgrade/IMPLEMENTATION.md).
 
 Each refuel automatically creates one expense in **Fuel & Transport**. Editing or deleting it updates or deletes that expense in the same SQLite transaction. Tap a linked expense to open its refuel editor. A manually added Fuel & Transport expense is independent; avoid entering a refuel's payment manually as well.
 
@@ -61,15 +64,15 @@ For the primary historical measured-consumption value, first enter a **full tank
 
 The shared historical value is 100 × total valid-cycle litres ÷ total valid-cycle distance, rather than an average of interval ratios. It updates on refuel edits/deletions and excludes incomplete/invalid cycles. Settings and Journey show “Not enough fuel data” until a valid cycle exists; fallback consumption is used only after explicit entry/enablement. The estimator uses distance × consumption ÷ 100 and petrol price. The example 150 km, 7 L/100 km, RM2.05/L produces **10.50 L, RM21.53, RM0.1435/km and 14.29 km/L**. Estimated money uses decimal HALF_UP rounding; stored payments use exact integer sen. Overall measured efficiency is total valid-cycle km divided by total valid-cycle litres.
 
-Week totals use Monday–Sunday. Calendar totals and date filters use the phone's local time zone, including daylight saving changes; timestamps are stored as epoch milliseconds. Changing the device time zone can change the calendar day a transaction appears under. Daily averages include all calendar days in the selected range, even days without transactions.
+Week totals use Monday–Sunday. Calendar totals and date filters use the phone's local time zone, including daylight saving changes; timestamps are stored as epoch milliseconds. Changing the device time zone can change the calendar day a transaction appears under. Analysis daily averages include every calendar day in the selected range, including empty days. Spending Calendar uses elapsed days for the current month and full days for other months.
 
 ### Adding and editing expenses
 
-Tap **Add Expense**, choose an icon in the horizontal category row (custom categories are retained, Others stays last), and use the cents-first keypad. Starting at RM 0.00, digits 1 → 2 → 3 → 4 → 5 produce RM 0.01 → RM 0.12 → RM 1.23 → RM 12.34 → RM 123.45. Backspace removes the last digit; Clear resets to zero. There is no decimal key or software keyboard for the amount. Save requires a positive amount and a selected payment method; values are exact integer sen and limited to the existing RM1,000,000,000 maximum.
+Tap **Expense** on Home or **Add Expense** in Expenses, choose an icon in the horizontal category row (custom categories are retained, Others stays last), and use the cents-first keypad. Starting at RM 0.00, digits 1 → 2 → 3 → 4 → 5 produce RM 0.01 → RM 0.12 → RM 1.23 → RM 12.34 → RM 123.45. Backspace removes the last digit; Clear resets to zero. There is no decimal key or software keyboard for the amount. Save requires a positive amount and a selected payment method; values are exact integer sen and limited to the existing RM1,000,000,000 maximum.
 
 Choose **Cash**, **Card** or **E-Wallet**. The last selected method is saved in encrypted local DataStore, including when cancelling the draft, and highlighted for the next new expense (initially Cash). Existing Credit Card/Debit Card payments display as Card but retain their original stored strings when edited within that group. Historical Not specified records remain intact and prompt for an explicit method before saving changes. Existing amounts initialize directly from their stored sen; untouched transaction timestamps retain their original precision.
 
-Open **Details & receipt** for date, time, description, notes, Photo Picker/camera and offline OCR review. Collapsing the section retains the attachment. The expense list's category filters now sit directly below **Transaction history**; their filtering, scrolling and ordering are unchanged. The app name/version metadata and prior header cleanup remain unchanged (1.4.0 / code 6).
+Open **Details & receipt** for date, time, merchant, description, collapsed notes, Photo Picker/camera and offline OCR review. Choose Refund there for an unlinked refund, or use a transaction’s Actions → Record refund to link it to the purchase. Favourites can be created from Actions or the editor details and managed in Expenses. Collapsing the section retains the attachment. The expense list's category filters now sit directly below **Transaction history**; their filtering, scrolling and ordering are unchanged. The app name/version metadata and prior header cleanup remain unchanged (1.4.0 / code 6).
 
 ### Touch feedback
 
@@ -205,6 +208,6 @@ Never commit keystores, passwords or `signing.properties`. Increase `versionCode
 
 ## Validation and limitations
 
-See [VALIDATION.md](VALIDATION.md) for the actual commands and outcomes from this build. Automated checks exercise the specified trip example, exact currency, daily/monthly/category aggregation, timezone and year boundaries, partial fills, edits/deletions, linked expenses, invalid input, CSV and backup restoration.
+The comprehensive upgrade passes 283 host tests, debug/release builds and lint (0 errors). Native offline/security/migration checks and their build provenance are recorded in [VALIDATION.md](VALIDATION.md). Automated checks exercise the specified trip example, exact currency, daily/monthly/category aggregation, timezone and year boundaries, partial fills, edits/deletions, linked expenses, invalid input, CSV and backup restoration.
 
 This is a personal, single-vehicle, MYR app. It does not include multi-vehicle tracking or CSV import. Release signing requires your own key. Before relying on it for irreplaceable data, verify the app and backup/restore on your phone and keep regular backups. A compiled APK is not a claim of physical-device testing.

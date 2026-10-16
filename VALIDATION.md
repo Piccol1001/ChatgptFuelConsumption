@@ -1,3 +1,59 @@
+# Comprehensive upgrade validation
+
+Verified **17 October 2026 (Malaysia time)** against the existing app extended from `ece52c2`. Final feature source checkpoint: `312cc7a`. Package `my.fuelledger`, version 1.4.0/code 6 and original signing identity are retained. Room is now schema 5 through additive migration 4→5; all older migrations remain registered and destructive fallback is absent. Previous validation reports are preserved below and apply to their recorded builds.
+
+## Automated host coverage
+
+**283 executions, 0 failures, 0 errors, 0 skipped** across 30 suites. [Per-suite results](docs/comprehensive-upgrade/TEST_RESULTS.md).
+
+The full suite includes exact monetary calculations, expected versus actual income, fixed commitments, allocations, recurring transactions, partial/full fuel cycles, weighted history, refunds, duplicates, backups, encryption helpers and prior features. New coverage exercises favourite/merchant persistence, search/date/calendar boundaries, restart-safe expense and linked-refuel Undo, intervening changes, image deletion, refund limits, Journey reversal/scenarios/actual attribution, fuel-price decomposition, reports and empty-data fallbacks. A new authenticated format-5 receipt-archive round trip guards the native-discovered ZIP-reader compatibility fix.
+
+API26/35 host UI tests exercise Calendar/date-seeded entry, favourites/refunds/delete/Undo, row-gesture ownership and disabled main swipes, queued widget actions, existing detail navigation, drafts/scroll, settings/theme persistence, amount masking and accessibility semantics. Widgets actually inflate/update RemoteViews on both API levels, including budget fallbacks and default privacy. AppSmokeTest, MainPagerTest, app-lock, receipt, keypad and allocation regressions also pass. No failed tests were disabled to obtain this result.
+
+## Native Android checks and provenance
+
+API26 emulator `emulator-5556`, airplane mode enabled before fresh test-user installation. The owner's app data was never cleared or uninstalled.
+
+- **9 native tests pass** (`OK (9 tests)`, 401.787s): first-use bundled offline OCR; manifest permission restrictions; financial records, recurring/fixed payments, allocation/Journey/receipt workflows and authenticated photo-backup round trip; real SQLCipher/Keystore persistence and failure-closed handling; plaintext schemas 1–4 migrating into encrypted schema 5 without record loss; damaged or incomplete migration source preservation. This run followed the format-5 ZIP-reader fix, before the final UI-only preference/frequency-ranking/widget-button polish. It is not represented as a rerun of the complete nine-test suite on the final binary.
+- **3 follow-up native tests pass** (`OK (3 tests)`, 6.595s): permissions, encrypted fresh-database persistence and Keystore non-exportability/purpose binding.
+- **4 exact delivered-APK native tests pass** (`OK (4 tests)`, 28.034s), using a new isolated user: first-use bundled OCR in airplane mode, no-network/public-storage permissions, fresh encrypted-database persistence and non-exportable purpose-bound Keystore keys. The emulator-installed APK SHA256 was checked as `4b500a32be9046723c24bd66345fdc90a1276804759e3fe78b2e6fbea989b660`, identical to the download. Temporary test users were removed afterward; original active user 0 and airplane mode 1 were preserved.
+
+Native UIAutomator hierarchy retrieval timed out after 30s; the activity was resumed/focused during the earlier launch check. Native widget-launcher/shortcut gestures are not claimed from that failed hierarchy request. Their application routing is covered by host tests. Existing Android15 software-emulator system-wide ANRs leave native edge-back/cold-start checks pending on a reliable physical or accelerated device. No physical camera/gallery, external document/share provider, OEM launcher placement/resizing, TalkBack or sustained performance pass is claimed.
+
+## Visual checks
+
+Twenty real-app native-graphics host captures use matching configurations for Home, Fuel, Expenses, Journey and Analysis: 393×851dp Light/Dark, 320×640dp Dark, and 393×851dp Light at font scale 1.6, mdpi/API35. See [screens and resolved geometry](docs/comprehensive-upgrade/screens/). Two separate [dark](docs/comprehensive-upgrade/overview-dark.png)/[light](docs/comprehensive-upgrade/overview-light.png) Home reference captures use sample data only. Shared main content margins are 16dp; controls, navigation alignment and touch targets are checked in JourneyLayoutTest. The new Home month/Overview header and Journey reverse-action gap are deliberate layout elements. Screens were visually inspected; there is no whole-screen scaling or density override. Long navigation labels can still wrap at accessibility font sizes.
+
+## Build, lint and packaged privacy
+
+- `:app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest`: successful, 1m28s final incremental run.
+- `:app:assembleRelease`: successful optimized unsigned release, 2m16s; release vital lint passes. Distribution APK is the signed debug build.
+- `:app:lintDebug`: successful, **0 errors, 10 preserved warnings, 1 hint**. Advisories: SQLite update, six preserved unused app-name/version resources, offset lambda, two KTX suggestions and primitive-state hint. Gradle deprecation advisories remain. A direct Compose StateFlow read identified during validation was replaced with lifecycle-aware state collection; final lint has no error.
+- Debug and release ZIPs both pass 16KiB alignment. The final debug signature verifies; certificate SHA256 remains `4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8`.
+- Final APK/merged manifest has no INTERNET, network-state, camera, media/gallery or public-storage permission. `allowBackup=false`; existing backup rules and app-lock/screenshot protections remain. Notification/biometric/background-work permissions are unchanged.
+- Binary audit finds **21 bundled OCR model assets**, no DataTransport runtime/CCT or Firebase Analytics/Crashlytics class definitions, and four reviewed no-op telemetry sinks. No new runtime dependency or library version change was introduced.
+- All ten APK checksums in `downloads/SHA256SUMS` pass, including every retained prior artifact.
+
+## Artifact and reproduction
+
+[`downloads/Fuel-Expense-Tracker-v1.4.0-comprehensive-upgrade-debug.apk`](downloads/Fuel-Expense-Tracker-v1.4.0-comprehensive-upgrade-debug.apk) — **76,809,823 bytes**, Android8.0+, original debug signing identity. SHA256: `4b500a32be9046723c24bd66345fdc90a1276804759e3fe78b2e6fbea989b660`. The copied download and final Gradle debug output are byte-identical.
+
+```sh
+cd /workspace/ChatgptFuelConsumption
+source /workspace/.tooling/fuel-ledger-env.sh
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew :app:assembleRelease
+./gradlew :app:lintDebug
+(cd downloads && sha256sum -c SHA256SUMS)
+```
+
+Native tests: install the app and Android-test APKs with `adb install -r`; use a fresh isolated Android test user, enable airplane mode before first launch, then run `adb shell am instrument --user USER_ID -w -r my.fuelledger.test/androidx.test.runner.AndroidJUnitRunner`. Remove only the temporary test user afterward. Preserve the owner's data and device settings. Release and lint run sequentially after source changes end.
+
+Session logs: `/tmp/upgrade-final-test.log`, `/tmp/upgrade-release.log`, `/tmp/upgrade-lint.log`, `/tmp/upgrade-native-final.log`, `/tmp/upgrade-native-delivery.log`, `/tmp/upgrade-native-exact-apk.log`, `/tmp/upgrade-apk-audit.log`, `/tmp/upgrade-signature.log` and the two `/tmp/upgrade-*-align.log` files. These machine-local logs are not permanent repository artifacts. The reports, per-suite summary, captures, schema and tests are committed. [Full implementation and limitations](docs/comprehensive-upgrade/IMPLEMENTATION.md); [current progress and resume instructions](PROGRESS.md).
+
+<details>
+<summary>Preserved validation before comprehensive upgrade</summary>
+
 # Main-screen pager validation
 
 Verified 16 October 2026 (Malaysia time), baseline `a76e227`. Original package/version1.4.0/code6, database schema4, signing identity and offline permissions are preserved.
@@ -528,6 +584,8 @@ The complete setup script was exercised, including wrapper activation, SDK setup
 ## Remaining verification
 
 No physical phone or hardware emulator was attached (`/dev/kvm` is absent). Robolectric tests are automated Android simulations, not physical-device tests. On your phone, verify the document picker, CSV export, backup/restore, keyboard behavior, accessibility/font scaling and updates with the same signing key before depending on it for irreplaceable records. The app supports one vehicle and MYR; backups replace existing data after confirmation and are not encrypted. CSV import is not provided.
+
+</details>
 
 </details>
 

@@ -11,7 +11,7 @@ Existing Room version 4, SQLCipher, encrypted DataStore and receipt storage; mig
 - [x] 4. Analysis: ranges, actual/planned comparisons, local insights, CSV/PDF reports.
 - [x] 5. Settings: dashboard order/visibility, gestures, haptics, reduced motion, privacy, About.
 - [x] 6. Security review, notifications, local management, three offline widgets.
-- [ ] 7. Full integration and migration tests, offline manifest/dependency audit, APK delivery.
+- [x] 7. Full integration and migration tests, offline manifest/dependency audit, APK delivery.
 
 No maintenance tracker, savings goals, split categories, passenger sharing, other journey fees, safe-to-spend recommendations, network dependencies or database reset.
 
@@ -26,3 +26,5 @@ Milestone 4: FinancialReportTest and OverviewDashboardTest passed (4 executions)
 Milestone 5: encrypted SettingsStore round-trip tests now include all interaction, dashboard and privacy preferences; press, reference render and accessibility masking tests passed. Amount masking changes display/semantics only. Widgets remain hidden by default; app screen protection stays enabled.
 
 Milestone 6: standard RemoteViews expense, quick-add and cash-flow widgets compile and inflate/update in API 26/35 tests. Existing local worker handles periodic updates; date/time broadcasts refresh calendar boundaries. Financial writes request widget refresh. Amounts hidden by default. Generic budget-threshold reminders added without financial lock-screen text. SQLCipher, Keystore, encrypted receipts/backups, BiometricPrompt and FLAG_SECURE retained. Repository/widget regression group passed.
+
+Milestone 7 (17 October 2026, Malaysia): all 283 host executions pass with no failures/errors/skips. Debug, Android test and optimized unsigned release builds pass; lint has 0 errors, 10 preserved advisory warnings and 1 hint. Native API26 offline OCR, financial/backup, schema 1–4 migration and encrypted-storage checks pass; exact build provenance is recorded in the current VALIDATION.md. Twenty matched screen renders and two Home reference renders are retained. Final integration fixed backup ZIP acceptance of format 5, refund/Undo edge cases, widget budget fallbacks, shortcut routing and lifecycle-aware Compose state reads. Original signing identity, offline permission policy and all old artifacts remain. Physical-device checks are explicitly listed in IMPLEMENTATION.md.
