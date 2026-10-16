@@ -1,3 +1,47 @@
+# Current progress — Horizontal main-screen swipe navigation
+
+Updated 16 October 2026 (Malaysia time), continuing from `a76e227`. Implementation and host verification are complete. Earlier progress is preserved below.
+
+## Completed
+
+- Replaced main-screen Crossfade with official Compose Foundation HorizontalPager/rememberPagerState in Home → Fuel → Expenses → Journey → Analysis order; no wrapping. The Analysis tab reuses the existing AnalyticsScreen.
+- One selected-page state drives both swiping and bottom navigation. Tab taps animate to their page and supersede earlier tap jobs. Native touch slop, adjacent-page rendering, snapping and one-page fling behavior are retained.
+- Stable page keys, saveable page state and an outer SaveableStateHolder preserve drafts/filters/scroll when pages leave composition or the pager is temporarily replaced by Settings/scanner/planning. Existing activity-scoped ViewModels and database are reused.
+- Nested child horizontal overflow/flings are contained at the pager boundary. Native category scrolling, sliders, Journey toggles and vertical list scrolling retain gesture ownership. Static chart guards are local to chart cards. Only the active page exposes focus/accessibility controls.
+- Detail screens retain their existing navigation branch and Back behavior; modals disable underlying paging. No global pointer interception, system-gesture exclusion, business/data change, permission, network dependency or version change.
+- All 16 matched main-content screenshots retain identical RGB pixels to the previous build; the bottom label changes from Analytics to the requested Analysis.
+
+## Verification / current work
+
+**240 host tests pass**, zero failures/errors/skipped, including ten new API26/35 navigation executions. These cover all pages/directions, in-progress drag visibility, slop/boundaries, tab synchronization, repeated taps, category edge scrolling, toggle/chart/vertical drags, slider input in planning, draft/scroll retention, activity recreation, identical ViewModel identity, detail/modal scope and Light/Dark themes. Debug and Android test APKs build. Signed debug and optimized unsigned release builds pass; release vital lint and debug/release 16KiB ZIP alignment pass. Final debug lint has 0 errors, the same 10 advisory warnings and 1 hint as the baseline (six preserved unused name/version entries, one SQLite update suggestion, one offset suggestion, two optional KTX suggestions and one primitive-state hint). Native API26 in-place installation succeeds and UIAutomator confirms the ready Dashboard after waking/unlocking the headless emulator. Native API35 edge-back testing was attempted in gestural/airplane mode but did not complete: the software emulator showed app startup ANRs plus system-wide failures, including a system_server main-handler block and com.android.phone startup failures. No native edge-back pass is claimed. Verify system edge Back and cold startup on a physical phone or hardware-accelerated Android15 emulator. Test navigation/airplane settings were restored.
+
+Implementation, file inventory and test matrix: [SWIPE_NAVIGATION.md](SWIPE_NAVIGATION.md).
+
+## APK
+
+`downloads/Fuel-Expense-Tracker-v1.4.0-swipe-navigation-debug.apk` — 76,098,095 bytes, Android8.0+, unchanged version1.4.0/code6 and original signing identity. SHA256 `873fa8048054e902dde025e1801df502f8eaaaa1ae84ec46e92f45696e63a2c0`. Prior APKs remain available.
+
+## Remaining tasks / known limits
+
+No known compilation or navigation error remains in host coverage. The Android15 software emulator encountered app and system ANRs, so native edge Back/cold-start validation remains pending on a reliable device. Physical OEM gesture thresholds, TalkBack, sustained device performance and process-death behavior remain manual checks. Native verification is reported in SWIPE_NAVIGATION.md; activity recreation is covered by host tests. Existing shared navigation-label wrapping at large font sizes remains.
+
+## Exact resumption instructions
+
+```sh
+cd /workspace/ChatgptFuelConsumption
+git status --short --branch
+source /workspace/.tooling/fuel-ledger-env.sh
+./gradlew :app:testDebugUnitTest --tests my.fuelledger.ui.MainPagerTest
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew :app:assembleRelease
+./gradlew :app:lintDebug
+```
+
+Reuse MainPager/mainDestinations, stable keys and the existing single Scaffold. Keep inactive-page accessibility hidden, child horizontal overflow contained and zero vertical consumption. Keep details outside the pager. Preserve activity ViewModel ownership, Room schema4 and the original signing identity; do not clear data or reapply old WIP stashes. Finish source changes before lint; release and lint run sequentially. Keep prior APKs/reports and append checksums. Secrets, signing keys, databases and caches stay outside Git.
+
+<details>
+<summary>Preserved progress before main-screen pager</summary>
+
 # Current progress — Journey layout root-cause fix
 
 Updated 16 October 2026 (Malaysia time), continuing from `313d66e`. Implementation and visual verification are complete. Earlier work is preserved below.
@@ -842,6 +886,8 @@ Statuses: **A** new, **M** modified, **D** previously removed/replaced launcher 
 | M | `app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt` |
 
 Total: **65 changed files**, including this document.
+
+</details>
 
 </details>
 

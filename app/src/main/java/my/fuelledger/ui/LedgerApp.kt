@@ -4,7 +4,10 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -60,7 +63,10 @@ fun LedgerApp(vm: LedgerViewModel) {
     LedgerTheme(dark) {
         val snackbar = remember { SnackbarHostState() }
         LaunchedEffect(vm) { vm.messages.collect { snackbar.showSnackbar(it) } }
-        var tab by rememberSaveable { mutableStateOf("Home") }
+        val pager = rememberPagerState(pageCount = { mainDestinations.size })
+        val pageState = rememberSaveableStateHolder()
+        val navigationScope = rememberCoroutineScope()
+        var navigationJob by remember { mutableStateOf<Job?>(null) }
         var settingsOpen by rememberSaveable { mutableStateOf(false) }
         var scannerOpen by rememberSaveable { mutableStateOf(false) }
         var financeSection by rememberSaveable { mutableStateOf("Planner") }
@@ -110,8 +116,12 @@ fun LedgerApp(vm: LedgerViewModel) {
                     actions = { if (!settingsOpen && !financeOpen) IconButton(onClick = openSettings) { Icon(ledgerSymbol("settings"), "Settings") } })
             },
             bottomBar = { if (!settingsOpen && !financeOpen) NavigationBar {
-                listOf("Home" to "home", "Fuel" to "fuel", "Expenses" to "expenses", "Journey" to "route", "Analytics" to "analytics").forEach { (title, symbol) ->
-                    NavigationBarItem(selected = tab == title, onClick = { scannerOpen = false; tab = title }, icon = { Icon(ledgerSymbol(symbol), title) }, label = { Text(title) })
+                mainDestinations.forEachIndexed { index, destination ->
+                    NavigationBarItem(selected = pager.currentPage == index, onClick = {
+                        scannerOpen = false
+                        navigationJob?.cancel()
+                        navigationJob = navigationScope.launch { pager.animateScrollToPage(index) }
+                    }, icon = { Icon(ledgerSymbol(destination.symbol), destination.label) }, label = { Text(destination.label) })
                 }
             } },
             snackbarHost = { SnackbarHost(snackbar) }
@@ -122,8 +132,13 @@ fun LedgerApp(vm: LedgerViewModel) {
                         if (startupError == null) { CircularProgressIndicator(); Text("Opening your local ledger…") }
                         else { Text(startupError!!); Button(onClick = vm::initialize, enabled = !busy) { Text("Retry") } }
                     }
-                } else if (scannerOpen) { SmartReceiptScreen(state, vm) } else if (financeOpen) {
+                } else {
+                    // Opening/migrating the encrypted ledger belongs to LedgerViewModel's IO work.
+                    // Reuse activity models only after that existing readiness gate has completed.
                     val financeVm: FinanceViewModel = viewModel(factory = financialViewModelFactory)
+                    val financeState by financeVm.state.collectAsStateWithLifecycle()
+                    val journeyVm: my.fuelledger.JourneyViewModel = viewModel(factory = financialViewModelFactory)
+                    if (scannerOpen) { SmartReceiptScreen(state, vm) } else if (financeOpen) {
                     FinanceScreen(financeVm, initialSection = financeSection)
                 } else if (settingsOpen) SettingsScreen(state, vm, busy,
                     { csvExpenses.launch("expenses.csv") }, { csvRefuels.launch("refuels.csv") },
@@ -131,20 +146,20 @@ fun LedgerApp(vm: LedgerViewModel) {
                     { encryptedImport.launch(arrayOf("application/octet-stream", "*/*")) },
                     { legacyImport.launch(arrayOf("application/zip", "application/json", "text/*", "application/octet-stream")) },
                     { financeSection = "Expected Income"; financeOpen = true })
-                else Crossfade(tab, label = "Navigation") { destination ->
-                    when (destination) {
-                        "Journey" -> { val journeyVm: my.fuelledger.JourneyViewModel = viewModel(factory = financialViewModelFactory); JourneyScreen(state.settings, journeyVm, state.refuels, saveFallback = { value -> vm.saveSettings(state.settings.copy(consumption = value, consumptionFallbackEnabled = true)) {} }, openSettings = openSettings) }
-                        "Fuel" -> FuelScreen(state, newRefuel, { refuelEditId = it.id }, openSettings = openSettings)
-                        "Expenses" -> ExpensesScreen(state, newExpense, onExpense, openSettings = openSettings)
-                        "Analytics" -> { val financeVm: FinanceViewModel = viewModel(factory = financialViewModelFactory); val finance by financeVm.state.collectAsStateWithLifecycle(); AnalyticsScreen(state, finance, openSettings = openSettings) }
-                        else -> {
-                            val financeVm: FinanceViewModel = viewModel(factory = financialViewModelFactory)
-                            val financeState by financeVm.state.collectAsStateWithLifecycle()
-                            HomeScreen(state, newExpense, newRefuel, onExpense, planner = {
+                else pageState.SaveableStateProvider("main-screens") {
+                    MainPager(pager, enabled = !locked && !addExpense && expenseEditor == null && !addRefuel && refuelEditor == null &&
+                        restore == null && operationError == null && pendingBackupOutput == null && pendingRestoreInput == null) { page ->
+                        when (mainDestinations[page].key) {
+                            "Journey" -> JourneyScreen(state.settings, journeyVm, state.refuels, saveFallback = { value -> vm.saveSettings(state.settings.copy(consumption = value, consumptionFallbackEnabled = true)) {} }, openSettings = openSettings)
+                            "Fuel" -> FuelScreen(state, newRefuel, { refuelEditId = it.id }, openSettings = openSettings)
+                            "Expenses" -> ExpensesScreen(state, newExpense, onExpense, openSettings = openSettings)
+                            "Analytics" -> AnalyticsScreen(state, financeState, openSettings = openSettings)
+                            else -> HomeScreen(state, newExpense, newRefuel, onExpense, planner = {
                                 MonthlyPlanner(financeState, financeVm, compact = true, openDetails = { financeSection = "Planner"; financeOpen = true })
                             }, scanReceipt = { vm.clearReceiptWork(); vm.clearReceiptSuccess(); scannerOpen = true }, openSettings = openSettings)
                         }
                     }
+                }
                 }
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter))
             }

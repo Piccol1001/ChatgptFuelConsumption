@@ -360,7 +360,7 @@ private fun DailySpending(totals: Spending, start: LocalDate, end: LocalDate) {
     val days = generateSequence(chartStart) { it.plusDays(1) }.takeWhile { it <= end }.toList()
     val data = days.map { totals.today(it) }
     val max = data.maxOrNull()?.coerceAtLeast(1) ?: 1L
-    LedgerCard {
+    LedgerCard(Modifier.chartGestureRegion()) {
         Text("Daily expenditure", style = MaterialTheme.typography.titleMedium)
         Text("${dateLabel(chartStart)} – ${dateLabel(end)}${if (chartStart > start) " · latest 31 days in period" else ""} · swipe across · MYR", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {

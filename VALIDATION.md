@@ -1,3 +1,20 @@
+# Main-screen pager validation
+
+Verified 16 October 2026 (Malaysia time), baseline `a76e227`. Original package/version1.4.0/code6, database schema4, signing identity and offline permissions are preserved.
+
+- **240 host executions pass**, 0 failures/errors/skipped: all prior230 plus ten new MainPagerTest executions on APIs26/35. The [detailed test matrix](SWIPE_NAVIGATION.md) covers touch gestures, state, modal scope and theme behavior.
+- In-progress drag tests verify that both adjacent pages are visible. Repeated nested category drags at both edges, Journey toggle and chart drags do not navigate. Real planning-slider input changes the allocation value outside pager scope. Small drags and outer boundaries do not switch pages.
+- Draft text, selection and scroll survive distant pages, Settings and activity recreation; ViewModel identity remains stable. No saved financial transaction is created by paging or unsaved drafts.
+- All16 existing API35 native-rendered main-content captures match the prior layout build pixel-for-pixel, comparing RGB regions above the bottom bar. Navigation styling/size remains; the requested fifth label is Analysis.
+- Debug and Android test APKs build. Signed debug and optimized unsigned release builds pass; release vital lint and debug/release 16KiB ZIP alignment pass. Final debug lint has 0 errors, the same 10 advisory warnings and 1 hint as the baseline (six preserved unused name/version entries, one SQLite update suggestion, one offset suggestion, two optional KTX suggestions and one primitive-state hint). Native API26 in-place installation succeeds and UIAutomator confirms the ready Dashboard after waking/unlocking the headless emulator. Native API35 edge-back testing was attempted in gestural/airplane mode but did not complete: the software emulator showed app startup ANRs plus system-wide failures, including a system_server main-handler block and com.android.phone startup failures. No native edge-back pass is claimed. Verify system edge Back and cold startup on a physical phone or hardware-accelerated Android15 emulator. Test navigation/airplane settings were restored.
+- Debug APK signature and 16KiB alignment verify. Certificate SHA256 remains `4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8`. Binary audit retains21 bundled OCR assets, no transport/CCT/Analytics/Crashlytics implementations, and four no-op telemetry sinks.
+- Artifact: `downloads/Fuel-Expense-Tracker-v1.4.0-swipe-navigation-debug.apk`, 76,098,095 bytes, SHA256 `873fa8048054e902dde025e1801df502f8eaaaa1ae84ec46e92f45696e63a2c0`. All previous artifacts are retained.
+
+No physical/OEM/TalkBack or full process-death test is claimed. Activity recreation is covered. Historical native financial/OCR/migration suites below belong to their recorded builds; this UI-only task does not claim to rerun them. Logs and exact reproduction commands are in SWIPE_NAVIGATION.md and PROGRESS.md.
+
+<details>
+<summary>Preserved validation before main-screen pager</summary>
+
 # Journey layout validation
 
 Verified 16 October 2026 (Malaysia time), from baseline `313d66e`. Version 1.4.0 / code 6, Room schema 4 and original signing identity are preserved.
@@ -511,6 +528,8 @@ The complete setup script was exercised, including wrapper activation, SDK setup
 ## Remaining verification
 
 No physical phone or hardware emulator was attached (`/dev/kvm` is absent). Robolectric tests are automated Android simulations, not physical-device tests. On your phone, verify the document picker, CSV export, backup/restore, keyboard behavior, accessibility/font scaling and updates with the same signing key before depending on it for irreplaceable records. The app supports one vehicle and MYR; backups replace existing data after confirmation and are not encrypted. CSV import is not provided.
+
+</details>
 
 </details>
 

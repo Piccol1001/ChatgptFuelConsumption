@@ -112,7 +112,7 @@ class AppSmokeTest {
         navigate("Expenses")
         scrollScreenTo(hasText("Coffee smoke test"))
         compose.onNodeWithText("Coffee smoke test").assertExists()
-        navigate("Analytics")
+        navigate("Analysis")
         waitFor("Understand your spending, at your own pace.")
         captureScreen("analytics")
         scrollScreenTo(hasContentDescription("Settings"))

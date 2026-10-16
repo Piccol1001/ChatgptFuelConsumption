@@ -4,7 +4,7 @@ A native Android app for personal spending and car fuel records. Kotlin, Jetpack
 
 ## Download the APK
 
-[**Download Fuel & Expense Tracker for Android**](https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/downloads/Fuel-Expense-Tracker-v1.4.0-journey-layout-debug.apk)
+[**Download Fuel & Expense Tracker for Android**](https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/downloads/Fuel-Expense-Tracker-v1.4.0-swipe-navigation-debug.apk)
 
 Version 1.4.0, signed debug build, Android 8.0 or later. Open this link on your phone, download the `.apk` file, then open it to install. If Android asks, allow installation for the browser or file manager you used. The APK is also available in this repository's `downloads` folder. Its SHA-256 checksum is in `downloads/SHA256SUMS`; build and test evidence is in [VALIDATION.md](VALIDATION.md).
 
@@ -42,12 +42,14 @@ Configure `ANDROID_HOME` or let Android Studio create the ignored `local.propert
 
 ## Using the app
 
+Swipe left/right between **Home → Fuel → Expenses → Journey → Analysis**, or tap the matching bottom tab. Pages stop at either end and retain their drafts and scroll positions. Category rows, the Journey toggle and chart regions keep their own gestures; forms, Settings, scanner and planner configuration retain their existing Back behavior. See [implementation and verification](SWIPE_NAVIGATION.md).
+
 Journey now shares the reference screens' content margins, omits empty suggestion spacing, and uses concise labels that fit small phones. See the [measured layout investigation and matching screenshots](docs/journey-layout/README.md).
 
 - **Home:** a compact Monthly Money Planner summary (Available After Fixed Commitments, Expected Income and Fixed Expenses, with details on demand) alongside a navy-and-emerald dashboard with a prominent monthly expenditure card, today/monthly-fuel cards, large quick actions and recent transactions. No fictional account balance is shown.
 - **Fuel:** ODO-based per-fill efficiency estimates, consumption trend, monthly fuel costs, compact refuelling history and vehicle statistics. Tap a refuel to view, edit, scan its receipt or delete it. The weighted full-tank historical average is the primary consumption source. Fuel spending offers rolling 3/6/12-month views including the current month, with zero for empty months.
 - **Expenses:** deterministic category filters put Others last and sort custom categories consistently; add/edit/delete transactions; choose a date range and category, search descriptions, and sort by newest, oldest or highest amount. Daily subtotals and the filtered range's daily average are shown. Highest sorts globally by amount; a date header can repeat when its transactions occur at different places in that ordering.
-- **Analytics:** choose a month or a custom inclusive date range; see a category donut with labeled breakdown, daily bars, monthly trends, fuel history, month comparison and highest category. Long-range charts clearly cap the displayed daily detail to the latest 31 days and monthly detail to the latest 12 months. Values remain readable without relying on chart colours.
+- **Analysis:** choose a month or a custom inclusive date range; see a category donut with labeled breakdown, daily bars, monthly trends, fuel history, month comparison and highest category. Long-range charts clearly cap the displayed daily detail to the latest 31 days and monthly detail to the latest 12 months. Values remain readable without relying on chart colours.
 - **Journey:** standalone offline journey estimates with saved routes, manual outbound/return distances, a tap/drag journey-type toggle, toll segments and parking. Historical fuel consumption updates automatically; an explicit override affects only the current journey. Planning never creates actual transactions.
 - **Settings** (gear button): set default petrol price, view calculated fuel consumption and optionally enable a fallback while history is insufficient, choose System/Light/Dark mode, manage categories, income, budgets and recurring payments, configure local app lock, export CSV, and create/restore encrypted backups.
 

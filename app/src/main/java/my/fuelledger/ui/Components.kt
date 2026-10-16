@@ -215,7 +215,7 @@ fun ExpenseRow(expense: Expense, category: Category?, onClick: () -> Unit) {
 @Composable
 fun SpendingBars(title: String, data: List<Pair<String, Long>>, color: Color = MaterialTheme.colorScheme.primary) {
     val max = data.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1L
-    LedgerCard {
+    LedgerCard(Modifier.chartGestureRegion()) {
         Text(title, style = MaterialTheme.typography.titleMedium)
         data.forEach { (label, value) ->
             Column(verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.clearAndSetSemantics { contentDescription = "$label: ${Money.format(value)}" }) {
@@ -241,7 +241,7 @@ fun FuelTrend(data: List<Pair<String, Double>>) {
     val padding = ((high - low) * .2).coerceAtLeast(.5)
     val bottom = (low - padding).coerceAtLeast(0.0)
     val top = high + padding
-    LedgerCard {
+    LedgerCard(Modifier.chartGestureRegion()) {
         Text("Consumption trend", style = MaterialTheme.typography.titleMedium)
         Text("Per-fill estimate · km/L · latest ${values.size} fills", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (values.isEmpty()) Text("Add two odometer readings to start your trend.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -287,7 +287,7 @@ fun FuelTrend(data: List<Pair<String, Double>>) {
 fun CategoryDonut(distribution: List<Pair<Category?, Long>>, total: Long) {
     val colors = distribution.map { categoryTint(it.first) }
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
-    LedgerCard {
+    LedgerCard(Modifier.chartGestureRegion()) {
         Text("Where your money goes", style = MaterialTheme.typography.titleMedium)
         Box(Modifier.align(Alignment.CenterHorizontally).size(188.dp).clearAndSetSemantics {
             contentDescription = "Category spending. " + distribution.joinToString { "${it.first?.name ?: "Other"}: ${Money.format(it.second)}, ${number(if (total > 0) it.second * 100.0 / total else 0.0, 1)} percent" }
