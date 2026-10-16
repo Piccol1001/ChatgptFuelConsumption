@@ -26,6 +26,8 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
     private val events = Channel<String>(Channel.BUFFERED)
     private val paymentPreferences = Channel<String>(Channel.CONFLATED)
     val messages = events.receiveAsFlow()
+    private val undoEvents = Channel<String>(Channel.BUFFERED)
+    val undoAvailable = undoEvents.receiveAsFlow()
     private val _busy = MutableStateFlow(false)
     val busy = _busy.asStateFlow()
     private val _ready = MutableStateFlow(false)
@@ -40,6 +42,15 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
     val receiptWork = _receiptWork.asStateFlow()
     private val _receiptSaved = MutableStateFlow<Expense?>(null)
     val receiptSaved = _receiptSaved.asStateFlow()
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val favourites = _ready.flatMapLatest { if (it) repository.database.toolsDao().favourites() else flowOf(emptyList()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val undoHistory = _ready.flatMapLatest { if (it) repository.database.toolsDao().undoHistory() else flowOf(emptyList()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    fun saveFavourite(value: FavouriteExpense, done: () -> Unit = {}) = perform("Favourite saved", done) { repository.saveFavourite(value) }
+    fun deleteFavourite(id: String) = perform("Favourite removed") { repository.deleteFavourite(id) }
+    fun undoTransaction(id: String) = perform("Transaction restored") { repository.undoTransaction(id) }
     @OptIn(ExperimentalCoroutinesApi::class)
     val receiptMerchants = _ready.flatMapLatest { if (it) repository.database.receiptAutomationDao().merchants() else flowOf(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -153,7 +164,8 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
 
     private suspend fun receiptReferences(): Set<String> =
         (repository.dao.allRefuels().mapNotNull { it.receiptFile } +
-            repository.dao.allExpenses().mapNotNull { it.receiptFile }).toSet()
+            repository.dao.allExpenses().mapNotNull { it.receiptFile } +
+            repository.database.toolsDao().allUndo().mapNotNull { it.change().before.receiptFile }).toSet()
 
     private suspend fun deleteIfUnused(name: String?) {
         if (name != null && name !in receiptReferences()) {
@@ -185,7 +197,11 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
         receiptWrites.withLock {
         expense.receiptFile?.let { require(receipts.file(it).isFile) { "Receipt photo is missing. Choose it again or remove the attachment." } }
         val previous = repository.dao.expense(expense.id)?.receiptFile
+        val existing = repository.dao.expense(expense.id)
         repository.saveExpense(expense)
+        if (existing != null && existing != expense) repository.database.toolsDao().allUndo().firstOrNull()?.let { undoEvents.send(it.id) }
+        val preferences = repository.preferences.settings.first()
+        repository.saveSettings(preferences.copy(lastExpenseCategory = expense.categoryId, lastExpensePayment = expensePaymentGroup(expense.payment) ?: preferences.lastExpensePayment))
         if (previous != expense.receiptFile) cleanupAfterCommit(previous)
         }
     }
@@ -193,6 +209,7 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
         receiptWrites.withLock {
         val previous = repository.dao.expense(id)?.receiptFile
         repository.deleteExpense(id)
+        repository.database.toolsDao().allUndo().firstOrNull()?.let { undoEvents.send(it.id) }
         cleanupAfterCommit(previous)
         }
     }

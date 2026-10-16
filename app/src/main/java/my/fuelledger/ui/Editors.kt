@@ -115,32 +115,42 @@ fun timestamp(date: String, time: String) = LocalDate.parse(date).atTime(LocalTi
 
 @Composable
 fun ExpenseEditor(seed: Expense?, id: String, categories: List<Category>, busy: Boolean, vm: LedgerViewModel, dismiss: () -> Unit,
-    save: (Expense) -> Unit, delete: () -> Unit) {
-    val initial = remember(id) { Instant.ofEpochMilli(seed?.timestamp ?: System.currentTimeMillis()).atZone(ZoneId.systemDefault()) }
-    var amount by rememberSaveable(id) { mutableLongStateOf(seed?.cents ?: 0L) }
-    var category by rememberSaveable(id) { mutableStateOf(seed?.categoryId ?: displayCategories(categories).first().id) }
+    save: (Expense) -> Unit, delete: () -> Unit, draft: Expense? = null, initialDate: LocalDate? = null) {
+    val starting = seed ?: draft
+    val initial = remember(id) { Instant.ofEpochMilli(starting?.timestamp ?: initialDate?.atTime(12, 0)?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli() ?: System.currentTimeMillis()).atZone(ZoneId.systemDefault()) }
+    var amount by rememberSaveable(id) { mutableLongStateOf(kotlin.math.abs(starting?.cents ?: 0L)) }
+    var category by rememberSaveable(id) { mutableStateOf(starting?.categoryId ?: vm.state.value.settings.lastExpenseCategory.takeIf { id -> categories.any { it.id == id } } ?: displayCategories(categories).first().id) }
     var date by rememberSaveable(id) { mutableStateOf(initial.toLocalDate().toString()) }
     var time by rememberSaveable(id) { mutableStateOf(initial.toLocalTime().withSecond(0).withNano(0).toString()) }
-    var description by rememberSaveable(id) { mutableStateOf(seed?.description.orEmpty()) }
-    var notes by rememberSaveable(id) { mutableStateOf(seed?.notes.orEmpty()) }
-    var payment by rememberSaveable(id) { mutableStateOf(seed?.payment ?: vm.state.value.settings.lastExpensePayment) }
+    var description by rememberSaveable(id) { mutableStateOf(starting?.description.orEmpty()) }
+    var merchant by rememberSaveable(id) { mutableStateOf(starting?.merchant.orEmpty()) }
+    var categoryExplicit by rememberSaveable(id) { mutableStateOf(seed != null) }
+    var paymentExplicit by rememberSaveable(id) { mutableStateOf(seed != null) }
+    val merchants by vm.receiptMerchants.collectAsStateWithLifecycle()
+    val suggestion = merchants.firstOrNull { merchantKey(merchant) == it.merchant }
+    var duplicate by remember { mutableStateOf<Expense?>(null) }
+    var favouriteName by rememberSaveable { mutableStateOf("") }
+    var favouriteOpen by rememberSaveable { mutableStateOf(false) }
+    var notes by rememberSaveable(id) { mutableStateOf(starting?.notes.orEmpty()) }
+    var payment by rememberSaveable(id) { mutableStateOf(starting?.payment ?: vm.state.value.settings.lastExpensePayment) }
     var receiptFile by rememberSaveable(id) { mutableStateOf(seed?.receiptFile) }
     var error by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var details by rememberSaveable(id) { mutableStateOf(false) }
     val interaction = rememberAppLockInteraction()
-    EditorShell(if (seed == null) "Add expense" else "Edit expense", busy, error, dismiss, {
+    EditorShell(if (starting?.kind == "Refund") "Record refund" else if (seed == null) "Add expense" else "Edit expense", busy, error, dismiss, {
         runCatching {
             require(expensePaymentGroup(payment) != null) { "Choose a payment method." }
             val savedTime = if (seed != null && date == initial.toLocalDate().toString() && time == initial.toLocalTime().withSecond(0).withNano(0).toString()) seed.timestamp else timestamp(date, time)
-            Expense(id, amount, category, savedTime, description.trim(), notes.trim(), payment,
-            fuelId = seed?.fuelId, receiptFile = receiptFile, recurringRuleId = seed?.recurringRuleId, recurringDate = seed?.recurringDate).also(::validateExpense) }
-            .onSuccess { error = null; save(it) }.onFailure { error = it.message }
+            Expense(id, if (starting?.kind == "Refund") -amount else amount, category, savedTime, description.trim(), notes.trim(), payment,
+            fuelId = seed?.fuelId, receiptFile = receiptFile, recurringRuleId = seed?.recurringRuleId, recurringDate = seed?.recurringDate, merchant = merchant.trim(), kind = starting?.kind ?: "Expense", refundOf = starting?.refundOf).also(::validateExpense) }
+            .onSuccess { error = null; if (likelyDuplicates(it, vm.state.value.expenses).isEmpty()) save(it) else duplicate = it }.onFailure { error = it.message }
     }, if (seed != null) ({ confirmDelete = true }) else null,
         saveEnabled = amount > 0 && expensePaymentGroup(payment) != null && categories.any { it.id == category }, compact = true) {
         ExpenseAmount(amount)
-        ExpenseCategoryRow(categories, category, !busy) { category = it }
+        ExpenseCategoryRow(categories, category, !busy) { category = it; categoryExplicit = true }
         ExpensePaymentRow(payment, !busy) { selected ->
+            paymentExplicit = true
             payment = selectExpensePayment(payment, selected)
             vm.rememberExpensePayment(selected)
         }
@@ -149,8 +159,17 @@ fun ExpenseEditor(seed: Expense?, id: String, categories: List<Category>, busy: 
         TextButton(onClick = { if (interaction()) details = !details }, modifier = Modifier.fillMaxWidth()) { Text(if (details) "Hide details & receipt" else "Details & receipt") }
         if (details) {
             DateTimeFields(date, time, { date = it }, { time = it })
+            TextField(merchant, { merchant = it }, "Merchant (optional)", 200)
+            suggestion?.let { memory ->
+                TextButton({
+                    if (!categoryExplicit && categories.any { it.id == memory.categoryId }) category = memory.categoryId
+                    if (!paymentExplicit && memory.payment.isNotEmpty()) payment = memory.payment
+                    if (description.isBlank()) description = memory.description
+                }) { Text("Use remembered merchant details") }
+            }
             TextField(description, { description = it }, "Description (optional)", 200)
-            TextField(notes, { notes = it }, "Notes (optional)", 2000, true)
+            ExpandableHelp("Notes") { TextField(notes, { notes = it }, "Notes (optional)", 2000, true) }
+            TextButton({ favouriteOpen = true; favouriteName = description.ifBlank { merchant } }) { Text("Save as favourite") }
         }
         // Keep attachment ownership/cleanup composed when its controls are collapsed.
         ReceiptAttachment(id, receiptFile, vm, busy, { receiptFile = it }, categories = categories, fuelReceipt = false, visible = details) { scanned ->
@@ -160,7 +179,14 @@ fun ExpenseEditor(seed: Expense?, id: String, categories: List<Category>, busy: 
             scanned.suggestedCategoryId?.takeIf { suggested -> categories.any { it.id == suggested } }?.let { category = it }
         }
     }
-    if (confirmDelete) DeleteConfirmation("Delete expense?", "This permanently removes this expense.", busy, { confirmDelete = false }, delete)
+    duplicate?.let { candidate -> AlertDialog(onDismissRequest = { duplicate = null }, title = { Text("Possible duplicate") },
+        text = { PrivacyDialogWindow(); Text("A similar amount, merchant and time or receipt already exists. Save only if this is another transaction.") },
+        confirmButton = { TextButton({ duplicate = null; save(candidate) }) { Text("Save anyway") } }, dismissButton = { TextButton({ duplicate = null }) { Text("Review") } }) }
+    if (favouriteOpen) EditorShell("Save favourite", busy, error, { favouriteOpen = false }, {
+        runCatching { favourite(java.util.UUID.randomUUID().toString(), favouriteName.trim(), Expense(id, amount, category, initial.toInstant().toEpochMilli(), description, notes, payment, merchant = merchant)) }
+            .onSuccess { vm.saveFavourite(it) { favouriteOpen = false } }.onFailure { error = it.message }
+    }) { TextField(favouriteName, { favouriteName = it }, "Name", 100) }
+    if (confirmDelete) DeleteConfirmation("Delete expense?", "You can restore it with Undo in Expenses.", busy, { confirmDelete = false }, delete)
 }
 
 @Composable

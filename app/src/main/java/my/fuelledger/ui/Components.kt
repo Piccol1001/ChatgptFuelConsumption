@@ -232,7 +232,7 @@ fun SpendingBars(title: String, data: List<Pair<String, Long>>, color: Color = M
 }
 
 @Composable
-fun FuelTrend(data: List<Pair<String, Double>>) {
+fun FuelTrend(data: List<Pair<String, Double>>, description: String = "Per-fill estimate · km/L") {
     val accent = MaterialTheme.colorScheme.primary
     val grid = MaterialTheme.colorScheme.outlineVariant
     val values = data.takeLast(8)
@@ -243,8 +243,8 @@ fun FuelTrend(data: List<Pair<String, Double>>) {
     val top = high + padding
     LedgerCard(Modifier.chartGestureRegion()) {
         Text("Consumption trend", style = MaterialTheme.typography.titleMedium)
-        Text("Per-fill estimate · km/L · latest ${values.size} fills", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (values.isEmpty()) Text("Add two odometer readings to start your trend.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("$description · latest ${values.size}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (values.isEmpty()) Text("Complete a valid fuel interval to start your trend.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         else {
             Row(Modifier.fillMaxWidth().height(152.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Column(Modifier.fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {

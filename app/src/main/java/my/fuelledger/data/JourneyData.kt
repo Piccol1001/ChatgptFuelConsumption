@@ -1,6 +1,7 @@
 package my.fuelledger.data
 
 import androidx.room.*
+import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -22,7 +23,23 @@ data class JourneyPlan(val origin: String, val destination: String, val outbound
     // Absent in old JSON: preserve historical totals. New/refined entries explicitly use 2.
     val costVersion: Int = 1,
     // Missing in legacy records: keep their explicit saved consumption when editing.
-    val consumptionSource: String = "Legacy")
+    val consumptionSource: String = "Legacy", val routeName: String = "",
+    val actualLinks: List<JourneyActualLink> = emptyList())
+@Serializable data class JourneyActualLink(val expenseId: String, val kind: String)
+data class JourneyActual(val fuel: Long?, val tolls: Long?, val parking: Long?)
+fun journeyActual(plan: JourneyPlan, expenses: List<Expense>): JourneyActual {
+    fun total(kind: String): Long? {
+        val links = plan.actualLinks.filter { it.kind == kind }
+        if (links.isEmpty() || links.any { link -> expenses.none { it.id == link.expenseId } }) return null
+        val ids = links.map { it.expenseId }.toSet()
+        return expenses.filter { it.id in ids || it.kind == "Refund" && it.refundOf in ids }.sumOf { it.cents }
+    }
+    return JourneyActual(total("Fuel"), total("Tolls"), total("Parking"))
+}
+fun reverseJourney(plan: JourneyPlan) = plan.copy(origin = plan.destination, destination = plan.origin,
+    outboundKm = if (plan.roundTrip) plan.returnKm else plan.outboundKm,
+    returnKm = if (plan.roundTrip) plan.outboundKm else plan.returnKm,
+    outboundTolls = plan.returnTolls, returnTolls = plan.outboundTolls)
 @Serializable
 @Entity(tableName = "journey_plans")
 data class SavedJourney(@PrimaryKey val id: String, val timestamp: Long, val payload: String) {
@@ -34,6 +51,7 @@ data class JourneyCost(val distanceKm: Double, val fuelCents: Long, val tollCent
     val perPersonCents get() = BigDecimal(sharedCents).divide(BigDecimal(people), 0, RoundingMode.HALF_UP).longValueExact()
 }
 fun journeyCost(plan: JourneyPlan): JourneyCost {
+    require(plan.routeName.length <= 100 && plan.actualLinks.size <= 1000 && plan.actualLinks.map { it.expenseId }.distinct().size == plan.actualLinks.size && plan.actualLinks.all { it.expenseId.isNotBlank() && it.expenseId.length <= 100 && it.kind in setOf("Fuel", "Tolls", "Parking") }) { "Invalid route name or actual expense links." }
     require(plan.costVersion in 1..2) { "Unsupported journey calculation version." }
     require(plan.consumptionSource in setOf("Legacy", "History", "Fallback", "Override")) { "Unsupported consumption source." }
     require(plan.outboundKm.isFinite() && plan.outboundKm > 0 && plan.outboundKm <= 1e9 && plan.returnKm.isFinite() && plan.returnKm >= 0 && plan.returnKm <= 1e9) { "Enter valid outbound and return distances." }
@@ -70,6 +88,16 @@ interface JourneyDao {
 }
 class JourneyRepository(private val database: LedgerDatabase) {
     val journeys = database.journeyDao().journeys()
-    suspend fun save(value: SavedJourney) { validateSavedJourney(value); database.journeyDao().put(value) }
+    suspend fun save(value: SavedJourney) {
+        validateSavedJourney(value)
+        database.withTransaction {
+            val links = value.plan().actualLinks.map { it.expenseId }.toSet()
+            val others = database.journeyDao().allJourneys().filter { it.id != value.id }.flatMap { it.plan().actualLinks }.map { it.expenseId }.toSet()
+            require(links.intersect(others).isEmpty()) { "An expense is already attributed to another journey." }
+            val previous = database.journeyDao().allJourneys().find { it.id == value.id }?.plan()?.actualLinks?.map { it.expenseId }.orEmpty().toSet()
+            require(database.dao().allExpenses().map { it.id }.toSet().containsAll(links - previous)) { "A selected expense no longer exists." }
+            database.journeyDao().put(value)
+        }
+    }
     suspend fun delete(id: String) = database.journeyDao().delete(id)
 }

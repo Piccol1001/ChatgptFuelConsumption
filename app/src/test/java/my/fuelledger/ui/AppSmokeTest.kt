@@ -75,6 +75,7 @@ class AppSmokeTest {
 
     @Test fun launchAddEditAndNavigateTheRealComposeApp() {
         waitFor("Overview")
+        navigate("Expenses")
         scrollScreenTo(hasText("Add Expense"))
         compose.onNode(hasText("Add Expense") and hasClickAction()).performClick()
         enterExpenseAmount("1234")
@@ -94,6 +95,7 @@ class AppSmokeTest {
         compose.onNodeWithText("Save").performClick()
         waitForEditorToClose("Edit expense")
         waitFor("RM 14.67")
+        navigate("Home")
         scrollScreenTo(hasText("Overview"))
         captureScreen("dashboard")
 
@@ -192,6 +194,7 @@ class AppSmokeTest {
         val repository = (compose.activity.application as LedgerApplication).repository
         val custom = my.fuelledger.data.Category("travel-custom", "Travel", "other", my.fuelledger.data.categoryColors.first())
         runBlocking(Dispatchers.IO) { repository.saveCategory(custom) }
+        navigate("Expenses")
         scrollScreenTo(hasText("Add Expense"))
         compose.onNode(hasText("Add Expense") and hasClickAction()).performClick()
         compose.onNodeWithText("Save").assertIsNotEnabled()
@@ -207,6 +210,7 @@ class AppSmokeTest {
         waitForEditorToClose("Add expense")
         val saved = runBlocking(Dispatchers.IO) { repository.backup().expenses.single() }
         assertEquals(12345L, saved.cents); assertEquals(custom.id, saved.categoryId); assertEquals("E-wallet", saved.payment)
+        navigate("Expenses")
         scrollScreenTo(hasText("Add Expense"))
         compose.onNode(hasText("Add Expense") and hasClickAction()).performClick()
         compose.onNodeWithTag("expense-amount").assertTextEquals("RM 0.00")
@@ -222,6 +226,7 @@ class AppSmokeTest {
             my.fuelledger.data.Expense("legacy-$index", 12345L + index, "food", now - index * 1000, "Legacy $index", "Original notes", payment)
         }
         runBlocking(Dispatchers.IO) { legacy.forEach { repository.saveExpense(it) } }
+        navigate("Expenses")
         for (record in legacy.take(2)) {
             scrollScreenTo(hasText(record.description))
             compose.onNodeWithText(record.description).performClick()
@@ -249,6 +254,7 @@ class AppSmokeTest {
         val app = compose.activity.application as LedgerApplication
         val record = my.fuelledger.data.Expense("receipt-draft", 199L, "food", System.currentTimeMillis(), "Receipt draft")
         runBlocking(Dispatchers.IO) { app.repository.saveExpense(record) }
+        navigate("Expenses")
         scrollScreenTo(hasText(record.description)); compose.onNodeWithText(record.description).performClick()
         val photo = File(app.cacheDir, "expense-import.jpg")
         val bitmap = Bitmap.createBitmap(200, 400, Bitmap.Config.ARGB_8888)
@@ -324,6 +330,7 @@ class AppSmokeTest {
         }
         compose.waitForIdle()
 
+        navigate("Fuel")
         scrollScreenTo(hasText("Add Refuel"))
         compose.onNode(hasText("Add Refuel") and hasClickAction()).performClick()
         waitFor("Add refuel")

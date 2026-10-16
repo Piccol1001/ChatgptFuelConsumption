@@ -14,7 +14,9 @@ fun receiptFingerprint(text: String) = MessageDigest.getInstance("SHA-256").dige
     text.uppercase(Locale.ROOT).filter { it.isLetterOrDigit() }.toByteArray()).joinToString("") { "%02x".format(it) }
 @Serializable
 @Entity(tableName = "receipt_merchants")
-data class ReceiptMerchant(@PrimaryKey val merchant: String, val displayName: String, val categoryId: String)
+data class ReceiptMerchant(@PrimaryKey val merchant: String, val displayName: String, val categoryId: String,
+    @ColumnInfo(defaultValue = "''") val payment: String = "",
+    @ColumnInfo(defaultValue = "''") val description: String = "")
 @Serializable
 @Entity(tableName = "receipt_scans")
 data class ReceiptScan(@PrimaryKey val fingerprint: String, val expenseId: String)
@@ -32,6 +34,7 @@ interface ReceiptAutomationDao {
     @Query("DELETE FROM receipt_scans") suspend fun clearScans()
 }
 fun validateReceiptMerchant(value: ReceiptMerchant) {
+    require((value.payment.isEmpty() || expensePaymentGroup(value.payment) != null) && value.description.length <= 200) { "Invalid merchant preferences." }
     require(value.displayName.isNotBlank() && value.displayName.length <= 200 && value.merchant == merchantKey(value.displayName) && value.merchant.isNotBlank() && value.categoryId.isNotBlank() && value.categoryId.length <= 100) { "Check the merchant and category." }
 }
 fun validateReceiptScan(value: ReceiptScan) {

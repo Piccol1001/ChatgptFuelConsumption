@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
+import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -36,21 +37,21 @@ private data class JourneyInput(val origin: String = "", val destination: String
     val outboundTolls: List<FeeInput> = emptyList(), val returnTolls: List<FeeInput> = emptyList(),
     val parking: String = "0.00", val others: List<FeeInput> = emptyList(), val people: String = "1",
     val shareFuel: Boolean = true, val shareTolls: Boolean = true, val shareParking: Boolean = true, val shareOther: Boolean = true,
-    val consumptionOverride: Boolean = false) {
+    val consumptionOverride: Boolean = false, val routeName: String = "", val actualLinks: List<JourneyActualLink> = emptyList()) {
     fun plan(effectiveConsumption: String, source: String) = JourneyPlan(origin.trim(), destination.trim(), measurement(outbound, "Outbound distance"), roundTrip,
         measurement(if (roundTrip) returnDistance else outbound, "Return distance", allowZero = true), measurement(effectiveConsumption, "Consumption"), price.trim(),
         outboundTolls.map { it.fee() }, returnTolls.map { it.fee() }, zeroMoney(parking), others.map { it.fee() },
-        people.toIntOrNull() ?: 1, shareFuel, shareTolls, shareParking, shareOther, costVersion = 2, consumptionSource = source)
+        people.toIntOrNull() ?: 1, shareFuel, shareTolls, shareParking, shareOther, costVersion = 2, consumptionSource = source, routeName = routeName, actualLinks = actualLinks)
 }
 private fun journeyInput(plan: JourneyPlan) = JourneyInput(plan.origin, plan.destination, plan.outboundKm.toString(), plan.roundTrip,
     plan.returnKm.toString(), if (plan.consumptionSource == "History") "" else plan.consumption.toString(), plan.petrolPrice,
     plan.outboundTolls.map { FeeInput(name = it.name, amount = Money.decimal(it.cents), notes = it.notes) },
     plan.returnTolls.map { FeeInput(name = it.name, amount = Money.decimal(it.cents), notes = it.notes) }, Money.decimal(plan.parkingCents),
     plan.otherFees.map { FeeInput(name = it.name, amount = Money.decimal(it.cents), notes = it.notes) }, plan.people.toString(),
-    plan.shareFuel, plan.shareTolls, plan.shareParking, plan.shareOther, consumptionOverride = plan.consumptionSource in setOf("Legacy", "Override"))
+    plan.shareFuel, plan.shareTolls, plan.shareParking, plan.shareOther, consumptionOverride = plan.consumptionSource in setOf("Legacy", "Override"), routeName = plan.routeName, actualLinks = plan.actualLinks)
 
 @Composable
-fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel, refuels: List<Refuel> = emptyList(), saveFallback: ((Double) -> Unit)? = null, openSettings: (() -> Unit)? = null) {
+fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel, refuels: List<Refuel> = emptyList(), saveFallback: ((Double) -> Unit)? = null, openSettings: (() -> Unit)? = null, expenses: List<Expense> = emptyList()) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val journeys by vm.journeys.collectAsStateWithLifecycle()
@@ -62,6 +63,7 @@ fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel, refuels: List<Ref
     fun update(value: JourneyInput) { encoded = backupJson.encodeToString(value) }
     var error by remember { mutableStateOf<String?>(null) }
     var notice by rememberSaveable { mutableStateOf<String?>(null) }
+    var actualEditor by remember { mutableStateOf<SavedJourney?>(null) }
     var deleting by remember { mutableStateOf<SavedJourney?>(null) }
     val saved = journeys.find { it.id == id }
     val historical = remember(refuels) { historicalConsumption(refuels.map { it.point() }) }
@@ -69,14 +71,23 @@ fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel, refuels: List<Ref
     val effectiveConsumption = if (input.consumptionOverride) input.consumption else historical?.toString() ?: fallback
     val consumptionSource = if (input.consumptionOverride) "Override" else if (historical != null) "History" else "Fallback"
     val estimate = runCatching { journeyCost(input.plan(effectiveConsumption, consumptionSource)) }
-    val locations = journeys.flatMap { listOf(it.plan().origin, it.plan().destination) }.distinct().sorted()
+    val locations = journeys.flatMap { listOf(it.plan().origin, it.plan().destination) }.distinct()
     LazyColumn(state = listState, contentPadding = ledgerScreenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item { ScreenHeading("Journey", "Offline journey estimates", ledgerSymbol("route"), openSettings) }
         item {
             LedgerCard {
                 Text(if (saved != null) "Edit saved journey" else "Plan a journey", style = MaterialTheme.typography.titleMedium)
+                TextField(input.routeName, { update(input.copy(routeName = it)) }, "Route name (optional)", 100)
                 TextField(input.origin, { update(input.copy(origin = it)) }, "Origin", 200)
                 LocationSuggestions(input.origin, locations) { update(input.copy(origin = it)) }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    IconButton({ update(input.copy(origin = input.destination, destination = input.origin,
+                        outbound = if (input.roundTrip) input.returnDistance else input.outbound,
+                        returnDistance = if (input.roundTrip) input.outbound else input.returnDistance,
+                        outboundTolls = input.returnTolls, returnTolls = input.outboundTolls)) }) {
+                        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Outlined.SwapVert, "Reverse journey")
+                    }
+                }
                 TextField(input.destination, { update(input.copy(destination = it)) }, "Destination", 200)
                 LocationSuggestions(input.destination, locations) { update(input.copy(destination = it)) }
                 Text("Enter distance manually or load a saved route.", style = MaterialTheme.typography.bodySmall)
@@ -110,6 +121,12 @@ fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel, refuels: List<Ref
                     }, enabled = !busy) { Text("Save fallback for new journeys") }
                 }
                 NumericField(input.price, { update(input.copy(price = it)) }, "Petrol price (RM/L)")
+                ExpandableHelp("Compare petrol prices") {
+                    var alternative by rememberSaveable { mutableStateOf("") }
+                    NumericField(alternative, { alternative = it }, "Scenario price (RM/L)")
+                    val scenario = runCatching { journeyCost(input.plan(effectiveConsumption, consumptionSource).copy(petrolPrice = alternative)) }.getOrNull()
+                    Text(scenario?.let { "Scenario fuel ${Money.format(it.fuelCents)} · total ${Money.format(it.totalCents)}" } ?: "Enter a valid price for comparison", style = MaterialTheme.typography.bodyMedium)
+                }
                 ExpandableHelp("Fuel estimate") { Text("Uses the distance-weighted full-tank average. Overrides affect only this journey. An enabled fallback is used only while history is insufficient.", style = MaterialTheme.typography.bodySmall) }
             }
         }
@@ -144,16 +161,20 @@ fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel, refuels: List<Ref
         items(journeys, key = { it.id }) { journey ->
             val plan = journey.plan()
             LedgerCard {
-                Text("${plan.origin} → ${plan.destination}", style = MaterialTheme.typography.titleMedium)
+                Text(plan.routeName.ifBlank { "${plan.origin} → ${plan.destination}" }, style = MaterialTheme.typography.titleMedium)
                 Text("${dateTime(journey.timestamp)} · ${if (plan.roundTrip) "Round-trip" else "One-way"}", style = MaterialTheme.typography.bodySmall)
                 Text(Money.format(journeyCost(plan).totalCents), style = MaterialTheme.typography.titleLarge)
                 if (plan.costVersion == 1 && plan.otherFees.any { it.cents > 0 }) Text("Historical total includes legacy fees ${Money.format(plan.otherFees.sumOf { it.cents })}", style = MaterialTheme.typography.bodySmall)
                 Button({ id = journey.id; update(journeyInput(plan)); notice = "Saved journey loaded."; error = null; scope.launch { listState.scrollToItem(0) } }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Edit / load route") }
-                OutlinedButton({ id = UUID.randomUUID().toString(); update(journeyInput(plan.copy(petrolPrice = settings.petrolPrice)).copy(consumptionOverride = false, consumption = "")); notice = "Duplicate loaded. Review fees and save as a new journey."; error = null; scope.launch { listState.scrollToItem(0) } }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Duplicate with current petrol price") }
+                OutlinedButton({ id = UUID.randomUUID().toString(); update(journeyInput(plan.copy(petrolPrice = settings.petrolPrice)).copy(consumptionOverride = false, consumption = "", actualLinks = emptyList())); notice = "Duplicate loaded. Review fees and save as a new journey."; error = null; scope.launch { listState.scrollToItem(0) } }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Use as preset · current fuel settings") }
+                JourneyActualSummary(plan, expenses)
+                TextButton({ actualEditor = journey }) { Text("Link recorded actual costs") }
+                JourneyShareActions(plan)
                 TextButton({ deleting = journey }, enabled = !busy) { Text("Delete journey") }
             }
         }
     }
+    actualEditor?.let { journey -> JourneyActualEditor(journey, expenses, journeys, busy, { actualEditor = null }) { updated -> vm.save(updated) { actualEditor = null; if (id == updated.id) update(input.copy(actualLinks = updated.plan().actualLinks)) } } }
     deleting?.let { journey -> DeleteConfirmation("Delete saved journey?", "Only this plan is removed. Your actual expenses and refuelling records stay available.", busy, { deleting = null }) {
         vm.delete(journey.id) { deleting = null; if (id == journey.id) id = UUID.randomUUID().toString() }
     } }

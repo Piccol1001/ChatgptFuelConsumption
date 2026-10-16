@@ -44,7 +44,16 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
             val updated = if (existing?.recurringRuleId != null) expense.copy(
                 recurringRuleId = existing.recurringRuleId, recurringDate = existing.recurringDate) else expense
             validateExpense(updated)
+            if (updated.kind == "Refund" && updated.refundOf != null) {
+                val original = requireNotNull(dao.expense(updated.refundOf)) { "Original expense no longer exists. Choose an unlinked refund." }
+                require(original.kind == "Expense" && original.categoryId == updated.categoryId) { "A linked refund must use the original category." }
+                val refunded = dao.allExpenses().filter { it.id != updated.id && it.refundOf == original.id }.sumOf { -it.cents }
+                require(refunded - updated.cents <= original.cents) { "Refunds exceed the original expense." }
+            }
+            if (existing != null && existing != updated) recordUndo(existing, updated)
             dao.putExpense(updated)
+            if (updated.merchant.isNotBlank()) database.receiptAutomationDao().putMerchant(
+                ReceiptMerchant(merchantKey(updated.merchant), updated.merchant, updated.categoryId, updated.payment, updated.description))
         }
     }
     suspend fun saveReceiptExpense(expense: Expense, suggestions: my.fuelledger.receipts.ReceiptSuggestions,
@@ -102,9 +111,29 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
     suspend fun deleteExpense(id: String) = writes.withLock {
         database.withTransaction {
             require(dao.expense(id)?.fuelId == null) { "Delete this transaction through its refuel record." }
+            dao.expense(id)?.let { recordUndo(it, null) }
             dao.deleteExpense(id)
         }
     }
+    private suspend fun recordUndo(before: Expense, after: Expense?) {
+        database.toolsDao().putUndo(TransactionUndo(java.util.UUID.randomUUID().toString(), System.currentTimeMillis(), backupJson.encodeToString(TransactionChange(before, after))))
+    }
+    suspend fun undoTransaction(id: String) = writes.withLock {
+        database.withTransaction {
+            val entry = requireNotNull(database.toolsDao().undo(id)) { "Undo is no longer available." }
+            val change = entry.change()
+            require(dao.expense(change.before.id) == change.after) { "This transaction changed again. Review it before restoring." }
+            require(dao.allCategories().any { it.id == change.before.categoryId }) { "The original category is no longer available." }
+            dao.putExpense(change.before)
+            database.toolsDao().deleteUndo(id)
+        }
+    }
+    suspend fun saveFavourite(value: FavouriteExpense) = writes.withLock {
+        validateFavourite(value)
+        require(dao.allCategories().any { it.id == value.expense().categoryId }) { "Category no longer exists." }
+        database.toolsDao().putFavourite(value)
+    }
+    suspend fun deleteFavourite(id: String) = writes.withLock { database.toolsDao().deleteFavourite(id) }
     suspend fun saveRefuel(refuel: Refuel) = writes.withLock {
         validateRefuel(refuel)
         database.withTransaction {
@@ -134,6 +163,9 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
             require(dao.allCategories().firstOrNull { it.id == id }?.custom == true) { "Built-in categories cannot be deleted." }
             dao.reassignCategory(id, OTHER_CATEGORY)
             FinanceRepository(database).reassignCategory(id, OTHER_CATEGORY)
+            for (favourite in database.toolsDao().allFavourites().filter { it.expense().categoryId == id }) {
+                database.toolsDao().putFavourite(favourite.copy(payload = backupJson.encodeToString(favourite.expense().copy(categoryId = OTHER_CATEGORY))))
+            }
             for (merchant in database.receiptAutomationDao().allMerchants().filter { it.categoryId == id }) {
                 database.receiptAutomationDao().putMerchant(merchant.copy(categoryId = OTHER_CATEGORY))
             }
@@ -154,15 +186,16 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
         applyPendingSettings()
         database.withTransaction {
             val finance = database.financeDao()
-            Backup(format = "my.fuelledger.backup", version = 4, createdAt = System.currentTimeMillis(), categories = dao.allCategories(),
+            Backup(format = "my.fuelledger.backup", version = 5, createdAt = System.currentTimeMillis(), categories = dao.allCategories(),
                 expenses = dao.allExpenses(), refuels = dao.allRefuels(), settings = preferences.settings.first(),
-                incomes = finance.allIncome(), budgets = finance.allBudgets(), recurring = finance.allRecurring(), plannerMonths = database.plannerDao().allMonths(), allocations = database.plannerDao().allAllocations(), journeys = database.journeyDao().allJourneys(), receiptMerchants = database.receiptAutomationDao().allMerchants(), receiptScans = database.receiptAutomationDao().allScans())
+                incomes = finance.allIncome(), budgets = finance.allBudgets(), recurring = finance.allRecurring(), plannerMonths = database.plannerDao().allMonths(), allocations = database.plannerDao().allAllocations(), journeys = database.journeyDao().allJourneys(), receiptMerchants = database.receiptAutomationDao().allMerchants(), receiptScans = database.receiptAutomationDao().allScans(), favourites = database.toolsDao().allFavourites())
         }
     }
     suspend fun restore(backup: Backup) = writes.withLock {
         backup.validate() // All validation occurs before deleting anything.
         database.withTransaction {
             val finance = database.financeDao()
+            database.toolsDao().clearFavourites(); database.toolsDao().clearUndo()
             finance.clearIncome(); finance.clearBudgets(); finance.clearRecurring()
             database.plannerDao().clearMonths(); database.plannerDao().clearAllocations(); database.journeyDao().clear()
             database.receiptAutomationDao().clearMerchants(); database.receiptAutomationDao().clearScans()
@@ -170,6 +203,7 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
             backup.categories.forEach { dao.putCategory(it) }
             backup.refuels.forEach { dao.putRefuel(it) }
             backup.expenses.forEach { dao.putExpense(it) }
+            backup.favourites.forEach { database.toolsDao().putFavourite(it) }
             backup.incomes.forEach { finance.putIncome(it) }
             backup.budgets.forEach { finance.putBudget(it) }
             backup.recurring.forEach { finance.putRecurring(it) }
@@ -190,10 +224,10 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
     suspend fun exportExpenses(): String {
         val snapshot = backup()
         val names = snapshot.categories.associate { it.id to it.name }
-        return csv(listOf(listOf("ID", "Date time (local, with offset)", "Amount (MYR)", "Category", "Description", "Notes", "Payment method", "Refuel ID", "Receipt file", "Recurring rule ID", "Recurring date")) +
+        return csv(listOf(listOf("ID", "Date time (local, with offset)", "Amount (MYR)", "Category", "Description", "Notes", "Payment method", "Refuel ID", "Receipt file", "Recurring rule ID", "Recurring date", "Merchant", "Type", "Original transaction")) +
             snapshot.expenses.map { listOf(it.id, localTimestamp(it.timestamp), my.fuelledger.domain.Money.decimal(it.cents),
                 names[it.categoryId].orEmpty(), it.description, it.notes, it.payment, it.fuelId.orEmpty(),
-                it.receiptFile.orEmpty(), it.recurringRuleId.orEmpty(), it.recurringDate.orEmpty()) })
+                it.receiptFile.orEmpty(), it.recurringRuleId.orEmpty(), it.recurringDate.orEmpty(), it.merchant, it.kind, it.refundOf.orEmpty()) })
     }
     suspend fun exportRefuels(): String = csv(listOf(listOf("ID", "Date time (local, with offset)", "Odometer (km)", "Litres", "Payment (MYR)", "Price (MYR/L)", "Full tank", "Station", "Notes", "Fuel type", "Station location", "Receipt file")) +
         backup().refuels.map { listOf(it.id, localTimestamp(it.timestamp), it.odometer.toString(), it.litres.toString(),

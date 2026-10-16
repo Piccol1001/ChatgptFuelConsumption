@@ -59,7 +59,7 @@ class EncryptedStorageTest {
             assertEquals(2, encrypted.dao().allExpenses().size)
             assertEquals(defaultCategories.toSet(), encrypted.dao().allCategories().toSet())
             assertEquals("pending preferences preserved", encrypted.dao().pendingSettings()?.payload)
-            assertEquals(4, encrypted.openHelper.readableDatabase.version)
+            assertEquals(5, encrypted.openHelper.readableDatabase.version)
             assertTrue(encrypted.financeDao().allIncome().isEmpty())
             val income = FinanceIncome("income", 123456, 5000, "Private income marker")
             encrypted.financeDao().putIncome(income)

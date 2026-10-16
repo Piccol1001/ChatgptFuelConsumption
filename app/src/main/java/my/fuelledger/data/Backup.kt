@@ -14,7 +14,7 @@ data class Backup(val format: String, val version: Int,
     val recurring: List<FinanceRecurring> = emptyList(),
     val plannerMonths: List<FinanceMonth> = emptyList(), val allocations: List<AllocationPlan> = emptyList(),
     val journeys: List<SavedJourney> = emptyList(),
-    val receiptMerchants: List<ReceiptMerchant> = emptyList(), val receiptScans: List<ReceiptScan> = emptyList())
+    val receiptMerchants: List<ReceiptMerchant> = emptyList(), val receiptScans: List<ReceiptScan> = emptyList(), val favourites: List<FavouriteExpense> = emptyList())
 
 private val receiptFileName = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.jpg")
 private fun validateReceiptFile(name: String?) {
@@ -24,7 +24,9 @@ private fun validateReceiptFile(name: String?) {
 fun validateExpense(expense: Expense) {
     require(expense.id.isNotBlank() && expense.id.length <= 100) { "Invalid expense ID." }
     require(expense.timestamp >= 0 && expense.timestamp <= 32_503_680_000_000L) { "Invalid expense date." }
-    require(expense.cents in 1..MAX_CENTS) { "Amount must be positive." }
+    require(expense.kind in listOf("Expense", "Refund") && expense.merchant.length <= 200) { "Invalid transaction details." }
+    require(if (expense.kind == "Refund") expense.cents in -MAX_CENTS..-1 && expense.fuelId == null && expense.recurringRuleId == null else expense.cents in 1..MAX_CENTS && expense.refundOf == null) { "Check the expense or refund amount." }
+    require(expense.refundOf == null || (expense.refundOf.isNotBlank() && expense.refundOf.length <= 100 && expense.refundOf != expense.id)) { "Invalid original transaction." }
     require(expense.description.length <= 200 && expense.notes.length <= 2000) { "Description or notes are too long." }
     require(expense.payment in paymentMethods) { "Choose a valid payment method." }
     require(expense.fuelId == null || (expense.fuelId.isNotBlank() && expense.fuelId.length <= 100)) { "Invalid linked refuel ID." }
@@ -48,7 +50,7 @@ fun validateCategory(category: Category) {
     require(category.icon in categoryIcons && category.color in categoryColors) { "Choose a supported icon and colour." }
 }
 fun Backup.validate() {
-    require(format == "my.fuelledger.backup" && version in 1..4) { "This is not a compatible Fuel & Expense Tracker backup." }
+    require(format == "my.fuelledger.backup" && version in 1..5) { "This is not a compatible Fuel & Expense Tracker backup." }
     require(createdAt in 0..32_503_680_000_000L) { "Invalid backup creation date." }
     require(categories.size in 7..500 && expenses.size <= 100_000 && refuels.size <= 100_000 &&
         incomes.size <= 100_000 && budgets.size <= 100_000 && recurring.size <= 100_000) {
@@ -62,11 +64,14 @@ fun Backup.validate() {
     categories.forEach(::validateCategory)
     defaultCategories.forEach { default -> require(categories.any { it == default }) { "Default category definitions are missing or modified." } }
     require(categories.filter { !it.custom }.map { it.id }.toSet() == defaultCategories.map { it.id }.toSet()) { "Unknown built-in category." }
+    require(favourites.size <= 1000 && favourites.map { it.id }.distinct().size == favourites.size) { "Invalid favourites." }
+    favourites.forEach(::validateFavourite)
     expenses.forEach(::validateExpense)
     refuels.forEach(::validateRefuel)
     validateSequence(refuels.map { it.point() })
     val categoryIds = categories.map { it.id }.toSet()
     val fuelById = refuels.associateBy { it.id }
+    require(favourites.all { it.expense().categoryId in categoryIds }) { "Favourite category is missing." }
     require(expenses.all { it.categoryId in categoryIds }) { "Expense refers to a missing category." }
     require(plannerMonths.size <= 12360 && allocations.size <= 12361 && plannerMonths.map { it.month }.distinct().size == plannerMonths.size && allocations.map { it.scope }.distinct().size == allocations.size) { "Invalid planner history." }
     require(journeys.size <= 100000 && journeys.map { it.id }.distinct().size == journeys.size) { "Invalid saved journeys." }

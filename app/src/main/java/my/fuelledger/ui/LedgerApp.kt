@@ -34,6 +34,8 @@ import my.fuelledger.LedgerViewModel
 import my.fuelledger.FinanceViewModel
 import my.fuelledger.data.*
 import java.util.UUID
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,12 +64,18 @@ fun LedgerApp(vm: LedgerViewModel) {
     }
     LedgerTheme(dark) {
         val snackbar = remember { SnackbarHostState() }
+        LaunchedEffect(vm, snackbar) { vm.undoAvailable.collect { id ->
+            if (snackbar.showSnackbar("Transaction changed", "Undo", duration = SnackbarDuration.Long) == SnackbarResult.ActionPerformed) vm.undoTransaction(id)
+        } }
         LaunchedEffect(vm) { vm.messages.collect { snackbar.showSnackbar(it) } }
         val pager = rememberPagerState(pageCount = { mainDestinations.size })
         val pageState = rememberSaveableStateHolder()
         val navigationScope = rememberCoroutineScope()
         var navigationJob by remember { mutableStateOf<Job?>(null) }
         var settingsOpen by rememberSaveable { mutableStateOf(false) }
+        var calendarOpen by rememberSaveable { mutableStateOf(false) }
+        var expenseDate by rememberSaveable { mutableStateOf<String?>(null) }
+        var expenseDraft by rememberSaveable { mutableStateOf<String?>(null) }
         var scannerOpen by rememberSaveable { mutableStateOf(false) }
         var financeSection by rememberSaveable { mutableStateOf("Planner") }
         var incomeOpen by rememberSaveable { mutableStateOf(false) }
@@ -82,9 +90,9 @@ fun LedgerApp(vm: LedgerViewModel) {
         var newRefuelId by rememberSaveable { mutableStateOf(UUID.randomUUID().toString()) }
         var addExpense by rememberSaveable { mutableStateOf(false) }
         var addRefuel by rememberSaveable { mutableStateOf(false) }
-        val newExpense: () -> Unit = { newExpenseId = UUID.randomUUID().toString(); addExpense = true }
+        val newExpense: () -> Unit = { newExpenseId = UUID.randomUUID().toString(); expenseDraft = null; expenseDate = null; addExpense = true }
         val newRefuel: () -> Unit = { newRefuelId = UUID.randomUUID().toString(); addRefuel = true }
-        BackHandler((settingsOpen || financeOpen || scannerOpen) && !locked) { if (scannerOpen) scannerOpen = false else if (financeOpen) financeOpen = false else settingsOpen = false }
+        BackHandler((settingsOpen || financeOpen || scannerOpen || calendarOpen) && !locked) { if (calendarOpen) calendarOpen = false else if (scannerOpen) scannerOpen = false else if (financeOpen) financeOpen = false else settingsOpen = false }
         // Picker callbacks can arrive while app lock is active. Keep only the URI until unlocked.
         var pendingCsv by remember { mutableStateOf<Pair<Uri, String>?>(null) }
         var pendingBackupOutput by remember { mutableStateOf<Uri?>(null) }
@@ -103,21 +111,32 @@ fun LedgerApp(vm: LedgerViewModel) {
                 }
             }
         }
+        val duplicateExpense: (Expense) -> Unit = { expense ->
+            newExpenseId = UUID.randomUUID().toString()
+            expenseDraft = backupJson.encodeToString(Expense(newExpenseId, kotlin.math.abs(expense.cents), expense.categoryId, System.currentTimeMillis(), expense.description, expense.notes, expensePaymentGroup(expense.payment) ?: "Cash", merchant = expense.merchant))
+            expenseDate = null; addExpense = true
+        }
+        val refundExpense: (Expense) -> Unit = { expense ->
+            newExpenseId = UUID.randomUUID().toString()
+            expenseDraft = backupJson.encodeToString(Expense(newExpenseId, -expense.cents, expense.categoryId, System.currentTimeMillis(), "Refund · ${expense.description}", payment = expensePaymentGroup(expense.payment) ?: "Cash", merchant = expense.merchant, kind = "Refund", refundOf = expense.id))
+            expenseDate = null; addExpense = true
+        }
         val onExpense: (Expense) -> Unit = { expense ->
             if (expense.fuelId != null) refuelEditId = expense.fuelId
             else expenseEditId = expense.id
         }
         Scaffold(
             topBar = {
-                if (settingsOpen || financeOpen || scannerOpen) TopAppBar(title = {
-                    if (scannerOpen) Text("Receipt Scanner")
+                if (settingsOpen || financeOpen || scannerOpen || calendarOpen) TopAppBar(title = {
+                    if (calendarOpen) Text("Spending Calendar")
+                    else if (scannerOpen) Text("Receipt Scanner")
                     else if (financeOpen) Text("Monthly Money Planner")
                     else Text("Settings")
                 },
-                    navigationIcon = { if (settingsOpen || financeOpen || scannerOpen) IconButton(onClick = { if (scannerOpen) scannerOpen = false else if (financeOpen) financeOpen = false else settingsOpen = false }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
+                    navigationIcon = { if (settingsOpen || financeOpen || scannerOpen || calendarOpen) IconButton(onClick = { if (calendarOpen) calendarOpen = false else if (scannerOpen) scannerOpen = false else if (financeOpen) financeOpen = false else settingsOpen = false }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
                     actions = { if (!settingsOpen && !financeOpen) IconButton(onClick = openSettings) { Icon(ledgerSymbol("settings"), "Settings") } })
             },
-            bottomBar = { if (!settingsOpen && !financeOpen) NavigationBar {
+            bottomBar = { if (!settingsOpen && !financeOpen && !calendarOpen) NavigationBar {
                 mainDestinations.forEachIndexed { index, destination ->
                     NavigationBarItem(selected = pager.currentPage == index, onClick = {
                         scannerOpen = false
@@ -141,7 +160,8 @@ fun LedgerApp(vm: LedgerViewModel) {
                     val financeState by financeVm.state.collectAsStateWithLifecycle()
                     val journeyVm: my.fuelledger.JourneyViewModel = viewModel(factory = financialViewModelFactory)
                     if (incomeOpen) FinanceIncomeEditor(null, incomeId, busy, { incomeOpen = false }, { financeVm.saveIncome(it) { incomeOpen = false } }, null)
-                    if (scannerOpen) { SmartReceiptScreen(state, vm) } else if (financeOpen) {
+                    if (calendarOpen) SpendingCalendar(state, onExpense, { date -> newExpense(); expenseDate = date.toString() })
+                    else if (scannerOpen) { SmartReceiptScreen(state, vm) } else if (financeOpen) {
                     FinanceScreen(financeVm, initialSection = financeSection)
                 } else if (settingsOpen) SettingsScreen(state, vm, busy,
                     { csvExpenses.launch("expenses.csv") }, { csvRefuels.launch("refuels.csv") },
@@ -153,14 +173,14 @@ fun LedgerApp(vm: LedgerViewModel) {
                     MainPager(pager, enabled = !incomeOpen && !locked && !addExpense && expenseEditor == null && !addRefuel && refuelEditor == null &&
                         restore == null && operationError == null && pendingBackupOutput == null && pendingRestoreInput == null) { page ->
                         when (mainDestinations[page].key) {
-                            "Journey" -> JourneyScreen(state.settings, journeyVm, state.refuels, saveFallback = { value -> vm.saveSettings(state.settings.copy(consumption = value, consumptionFallbackEnabled = true)) {} }, openSettings = openSettings)
+                            "Journey" -> JourneyScreen(state.settings, journeyVm, state.refuels, saveFallback = { value -> vm.saveSettings(state.settings.copy(consumption = value, consumptionFallbackEnabled = true)) {} }, openSettings = openSettings, expenses = state.expenses)
                             "Fuel" -> FuelScreen(state, newRefuel, { refuelEditId = it.id }, openSettings = openSettings)
-                            "Expenses" -> ExpensesScreen(state, newExpense, onExpense, openSettings = openSettings)
+                            "Expenses" -> ExpensesScreen(state, newExpense, onExpense, openSettings = openSettings, vm = vm, openCalendar = { calendarOpen = true }, duplicate = duplicateExpense, refund = refundExpense)
                             "Analytics" -> AnalyticsScreen(state, financeState, openSettings = openSettings)
                             else -> HomeScreen(state, newExpense, newRefuel, onExpense, planner = {
                                 MonthlyPlanner(financeState, financeVm, compact = true, openDetails = { financeSection = "Planner"; financeOpen = true })
                             }, scanReceipt = { vm.clearReceiptWork(); vm.clearReceiptSuccess(); scannerOpen = true }, openSettings = openSettings, finance = financeState,
-                                addIncome = { incomeId = UUID.randomUUID().toString(); incomeOpen = true },
+                                openCalendar = { calendarOpen = true }, addIncome = { incomeId = UUID.randomUUID().toString(); incomeOpen = true },
                                 openPlanner = { financeSection = "Planner"; financeOpen = true }, upcoming = { financeSection = "Fixed Monthly Expenses"; financeOpen = true })
                         }
                     }
@@ -175,7 +195,8 @@ fun LedgerApp(vm: LedgerViewModel) {
             ExpenseEditor(seed, id, state.categories, busy, vm,
                 dismiss = { if (!busy) { addExpense = false; expenseEditId = null } },
                 save = { vm.saveExpense(it) { addExpense = false; expenseEditId = null } },
-                delete = { vm.deleteExpense(id) { addExpense = false; expenseEditId = null } })
+                delete = { vm.deleteExpense(id) { addExpense = false; expenseEditId = null } },
+                draft = expenseDraft?.let { backupJson.decodeFromString<Expense>(it) }, initialDate = expenseDate?.let(java.time.LocalDate::parse))
         }
         if (ready && state.categories.isNotEmpty() && (addRefuel || refuelEditor != null)) {
             val seed = refuelEditor

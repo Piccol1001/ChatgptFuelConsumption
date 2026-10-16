@@ -30,8 +30,16 @@ import java.math.BigDecimal
 data class AppSettings(val petrolPrice: String = "2.05", val consumption: Double = 7.0,
     val theme: String = "System", val plannerReminders: Boolean = false,
     val receiptSaveMode: String = "Review", val keepReceiptPhotos: Boolean = true,
-    val consumptionFallbackEnabled: Boolean = false, val lastExpensePayment: String = "Cash") {
+    val consumptionFallbackEnabled: Boolean = false, val lastExpensePayment: String = "Cash",
+    val lastExpenseCategory: String = "food", val mainSwipeEnabled: Boolean = true,
+    val swipeStart: String = "Edit", val swipeEnd: String = "None", val haptics: Boolean = true,
+    val reducedMotion: Boolean = false, val privacyMode: Boolean = false, val widgetPrivacy: Boolean = true,
+    val dashboardOrder: List<String> = listOf("plan", "budget", "actions", "upcoming"),
+    val dashboardHidden: List<String> = emptyList()) {
     fun validate() {
+        require(swipeStart in listOf("Edit", "Duplicate", "Delete", "None") && swipeEnd in listOf("Edit", "Duplicate", "Delete", "None")) { "Invalid swipe action." }
+        require(lastExpenseCategory.length <= 100) { "Invalid category preference." }
+        require(dashboardOrder.size == 4 && dashboardOrder.toSet() == setOf("plan", "budget", "actions", "upcoming") && dashboardHidden.all { it in setOf("budget", "upcoming") }) { "Invalid dashboard configuration." }
         val price = petrolPrice.toBigDecimalOrNull()
         require(price != null && price > BigDecimal.ZERO && price <= BigDecimal("1000000") && price.scale() <= 4) {
             "Petrol price must be positive, with at most four decimal places."

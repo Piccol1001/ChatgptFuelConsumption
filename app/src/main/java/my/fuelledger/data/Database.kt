@@ -38,7 +38,9 @@ data class Refuel(@PrimaryKey val id: String, val timestamp: Long, val odometer:
 data class Expense(@PrimaryKey val id: String, val cents: Long, val categoryId: String,
     val timestamp: Long, val description: String = "", val notes: String = "",
     val payment: String = "Cash", val fuelId: String? = null, val receiptFile: String? = null,
-    val recurringRuleId: String? = null, val recurringDate: String? = null) {
+    val recurringRuleId: String? = null, val recurringDate: String? = null,
+    @ColumnInfo(defaultValue = "''") val merchant: String = "",
+    @ColumnInfo(defaultValue = "'Expense'") val kind: String = "Expense", val refundOf: String? = null) {
     fun point() = SpendingPoint(timestamp, cents, categoryId)
 }
 
@@ -86,8 +88,9 @@ interface LedgerDao {
 }
 
 @Database(entities = [Category::class, Expense::class, Refuel::class, PendingSettings::class,
-    FinanceIncome::class, FinanceBudget::class, FinanceRecurring::class, FinanceMonth::class, AllocationPlan::class, SavedJourney::class, ReceiptMerchant::class, ReceiptScan::class], version = 4, exportSchema = true)
+    FinanceIncome::class, FinanceBudget::class, FinanceRecurring::class, FinanceMonth::class, AllocationPlan::class, SavedJourney::class, ReceiptMerchant::class, ReceiptScan::class, FavouriteExpense::class, TransactionUndo::class], version = 5, exportSchema = true)
 abstract class LedgerDatabase : RoomDatabase() {
+    abstract fun toolsDao(): ExpenseToolsDao
     abstract fun dao(): LedgerDao
     abstract fun financeDao(): FinanceDao
     abstract fun plannerDao(): PlannerDao
@@ -125,11 +128,22 @@ abstract class LedgerDatabase : RoomDatabase() {
                 db.execSQL("CREATE TABLE IF NOT EXISTS finance_allocations (scope TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(scope))")
             }
         }
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE expenses ADD COLUMN merchant TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE expenses ADD COLUMN kind TEXT NOT NULL DEFAULT 'Expense'")
+                db.execSQL("ALTER TABLE expenses ADD COLUMN refundOf TEXT")
+                db.execSQL("ALTER TABLE receipt_merchants ADD COLUMN payment TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE receipt_merchants ADD COLUMN description TEXT NOT NULL DEFAULT ''")
+                db.execSQL("CREATE TABLE IF NOT EXISTS expense_favourites (id TEXT NOT NULL, name TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(id))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS transaction_undo (id TEXT NOT NULL, timestamp INTEGER NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(id))")
+            }
+        }
         fun open(context: Context, vault: LocalVault = LocalVault(context), databaseName: String = "fuel-ledger.db"): LedgerDatabase {
             val password = EncryptedDatabaseFiles.prepare(context, databaseName, vault)
             return Room.databaseBuilder(context, LedgerDatabase::class.java, databaseName)
                 .openHelperFactory(PreservingOpenHelperFactory(password))
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
         }
     }
 }

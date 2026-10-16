@@ -135,7 +135,7 @@ class RepositoryTest {
             stationLocation = "Jalan Ampang, Kuala Lumpur", receiptFile = "12345678-abcd-1234-abcd-123456789abc.jpg")
         repo.saveRefuel(refuel)
         val saved = backupJson.decodeFromString<Backup>(backupJson.encodeToString(repo.backup()))
-        assertEquals(4, saved.version)
+        assertEquals(5, saved.version)
         saved.validate()
         repo.deleteRefuel(refuel.id)
         repo.restore(saved)
@@ -163,7 +163,7 @@ class RepositoryTest {
         assertEquals("", db.dao().allRefuels().single().fuelType)
         assertEquals("", db.dao().allRefuels().single().stationLocation)
         assertNull(db.dao().allRefuels().single().receiptFile)
-        assertEquals(4, repo.backup().version)
+        assertEquals(5, repo.backup().version)
     }
     @Test fun invalidReceiptNamesAndOversizedMetadataNeverChangeExistingRecords() = runBlocking {
         repo.saveRefuel(fuel())
@@ -217,14 +217,14 @@ class RepositoryTest {
             old.execSQL("INSERT INTO pending_settings VALUES (1, 'preserved settings')")
             old.version = 3
         }
-        val migrated = Room.databaseBuilder(context, LedgerDatabase::class.java, name).addMigrations(LedgerDatabase.MIGRATION_3_4).build()
+        val migrated = Room.databaseBuilder(context, LedgerDatabase::class.java, name).addMigrations(LedgerDatabase.MIGRATION_3_4, LedgerDatabase.MIGRATION_4_5).build()
         try {
             assertEquals(300000L, migrated.financeDao().allIncome().single().cents)
             val rule = migrated.financeDao().allRecurring().single()
             assertEquals("2026-10-31", rule.nextDate); assertEquals("Expense", rule.kind); assertFalse(rule.manualPayment); assertNull(rule.endDate)
             assertEquals("preserved settings", migrated.dao().pendingSettings()?.payload)
             assertTrue(migrated.plannerDao().allAllocations().isEmpty()); assertTrue(migrated.journeyDao().allJourneys().isEmpty())
-            assertTrue(migrated.receiptAutomationDao().allScans().isEmpty()); assertEquals(4, migrated.openHelper.readableDatabase.version)
+            assertTrue(migrated.receiptAutomationDao().allScans().isEmpty()); assertEquals(5, migrated.openHelper.readableDatabase.version)
         } finally { migrated.close(); context.deleteDatabase(name) }
     }
     @Test fun schemaOneMigrationRetainsRecordsLinksAndPendingSettings() = runBlocking {
@@ -266,13 +266,13 @@ class RepositoryTest {
         // Host tests deliberately use Room's platform helper. Production open() always requires
         // SQLCipher and the Android Keystore; it never falls back to plaintext for these tests.
         val migrated = Room.databaseBuilder(context, LedgerDatabase::class.java, databaseName)
-            .addMigrations(LedgerDatabase.MIGRATION_1_2, LedgerDatabase.MIGRATION_2_3, LedgerDatabase.MIGRATION_3_4).build()
+            .addMigrations(LedgerDatabase.MIGRATION_1_2, LedgerDatabase.MIGRATION_2_3, LedgerDatabase.MIGRATION_3_4, LedgerDatabase.MIGRATION_4_5).build()
         try {
             assertEquals(originalRefuel, migrated.dao().allRefuels().single())
             assertEquals(originalExpense, migrated.dao().allExpenses().single())
             assertEquals(defaultCategories.toSet(), migrated.dao().allCategories().toSet())
             assertEquals("pending preferences", migrated.dao().pendingSettings()?.payload)
-            assertEquals(4, migrated.openHelper.readableDatabase.version)
+            assertEquals(5, migrated.openHelper.readableDatabase.version)
             migrated.dao().deleteRefuel(originalRefuel.id)
             assertTrue(migrated.dao().allExpenses().isEmpty())
         } finally {
@@ -313,7 +313,7 @@ class RepositoryTest {
             recurringRuleId = "deleted-rule", recurringDate = "2026-10-01"))
         repo.saveRefuel(fuel().copy(receiptFile = receipt))
         val snapshot = backupJson.decodeFromString<Backup>(backupJson.encodeToString(repo.backup()))
-        assertEquals(4, snapshot.version)
+        assertEquals(5, snapshot.version)
         snapshot.validate()
         repo.restore(snapshot.copy(expenses = emptyList(), refuels = emptyList(), incomes = emptyList(),
             budgets = emptyList(), recurring = emptyList()))
@@ -344,7 +344,7 @@ class RepositoryTest {
             assertEquals(legacy.expenses, db.dao().allExpenses())
             assertTrue(db.financeDao().allIncome().isEmpty())
             assertTrue(db.financeDao().allBudgets().isEmpty())
-            assertEquals(4, repo.backup().version)
+            assertEquals(5, repo.backup().version)
         }
     }
     @Test fun invalidFinanceAndOccurrenceMetadataCannotReplaceAnyCurrentRecords() = runBlocking {

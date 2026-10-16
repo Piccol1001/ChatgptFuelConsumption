@@ -60,13 +60,13 @@ fun FuelScreen(state: LedgerState, add: () -> Unit, edit: (Refuel) -> Unit, open
         item {
             LedgerCard(emphasized = true) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Latest fuel efficiency", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text("Average fuel efficiency", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onPrimaryContainer)
                     Icon(ledgerSymbol("speed"), null, tint = MaterialTheme.colorScheme.primary)
                 }
-                Text(latest?.let { "${number(it.kmPerLitre)} km/L" } ?: "— km/L", style = MaterialTheme.typography.headlineLarge)
-                Text(latest?.let { "${number(it.litresPer100Km)} L/100 km · RM ${number(it.costPerKm, 4)}/km" } ?: "Add two fills with odometer readings to begin.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text(measuredAverage?.let { "${number(it)} km/L" } ?: "— km/L", style = MaterialTheme.typography.headlineLarge)
+                Text(historicalConsumption(state.refuels.map { it.point() })?.let { "${number(it)} L/100 km" } ?: "Complete two full-tank readings to begin.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = .18f))
-                Text("ODO-BASED · PER-FILL ESTIMATE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                Text("WEIGHTED · FULL-TANK INTERVALS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 ExpandableHelp("Per-fill estimates") { Text("Distance since the previous fill ÷ litres purchased. Tank levels vary; journey planning uses complete full-tank cycles instead.", style = MaterialTheme.typography.bodySmall) }
             }
         }
@@ -75,10 +75,12 @@ fun FuelScreen(state: LedgerState, add: () -> Unit, edit: (Refuel) -> Unit, open
             second = { Stat("Latest price / litre", newest?.let { "RM ${number(it.pricePerLitre, 3)}" } ?: "—", it, newest?.let { dateLabel(localDate(it.timestamp)) } ?: "No refuels yet") }
         ) }
         item { LedgerAction("Add Refuel", ledgerSymbol("add"), Modifier.fillMaxWidth(), onClick = add) }
-        item { FuelTrend(estimates.map { estimate ->
-            val record = state.refuels.find { it.id == estimate.endId }
-            (record?.let { localDate(it.timestamp).format(DateTimeFormatter.ofPattern("d MMM", Malaysia)) } ?: "Fill") to estimate.kmPerLitre
-        }) }
+        item { FuelTrend(measured.map { cycle ->
+            val record = state.refuels.find { it.id == cycle.endId }
+            (record?.let { dateLabel(localDate(it.timestamp)) } ?: "Cycle") to cycle.kmPerLitre
+        }, "Valid full-tank intervals · km/L") }
+        item { VehicleAnalysisCard(state) }
+        item { FuelPriceHistory(state.refuels) }
         item {
             LedgerCard {
                 Text("Historical consumption", style = MaterialTheme.typography.titleMedium)
@@ -145,7 +147,8 @@ private fun RefuelHistoryCard(refuel: Refuel, estimate: FillEstimate?, measured:
 }
 
 @Composable
-fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit, planner: (@Composable () -> Unit)? = null, scanReceipt: (() -> Unit)? = null, openSettings: (() -> Unit)? = null) {
+fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit, planner: (@Composable () -> Unit)? = null, scanReceipt: (() -> Unit)? = null, openSettings: (() -> Unit)? = null,
+    vm: my.fuelledger.LedgerViewModel? = null, openCalendar: () -> Unit = {}, duplicate: (Expense) -> Unit = {}, refund: (Expense) -> Unit = {}) {
     val calendar = currentCalendar()
     val today = calendar.today
     val currentMonth = YearMonth.from(today)
@@ -161,7 +164,7 @@ fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit,
     val totals = remember(state.expenses, calendar.zone) { spending(state, calendar.zone) }
     val filtered = remember(state.expenses, start, end, category, query, sort) {
         val records = state.expenses.filter { rangeValid && localDate(it.timestamp) in start..end &&
-            (category.isEmpty() || it.categoryId == category) && it.description.contains(query, ignoreCase = true) }
+            (category.isEmpty() || it.categoryId == category) && matchesExpense(it, query, state.categories, calendar.zone) }
         when (sort) { "Oldest" -> records.sortedBy { it.timestamp }; "Highest" -> records.sortedByDescending { it.cents }; else -> records.sortedByDescending { it.timestamp } }
     }
     val groups = filtered.groupBy { localDate(it.timestamp) }.entries.toList().let { entries ->
@@ -175,6 +178,9 @@ fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit,
             second = { Stat("This week", Money.format(totals.week(today)), it, "Monday–Sunday") }
         ) }
         item { LedgerAction("Add Expense", ledgerSymbol("add"), Modifier.fillMaxWidth(), onClick = add) }
+        item { TextButton(openCalendar) { Text("Spending Calendar") } }
+        if (vm != null) item { ExpenseFavourites(vm, state, add, duplicate) }
+        if (vm != null) item { TransactionUndoBar(vm) }
         item { SectionTitle("Transaction history", "${dateLabel(start)} – ${dateLabel(end)}") }
         item {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -217,11 +223,11 @@ fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit,
                 if (index == 0 || localDate(filtered[index - 1].timestamp) != date) item(key = "highest-day:${expense.id}") {
                     DayHeading(date, filtered.filter { localDate(it.timestamp) == date }.sumOf { it.cents })
                 }
-                item(key = expense.id) { ExpenseRow(expense, state.categories.find { it.id == expense.categoryId }) { edit(expense) } }
+                item(key = expense.id) { TransactionActions(expense, state, edit, duplicate, refund, vm) }
             }
         } else groups.forEach { (date, entries) ->
             item(key = "day:$date") { DayHeading(date, entries.sumOf { it.cents }) }
-            items(entries, key = { it.id }) { expense -> ExpenseRow(expense, state.categories.find { it.id == expense.categoryId }) { edit(expense) } }
+            items(entries, key = { it.id }) { expense -> TransactionActions(expense, state, edit, duplicate, refund, vm) }
         }
         item { Stat("This year", Money.format(totals.year(today)), Modifier.fillMaxWidth(), "All recorded expenses in ${today.year}") }
     }
