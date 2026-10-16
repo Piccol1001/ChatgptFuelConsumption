@@ -29,7 +29,7 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         if (_busy.value) return
         _busy.value = true
         viewModelScope.launch {
-            try { withContext(Dispatchers.IO) { action() }; done() }
+            try { withContext(Dispatchers.IO) { action(); runCatching { my.fuelledger.widgets.LedgerWidgets.update(getApplication()) }; runCatching { my.fuelledger.finance.PlannerReminders.update(getApplication(), ledger) } }; done() }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: Exception) { _error.value = failure.message ?: "Unable to save the local financial record." }
             finally { _busy.value = false }
@@ -37,7 +37,7 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     }
     fun openMonth(month: java.time.YearMonth) {
         viewModelScope.launch {
-            try { withContext(Dispatchers.IO) { finance.reconcile(); finance.ensureMonth(month) } }
+            try { withContext(Dispatchers.IO) { finance.reconcile(); finance.ensureMonth(month); runCatching { my.fuelledger.widgets.LedgerWidgets.update(getApplication()) } } }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: Exception) { _error.value = failure.message ?: "Unable to reconcile the local monthly plan." }
         }

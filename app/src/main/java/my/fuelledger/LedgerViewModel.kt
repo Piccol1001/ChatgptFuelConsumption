@@ -59,7 +59,8 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
         repository.database.receiptAutomationDao().scan(fingerprint) != null
     }
     fun saveReceiptMerchant(name: String, category: String, done: () -> Unit) = perform("Merchant rule saved", done) {
-        val value = ReceiptMerchant(merchantKey(name), name.trim(), category)
+        val old = repository.database.receiptAutomationDao().allMerchants().find { it.merchant == merchantKey(name) }
+        val value = ReceiptMerchant(merchantKey(name), name.trim(), category, old?.payment.orEmpty(), old?.description.orEmpty())
         validateReceiptMerchant(value)
         require(repository.dao.allCategories().any { it.id == category }) { "Category no longer exists." }
         repository.database.receiptAutomationDao().putMerchant(value)
@@ -135,6 +136,7 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
         perform(null) {
             repository.initialize()
             receipts.migrateLegacyPhotos()
+            File(app.cacheDir, "local-exports").listFiles().orEmpty().filter { System.currentTimeMillis() - it.lastModified() > 86_400_000L }.forEach { it.delete() }
             File(app.cacheDir, "receipt-capture").listFiles().orEmpty().filter { System.currentTimeMillis() - it.lastModified() > 86_400_000L }.forEach { it.delete() }
             app.financeRepository.reconcile()
             app.scheduleRecurring()
@@ -149,7 +151,12 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
         _busy.value = true
         val job = viewModelScope.launch {
             try {
-                withContext(Dispatchers.IO) { block() }
+                withContext(Dispatchers.IO) {
+                    block()
+                    // Widget rendering is optional; a launcher failure must not roll back a ledger commit.
+                    runCatching { my.fuelledger.widgets.LedgerWidgets.update(app) }
+                    runCatching { my.fuelledger.finance.PlannerReminders.update(app, repository) }
+                }
                 done()
                 message?.let { events.send(it) }
             } catch (cancelled: CancellationException) { throw cancelled
@@ -217,7 +224,9 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
         receiptWrites.withLock {
         refuel.receiptFile?.let { require(receipts.file(it).isFile) { "Receipt photo is missing. Choose it again or remove the attachment." } }
         val previous = repository.dao.allRefuels().firstOrNull { it.id == refuel.id }?.receiptFile
+        val original = repository.dao.allRefuels().find { it.id == refuel.id }
         repository.saveRefuel(refuel)
+        if (original != null && original != refuel) repository.database.toolsDao().allUndo().firstOrNull()?.let { undoEvents.send(it.id) }
         if (previous != refuel.receiptFile) cleanupAfterCommit(previous)
         }
     }
@@ -225,6 +234,7 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
         receiptWrites.withLock {
         val previous = repository.dao.allRefuels().firstOrNull { it.id == id }?.receiptFile
         repository.deleteRefuel(id)
+        repository.database.toolsDao().allUndo().firstOrNull()?.let { undoEvents.send(it.id) }
         cleanupAfterCommit(previous)
         }
     }

@@ -80,7 +80,7 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
             dao.putExpense(expense)
             automation.putScan(ReceiptScan(fingerprint, expense.id))
             if (rememberMerchant) {
-                val value = ReceiptMerchant(merchantKey(expense.description), expense.description, expense.categoryId)
+                val value = ReceiptMerchant(merchantKey(expense.description), expense.description, expense.categoryId, expensePaymentGroup(expense.payment).orEmpty(), expense.description)
                 validateReceiptMerchant(value); automation.putMerchant(value)
             }
         }
@@ -124,6 +124,15 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
             val change = entry.change()
             require(dao.expense(change.before.id) == change.after) { "This transaction changed again. Review it before restoring." }
             require(dao.allCategories().any { it.id == change.before.categoryId }) { "The original category is no longer available." }
+            change.beforeRefuel?.let { refuel ->
+                require(dao.allRefuels().find { it.id == refuel.id } == change.afterRefuel) { "The refuel has changed again." }
+                validateSequence((dao.allRefuels().filter { it.id != refuel.id } + refuel).map { it.point() })
+                dao.putRefuel(refuel)
+            }
+            if (change.before.kind == "Refund" && change.before.refundOf != null) {
+                val original = dao.expense(change.before.refundOf)
+                if (original != null) require(-change.before.cents + dao.allExpenses().filter { it.id != change.before.id && it.refundOf == original.id }.sumOf { -it.cents } <= original.cents) { "Restoring would exceed the original expense's refundable amount." }
+            }
             dao.putExpense(change.before)
             database.toolsDao().deleteUndo(id)
         }
@@ -140,7 +149,7 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
             dao.allExpenses().filter { it.receiptFile != null }.forEach { dao.putExpense(it.copy(receiptFile = null)) }
             database.toolsDao().allUndo().forEach { entry ->
                 val change = entry.change()
-                database.toolsDao().putUndo(entry.copy(payload = backupJson.encodeToString(change.copy(before = change.before.copy(receiptFile = null), after = change.after?.copy(receiptFile = null)))))
+                database.toolsDao().putUndo(entry.copy(payload = backupJson.encodeToString(change.copy(before = change.before.copy(receiptFile = null), after = change.after?.copy(receiptFile = null), beforeRefuel = change.beforeRefuel?.copy(receiptFile = null), afterRefuel = change.afterRefuel?.copy(receiptFile = null)))))
             }
         }
     }
@@ -149,7 +158,7 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
         require(end >= start) { "Choose a valid date range." }
         database.withTransaction {
             dao.allExpenses().filter { Instant.ofEpochMilli(it.timestamp).atZone(zone).toLocalDate() in start..end }.forEach {
-                if (it.fuelId != null) dao.deleteRefuel(it.fuelId) else { recordUndo(it, null); dao.deleteExpense(it.id) }
+                if (it.fuelId != null) deleteRefuelWithUndo(it.fuelId) else { recordUndo(it, null); dao.deleteExpense(it.id) }
             }
         }
     }
@@ -159,15 +168,24 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
             val remaining = dao.allRefuels().filter { it.id != refuel.id }
             validateSequence((remaining + refuel).map { it.point() })
             val old = dao.linkedExpense(refuel.id)
+            val oldRefuel = dao.allRefuels().find { it.id == refuel.id }
             dao.putRefuel(refuel)
-            dao.putExpense(Expense(id = old?.id ?: java.util.UUID.randomUUID().toString(), cents = refuel.cents,
+            val updated = Expense(id = old?.id ?: java.util.UUID.randomUUID().toString(), cents = refuel.cents,
                 categoryId = FUEL_CATEGORY, timestamp = refuel.timestamp, description = fuelDescription(refuel),
-                notes = refuel.notes, payment = old?.payment ?: "Cash", fuelId = refuel.id, receiptFile = refuel.receiptFile))
+                notes = refuel.notes, payment = old?.payment ?: "Cash", fuelId = refuel.id, receiptFile = refuel.receiptFile)
+            dao.putExpense(updated)
+            if (old != null && oldRefuel != null && (old != updated || oldRefuel != refuel)) database.toolsDao().putUndo(TransactionUndo(java.util.UUID.randomUUID().toString(), System.currentTimeMillis(), backupJson.encodeToString(TransactionChange(old, updated, oldRefuel, refuel))))
         }
     }
     suspend fun deleteRefuel(id: String) = writes.withLock {
         // SQLite CASCADE deletes exactly the linked expense in the same transaction.
-        database.withTransaction { dao.deleteRefuel(id) }
+        database.withTransaction { deleteRefuelWithUndo(id) }
+    }
+    private suspend fun deleteRefuelWithUndo(id: String) {
+        val refuel = dao.allRefuels().find { it.id == id }
+        val expense = dao.linkedExpense(id)
+        if (refuel != null && expense != null) database.toolsDao().putUndo(TransactionUndo(java.util.UUID.randomUUID().toString(), System.currentTimeMillis(), backupJson.encodeToString(TransactionChange(expense, null, refuel, null))))
+        dao.deleteRefuel(id)
     }
     suspend fun saveCategory(category: Category) = writes.withLock {
         validateCategory(category)

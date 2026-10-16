@@ -22,7 +22,7 @@ fun validateFavourite(value: FavouriteExpense) {
     val expense = value.expense(); validateExpense(expense)
     require(expense.fuelId == null && expense.receiptFile == null && expense.recurringRuleId == null && expense.kind == "Expense") { "A favourite must be an ordinary expense template." }
 }
-@Serializable data class TransactionChange(val before: Expense, val after: Expense?)
+@Serializable data class TransactionChange(val before: Expense, val after: Expense?, val beforeRefuel: Refuel? = null, val afterRefuel: Refuel? = null)
 @Entity(tableName = "transaction_undo")
 data class TransactionUndo(@PrimaryKey val id: String, val timestamp: Long, val payload: String) {
     fun change(): TransactionChange = backupJson.decodeFromString(payload)

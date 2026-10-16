@@ -80,6 +80,8 @@ fun Backup.validate() {
     receiptScans.forEach(::validateReceiptScan)
     require(receiptMerchants.all { it.categoryId in categoryIds }) { "Receipt merchant category is missing." }
     journeys.forEach(::validateSavedJourney)
+    val actualJourneyLinks = journeys.flatMap { it.plan().actualLinks }.map { it.expenseId }
+    require(actualJourneyLinks.distinct().size == actualJourneyLinks.size) { "An expense is attributed to multiple journeys." }
     plannerMonths.forEach(::validateFinanceMonth)
     allocations.forEach(::validateAllocationPlan)
     incomes.forEach(::validateFinanceIncome)

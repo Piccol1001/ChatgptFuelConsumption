@@ -19,6 +19,10 @@ import my.fuelledger.ui.AppLockGate
 import my.fuelledger.ui.LedgerApp
 
 class MainActivity : FragmentActivity() {
+    val quickAction = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    fun consumeQuickAction() { quickAction.value = null; intent.removeExtra("ledger_action") }
+    private fun readQuickAction() { quickAction.value = intent.getStringExtra("ledger_action")?.takeIf { it in listOf("Home", "Expense", "Income", "Scan") } }
+    override fun onNewIntent(intent: android.content.Intent) { super.onNewIntent(intent); setIntent(intent); readQuickAction() }
     lateinit var appLock: AppLockController; private set
     private lateinit var authentication: AppLockAuthenticator
 
@@ -34,6 +38,7 @@ class MainActivity : FragmentActivity() {
             override fun dispatchKeyEvent(event: KeyEvent): Boolean =
                 if (lockExpiredOnInput()) true else delegate.dispatchKeyEvent(event)
         }
+        readQuickAction()
         enableEdgeToEdge()
         setContent {
             val vm: LedgerViewModel = viewModel(factory = ViewModelProvider.AndroidViewModelFactory(application))

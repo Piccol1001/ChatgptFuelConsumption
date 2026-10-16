@@ -19,7 +19,7 @@ object PlannerReminders {
     suspend fun update(context: Context, ledger: LedgerRepository) {
         val manager = context.getSystemService(NotificationManager::class.java)
         val settings = ledger.preferences.settings.first()
-        if (!settings.plannerReminders) { manager.cancel(2101); manager.cancel(2102); return }
+        if (!settings.plannerReminders) { manager.cancel(2101); manager.cancel(2102); manager.cancel(2103); return }
         if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         if (!manager.areNotificationsEnabled()) return
         manager.createNotificationChannel(NotificationChannel(CHANNEL, "Financial planning reminders", NotificationManager.IMPORTANCE_DEFAULT))
@@ -39,6 +39,8 @@ object PlannerReminders {
                 .setOnlyAlertOnce(true).setVisibility(NotificationCompat.VISIBILITY_PRIVATE).build())
         }
         if (unpaid.isNotEmpty()) post(2101, "Review your fixed payments", "You have upcoming or unpaid commitments. Open your monthly planner to review.") else manager.cancel(2101)
+        val budgets = ledger.database.financeDao().allBudgets().filter { it.month == YearMonth.from(today).toString() }
+        if (budgets.any { financeBudgetSpending(it, expenses) >= it.cents * .9 }) post(2103, "Review your budgets", "A monthly budget has reached its alert threshold. Open the app for details.") else manager.cancel(2103)
         val money = monthlyMoney(YearMonth.from(today), month.occurrences(), emptyList(), emptyList())
         if (money.plannedAvailable < 0) post(2102, "Review your monthly plan", "Your fixed commitments exceed expected income. Open the app to adjust your plan.") else manager.cancel(2102)
     }

@@ -93,6 +93,20 @@ fun LedgerApp(vm: LedgerViewModel) {
         var addRefuel by rememberSaveable { mutableStateOf(false) }
         val newExpense: () -> Unit = { newExpenseId = UUID.randomUUID().toString(); expenseDraft = null; expenseDate = null; addExpense = true }
         val newRefuel: () -> Unit = { newRefuelId = UUID.randomUUID().toString(); addRefuel = true }
+        val mainActivity = context as? my.fuelledger.MainActivity
+        val quickAction by (mainActivity?.quickAction ?: remember { kotlinx.coroutines.flow.MutableStateFlow<String?>(null) }).collectAsStateWithLifecycle()
+        LaunchedEffect(quickAction, ready, locked, busy) {
+            if (ready && !locked && !busy && quickAction != null) {
+                settingsOpen = false; financeOpen = false; calendarOpen = false; scannerOpen = false
+                when (quickAction) {
+                    "Expense" -> newExpense()
+                    "Income" -> { incomeId = UUID.randomUUID().toString(); incomeOpen = true }
+                    "Scan" -> { vm.clearReceiptWork(); vm.clearReceiptSuccess(); scannerOpen = true }
+                    "Home" -> pager.scrollToPage(0)
+                }
+                mainActivity?.consumeQuickAction()
+            }
+        }
         BackHandler((settingsOpen || financeOpen || scannerOpen || calendarOpen) && !locked) { if (calendarOpen) calendarOpen = false else if (scannerOpen) scannerOpen = false else if (financeOpen) financeOpen = false else settingsOpen = false }
         // Picker callbacks can arrive while app lock is active. Keep only the URI until unlocked.
         var pendingCsv by remember { mutableStateOf<Pair<Uri, String>?>(null) }

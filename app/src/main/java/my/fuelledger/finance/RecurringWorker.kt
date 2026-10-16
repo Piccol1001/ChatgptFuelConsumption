@@ -14,6 +14,8 @@ class RecurringWorker(context: Context, parameters: WorkerParameters) : Coroutin
         ledger.initialize()
         FinanceRepository(ledger.database).reconcile()
         PlannerReminders.update(applicationContext, ledger)
+        my.fuelledger.widgets.LedgerWidgets.update(applicationContext)
+        java.io.File(applicationContext.cacheDir, "local-exports").listFiles().orEmpty().filter { System.currentTimeMillis() - it.lastModified() > 86_400_000L }.forEach { it.delete() }
         Result.success()
     } catch (cancelled: CancellationException) { throw cancelled }
     catch (_: Exception) { Result.retry() }

@@ -40,7 +40,7 @@ import java.time.*
     }
     if (confirmation.isNotEmpty()) DeleteConfirmation(
         when (confirmation) { "images" -> "Delete receipt images?"; "undo" -> "Clear Undo history?"; else -> "Delete selected historical transactions?" },
-        when (confirmation) { "images" -> "All retained receipt photos and pending scans will be removed. Transactions are kept."; "undo" -> "Old transaction versions and their unused images will be removed. Current records are kept."; else -> "$start to $end: expenses and associated refuels will be removed. Income, plans and preferences are kept. Make an encrypted backup before proceeding. Refuel deletion cannot be undone." }, busy, { confirmation = "" }) {
+        when (confirmation) { "images" -> "All retained receipt photos and pending scans will be removed. Transactions are kept."; "undo" -> "Old transaction versions and their unused images will be removed. Current records are kept."; else -> "$start to $end: expenses and associated refuels will be removed. Income, plans and preferences are kept. Make an encrypted backup before proceeding. Undo is available from Expenses while its history is retained." }, busy, { confirmation = "" }) {
         val action = confirmation; confirmation = ""
         when (action) { "images" -> vm.deleteReceiptImages(); "undo" -> vm.clearUndoHistory(); else -> vm.deleteHistorical(start, end) }
     }
