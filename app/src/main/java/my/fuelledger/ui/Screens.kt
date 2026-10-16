@@ -255,6 +255,7 @@ fun AnalyticsScreen(state: LedgerState, finance: my.fuelledger.FinanceState? = n
     val valid = !end.isBefore(start)
     val totals = remember(state.expenses, calendar.zone) { spending(state, calendar.zone) }
     val current = if (valid) totals.total(start, end) else 0L
+    var preset by rememberSaveable { mutableStateOf("Current") }
     val previous = totals.month(month.minusMonths(1))
     val selectedMonthTotal = totals.month(month)
     val distribution = if (valid) totals.categories(start, end).entries.sortedByDescending { it.value } else emptyList()
@@ -273,7 +274,11 @@ fun AnalyticsScreen(state: LedgerState, finance: my.fuelledger.FinanceState? = n
                 Text("Monthly plan vs actual · $month", style = MaterialTheme.typography.titleMedium)
                 Text("Expected income ${Money.format(money.expected)} · fixed commitments ${Money.format(money.fixed)}")
                 Text("Planned available ${Money.format(money.plannedAvailable)}")
-                Text("Actual net cash flow ${Money.format(money.actualNet)} · remaining allowance ${Money.format(money.remainingAllowance)}")
+                Text("Actual income ${Money.format(money.actualIncome)} · actual expenses ${Money.format(money.actualExpenses)}")
+                Text("Actual net cash flow ${Money.format(money.actualNet)}")
+                val allocations = (finance.allocations.find { it.scope == month.toString() } ?: finance.allocations.find { it.scope == "default" })?.categories() ?: defaultAllocations
+                val savings = allocationAmounts(money.plannedAvailable, allocations, state.expenses, month, calendar.zone, plan).filter { it.category.savings }.sumOf { it.allocated }
+                Text("Planned savings reserve ${Money.format(savings)} · no transfer recorded", style = MaterialTheme.typography.bodySmall)
                 Text("Charts below show actual recorded expenses, including paid fixed commitments.", style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -287,6 +292,14 @@ fun AnalyticsScreen(state: LedgerState, finance: my.fuelledger.FinanceState? = n
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(!customRange, { customRange = false }, label = { Text("Selected month") }, modifier = Modifier.heightIn(min = 48.dp))
                     FilterChip(customRange, { if (!customRange) { startText = month.atDay(1).toString(); endText = month.atEndOfMonth().toString() }; customRange = true }, label = { Text("Custom range") }, modifier = Modifier.heightIn(min = 48.dp))
+                }
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("Current", "Previous", "3 months", "6 months", "12 months").forEach { label -> FilterChip(preset == label, {
+                        preset = label
+                        val now = YearMonth.from(today)
+                        if (label in listOf("Current", "Previous")) { monthString = (if (label == "Previous") now.minusMonths(1) else now).toString(); customRange = false }
+                        else { endText = now.atEndOfMonth().toString(); startText = now.minusMonths(label.substringBefore(" ").toLong() - 1).atDay(1).toString(); customRange = true }
+                    }, label = { Text(label) }) }
                 }
                 if (customRange) {
                     DateButton(start, "From", { startText = it.toString() }, Modifier.fillMaxWidth())
@@ -302,7 +315,7 @@ fun AnalyticsScreen(state: LedgerState, finance: my.fuelledger.FinanceState? = n
             first = { Stat("Daily average", if (valid) "RM ${number(totals.average(start, end))}" else "—", it, if (valid) "Across ${ChronoUnit.DAYS.between(start, end) + 1} calendar days" else "Choose a valid range") },
             second = { Stat("Fuel in this period", Money.format(if (valid) state.refuels.filter { localDate(it.timestamp) in start..end }.sumOf { it.cents } else 0), it, "Refuelling payments") }
         ) }
-        item { CategoryDonut(distribution.map { (id, cents) -> state.categories.find { it.id == id } to cents }, current) }
+        item { CategoryDonut(distribution.filter { it.value > 0 }.map { (id, cents) -> state.categories.find { it.id == id } to cents }, distribution.filter { it.value > 0 }.sumOf { it.value }) }
         item { SectionTitle("Category breakdown", distribution.firstOrNull()?.let { "Highest spending: ${state.categories.find { c -> c.id == it.key }?.name ?: "Other"}" } ?: "No spending in this period") }
         items(distribution, key = { it.key }) { (id, cents) ->
             val category = state.categories.find { it.id == id }
@@ -315,7 +328,7 @@ fun AnalyticsScreen(state: LedgerState, finance: my.fuelledger.FinanceState? = n
                         Text("${number(if (current > 0) cents * 100.0 / current else 0.0, 1)}% of this period", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                LinearProgressIndicator(progress = { if (current > 0) (cents.toDouble() / current).toFloat() else 0f }, modifier = Modifier.fillMaxWidth(), color = categoryTint(category), trackColor = MaterialTheme.colorScheme.surfaceContainerHighest)
+                LinearProgressIndicator(progress = { if (current > 0) (cents.toDouble() / current).toFloat().coerceIn(0f, 1f) else 0f }, modifier = Modifier.fillMaxWidth(), color = categoryTint(category), trackColor = MaterialTheme.colorScheme.surfaceContainerHighest)
             }
         }
         if (distribution.isEmpty()) item { EmptyState("Your next insight starts here", "Add expenses in this date range to see category totals and spending patterns.") }
@@ -332,6 +345,12 @@ fun AnalyticsScreen(state: LedgerState, finance: my.fuelledger.FinanceState? = n
                 val (from, to) = trendBounds(m)
                 m.format(shortMonthFormat) to state.refuels.filter { localDate(it.timestamp) in from..to }.sumOf { it.cents }
             }, MaterialTheme.colorScheme.secondary) }
+        }
+        if (finance != null && valid) {
+            item { FinancialAnalysisDetails(state, finance, month, start, end, calendar.today, calendar.zone) }
+            item { VehicleAnalysisCard(state) }
+            item { FuelPriceHistory(state.refuels) }
+            item { ReportActions(state, finance, start, end) }
         }
         item { ResponsivePair(
             first = { Stat("Today", Money.format(totals.today(today)), it) },
