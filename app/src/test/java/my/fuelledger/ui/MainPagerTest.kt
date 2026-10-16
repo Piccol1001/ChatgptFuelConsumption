@@ -30,7 +30,7 @@ class MainPagerTest {
     private fun nav(label: String) = compose.onNode(hasText(label) and hasClickAction() and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab))
     private fun settle() { compose.mainClock.advanceTimeBy(1_000); compose.waitForIdle() }
     private fun ready(dark: Boolean = false) {
-        compose.waitUntil(30_000) { compose.onAllNodesWithText("Dashboard").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(30_000) { compose.onAllNodesWithText("Overview").fetchSemanticsNodes().isNotEmpty() }
         val repository = (compose.activity.application as LedgerApplication).repository
         runBlocking(Dispatchers.IO) { repository.saveSettings(AppSettings(theme = if (dark) "Dark" else "Light")) }
         settle()

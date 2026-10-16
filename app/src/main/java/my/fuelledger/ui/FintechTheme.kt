@@ -23,18 +23,18 @@ fun LedgerTheme(dark: Boolean, content: @Composable () -> Unit) {
 }
 
 val LedgerDarkColors = darkColorScheme(
-    primary = Color(0xFF4DE0B1), onPrimary = Color(0xFF062D25),
+    primary = Color(0xFF2ABB91), onPrimary = Color(0xFF062D25),
     primaryContainer = Color(0xFF123C36), onPrimaryContainer = Color(0xFFB6F7E1),
     secondary = Color(0xFF87C9E8), onSecondary = Color(0xFF062C3B),
     secondaryContainer = Color(0xFF1B354A), onSecondaryContainer = Color(0xFFD0ECFA),
     tertiary = Color(0xFFC5B7FF), onTertiary = Color(0xFF2A2050),
     background = Color(0xFF0B1220), onBackground = Color(0xFFF3F6FA),
     surface = Color(0xFF0B1220), onSurface = Color(0xFFF3F6FA),
-    surfaceVariant = Color(0xFF223249), onSurfaceVariant = Color(0xFF94A3B8),
+    surfaceVariant = Color(0xFF223249), onSurfaceVariant = Color(0xFFADBED0),
     surfaceContainerLowest = Color(0xFF080F1C), surfaceContainerLow = Color(0xFF131F32),
     surfaceContainer = Color(0xFF18263B), surfaceContainerHigh = Color(0xFF203047),
     surfaceContainerHighest = Color(0xFF293C54),
-    outline = Color(0xFF6C7D95), outlineVariant = Color(0xFF293B52),
+    outline = Color(0xFF6C7D95), outlineVariant = Color(0xFF35495B),
     error = Color(0xFFFFB4AB), errorContainer = Color(0xFF55262C), onErrorContainer = Color(0xFFFFDAD6)
 )
 

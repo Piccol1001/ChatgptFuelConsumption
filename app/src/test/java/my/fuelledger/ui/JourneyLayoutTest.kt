@@ -59,7 +59,7 @@ class JourneyLayoutTest {
         File(directory, "$name.png").outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
     }
     private fun compare(theme: String, size: String = "393") {
-        waitFor("Dashboard")
+        waitFor("Overview")
         val repository = (compose.activity.application as LedgerApplication).repository
         runBlocking(Dispatchers.IO) { repository.saveSettings(AppSettings(theme = theme)) }
         compose.waitForIdle()
@@ -68,7 +68,7 @@ class JourneyLayoutTest {
         var navTop: Float? = null
         var headingTop: Float? = null
         var headingHeight: Float? = null
-        for ((tab, title) in listOf("Home" to "Dashboard", "Fuel" to "Fuel tracker", "Expenses" to "Expenses", "Journey" to "Journey")) {
+        for ((tab, title) in listOf("Home" to "Overview", "Fuel" to "Fuel tracker", "Expenses" to "Expenses", "Journey" to "Journey")) {
             navigate(tab)
             waitFor(title)
             compose.mainClock.advanceTimeBy(500)

@@ -74,7 +74,7 @@ class AppSmokeTest {
     }
 
     @Test fun launchAddEditAndNavigateTheRealComposeApp() {
-        waitFor("Dashboard")
+        waitFor("Overview")
         scrollScreenTo(hasText("Add Expense"))
         compose.onNode(hasText("Add Expense") and hasClickAction()).performClick()
         enterExpenseAmount("1234")
@@ -94,7 +94,7 @@ class AppSmokeTest {
         compose.onNodeWithText("Save").performClick()
         waitForEditorToClose("Edit expense")
         waitFor("RM 14.67")
-        scrollScreenTo(hasText("Dashboard"))
+        scrollScreenTo(hasText("Overview"))
         captureScreen("dashboard")
 
         navigate("Fuel")
@@ -122,7 +122,7 @@ class AppSmokeTest {
     }
 
     @Test fun journeySaveAndThemeChoiceUseExistingNavigationAndLocalStorage() {
-        waitFor("Dashboard")
+        waitFor("Overview")
         navigate("Journey")
         waitFor("Offline journey estimates")
         field("Origin").performScrollTo().performTextInput("Kuala Lumpur")
@@ -154,7 +154,7 @@ class AppSmokeTest {
     }
 
     @Test fun historicalFuelUpdatesJourneyAutomaticallyAndAllowsExplicitOverride() {
-        waitFor("Dashboard")
+        waitFor("Overview")
         val repository = (compose.activity.application as LedgerApplication).repository
         navigate("Journey")
         waitFor("Offline journey estimates")
@@ -188,7 +188,7 @@ class AppSmokeTest {
     }
 
     @Test fun expenseCategoryAndPaymentSaveExactlyAndLastPaymentIsReused() {
-        waitFor("Dashboard")
+        waitFor("Overview")
         val repository = (compose.activity.application as LedgerApplication).repository
         val custom = my.fuelledger.data.Category("travel-custom", "Travel", "other", my.fuelledger.data.categoryColors.first())
         runBlocking(Dispatchers.IO) { repository.saveCategory(custom) }
@@ -215,7 +215,7 @@ class AppSmokeTest {
     }
 
     @Test fun legacyCardPaymentsAndExactTimestampsSurviveEditingAndUnknownNeedsExplicitChoice() {
-        waitFor("Dashboard")
+        waitFor("Overview")
         val repository = (compose.activity.application as LedgerApplication).repository
         val now = System.currentTimeMillis()
         val legacy = listOf("Credit Card", "Debit Card", "Not specified").mapIndexed { index, payment ->
@@ -245,7 +245,7 @@ class AppSmokeTest {
     }
 
     @Test fun collapsingDetailsRetainsAnUnsavedImportedReceiptUntilExpenseSave() {
-        waitFor("Dashboard")
+        waitFor("Overview")
         val app = compose.activity.application as LedgerApplication
         val record = my.fuelledger.data.Expense("receipt-draft", 199L, "food", System.currentTimeMillis(), "Receipt draft")
         runBlocking(Dispatchers.IO) { app.repository.saveExpense(record) }
@@ -278,7 +278,7 @@ class AppSmokeTest {
     }
 
     @Test fun unifiedPlannerKeepsReceivedIncomeAndAllocationSlidersSeparate() {
-        waitFor("Dashboard")
+        waitFor("Overview")
         val repository = (compose.activity.application as LedgerApplication).repository
         val first = java.time.YearMonth.now().atDay(1).toString()
         runBlocking(Dispatchers.IO) {
@@ -315,7 +315,7 @@ class AppSmokeTest {
     }
 
     @Test fun partialRefuelShowsPerFillEstimateAndCreatesOneLinkedExpense() {
-        waitFor("Dashboard")
+        waitFor("Overview")
         val repository = (compose.activity.application as LedgerApplication).repository
         val baselineId = "baseline-partial-refuel"
         runBlocking(Dispatchers.IO) {

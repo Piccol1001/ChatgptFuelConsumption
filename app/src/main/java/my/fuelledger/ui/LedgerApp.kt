@@ -70,6 +70,8 @@ fun LedgerApp(vm: LedgerViewModel) {
         var settingsOpen by rememberSaveable { mutableStateOf(false) }
         var scannerOpen by rememberSaveable { mutableStateOf(false) }
         var financeSection by rememberSaveable { mutableStateOf("Planner") }
+        var incomeOpen by rememberSaveable { mutableStateOf(false) }
+        var incomeId by rememberSaveable { mutableStateOf(UUID.randomUUID().toString()) }
         var financeOpen by rememberSaveable { mutableStateOf(false) }
         val openSettings = { scannerOpen = false; settingsOpen = true }
         var expenseEditId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -138,6 +140,7 @@ fun LedgerApp(vm: LedgerViewModel) {
                     val financeVm: FinanceViewModel = viewModel(factory = financialViewModelFactory)
                     val financeState by financeVm.state.collectAsStateWithLifecycle()
                     val journeyVm: my.fuelledger.JourneyViewModel = viewModel(factory = financialViewModelFactory)
+                    if (incomeOpen) FinanceIncomeEditor(null, incomeId, busy, { incomeOpen = false }, { financeVm.saveIncome(it) { incomeOpen = false } }, null)
                     if (scannerOpen) { SmartReceiptScreen(state, vm) } else if (financeOpen) {
                     FinanceScreen(financeVm, initialSection = financeSection)
                 } else if (settingsOpen) SettingsScreen(state, vm, busy,
@@ -147,7 +150,7 @@ fun LedgerApp(vm: LedgerViewModel) {
                     { legacyImport.launch(arrayOf("application/zip", "application/json", "text/*", "application/octet-stream")) },
                     { financeSection = "Expected Income"; financeOpen = true })
                 else pageState.SaveableStateProvider("main-screens") {
-                    MainPager(pager, enabled = !locked && !addExpense && expenseEditor == null && !addRefuel && refuelEditor == null &&
+                    MainPager(pager, enabled = !incomeOpen && !locked && !addExpense && expenseEditor == null && !addRefuel && refuelEditor == null &&
                         restore == null && operationError == null && pendingBackupOutput == null && pendingRestoreInput == null) { page ->
                         when (mainDestinations[page].key) {
                             "Journey" -> JourneyScreen(state.settings, journeyVm, state.refuels, saveFallback = { value -> vm.saveSettings(state.settings.copy(consumption = value, consumptionFallbackEnabled = true)) {} }, openSettings = openSettings)
@@ -156,7 +159,9 @@ fun LedgerApp(vm: LedgerViewModel) {
                             "Analytics" -> AnalyticsScreen(state, financeState, openSettings = openSettings)
                             else -> HomeScreen(state, newExpense, newRefuel, onExpense, planner = {
                                 MonthlyPlanner(financeState, financeVm, compact = true, openDetails = { financeSection = "Planner"; financeOpen = true })
-                            }, scanReceipt = { vm.clearReceiptWork(); vm.clearReceiptSuccess(); scannerOpen = true }, openSettings = openSettings)
+                            }, scanReceipt = { vm.clearReceiptWork(); vm.clearReceiptSuccess(); scannerOpen = true }, openSettings = openSettings, finance = financeState,
+                                addIncome = { incomeId = UUID.randomUUID().toString(); incomeOpen = true },
+                                openPlanner = { financeSection = "Planner"; financeOpen = true }, upcoming = { financeSection = "Fixed Monthly Expenses"; financeOpen = true })
                         }
                     }
                 }

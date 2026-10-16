@@ -35,31 +35,11 @@ private val monthFormat = DateTimeFormatter.ofPattern("MMMM yyyy", Malaysia)
 private val shortMonthFormat = DateTimeFormatter.ofPattern("MMM yy", Malaysia)
 
 @Composable
-fun HomeScreen(state: LedgerState, addExpense: () -> Unit, addRefuel: () -> Unit, edit: (Expense) -> Unit, planner: (@Composable () -> Unit)? = null, scanReceipt: (() -> Unit)? = null, openSettings: (() -> Unit)? = null) {
-    val calendar = currentCalendar()
-    val today = calendar.today
-    val month = YearMonth.from(today)
-    val totals = remember(state.expenses, calendar.zone) { spending(state, calendar.zone) }
-    val fuel = state.refuels.filter { YearMonth.from(localDate(it.timestamp)) == month }.sumOf { it.cents }
-    LazyColumn(contentPadding = ledgerScreenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { ScreenHeading("Dashboard", today.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Malaysia)), ledgerSymbol("home"), openSettings) }
-        item { HeroAmount("Total spent this month", Money.format(totals.month(month)), "${month.format(monthFormat)} · includes fuel payments") }
-        item { ResponsivePair(
-            first = { Stat("Today's spending", Money.format(totals.today(today)), it, "${today.format(DateTimeFormatter.ofPattern("d MMM", Malaysia))}") },
-            second = { Stat("Monthly fuel", Money.format(fuel), it, "Refuelling payments") }
-        ) }
-        item { ResponsivePair(
-            first = { LedgerAction("Add Expense", ledgerSymbol("add"), it, onClick = addExpense) },
-            second = { LedgerAction("Add Refuel", ledgerSymbol("fuel"), it, secondary = true, onClick = addRefuel) }
-        ) }
-        if (scanReceipt != null) item { LedgerAction("Scan Receipt", ledgerSymbol("receipt"), Modifier.fillMaxWidth(), onClick = scanReceipt) }
-        if (planner != null) item { planner() }
-        item { SectionTitle("Recent transactions", "Your latest activity · tap to edit") }
-        if (state.expenses.isEmpty()) item { EmptyState("Your ledger starts here", "Add an expense or a refuel to see your spending. Your records stay on your phone.") }
-        items(state.expenses.sortedByDescending { it.timestamp }.take(10), key = { it.id }) { expense ->
-            ExpenseRow(expense, state.categories.find { it.id == expense.categoryId }) { edit(expense) }
-        }
-    }
+fun HomeScreen(state: LedgerState, addExpense: () -> Unit, addRefuel: () -> Unit, edit: (Expense) -> Unit,
+    planner: (@Composable () -> Unit)? = null, scanReceipt: (() -> Unit)? = null, openSettings: (() -> Unit)? = null,
+    finance: my.fuelledger.FinanceState = my.fuelledger.FinanceState(), addIncome: () -> Unit = {},
+    openCalendar: () -> Unit = {}, openPlanner: () -> Unit = {}, upcoming: () -> Unit = openPlanner) {
+    OverviewDashboard(state, finance, addExpense, addIncome, scanReceipt ?: {}, openCalendar, openSettings, openPlanner, upcoming)
 }
 
 @Composable

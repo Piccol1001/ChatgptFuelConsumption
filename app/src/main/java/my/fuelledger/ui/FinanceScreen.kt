@@ -160,7 +160,7 @@ private fun FinanceRecord(title: String, value: String, detail: String, edit: ()
 }
 
 @Composable
-private fun FinanceIncomeEditor(seed: FinanceIncome?, id: String, busy: Boolean, dismiss: () -> Unit,
+fun FinanceIncomeEditor(seed: FinanceIncome?, id: String, busy: Boolean, dismiss: () -> Unit,
     save: (FinanceIncome) -> Unit, delete: (() -> Unit)?) {
     var amount by rememberSaveable(id) { mutableStateOf(seed?.let { Money.decimal(it.cents) }.orEmpty()) }
     var source by rememberSaveable(id) { mutableStateOf(seed?.source.orEmpty()) }

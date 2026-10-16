@@ -40,7 +40,7 @@ import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.delay
 
 // Shared main-screen insets; the app Scaffold owns system bars and navigation.
-internal val ledgerScreenPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 28.dp)
+internal val ledgerScreenPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 28.dp)
 
 // One calendar source updates a long-running dashboard after midnight or a time-zone change.
 data class CalendarState(val today: LocalDate, val zone: ZoneId)
