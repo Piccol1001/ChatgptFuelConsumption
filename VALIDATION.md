@@ -18,6 +18,8 @@ API26 emulator `emulator-5556`, airplane mode enabled before fresh test-user ins
 - **3 follow-up native tests pass** (`OK (3 tests)`, 6.595s): permissions, encrypted fresh-database persistence and Keystore non-exportability/purpose binding.
 - **4 exact delivered-APK native tests pass** (`OK (4 tests)`, 28.034s), using a new isolated user: first-use bundled OCR in airplane mode, no-network/public-storage permissions, fresh encrypted-database persistence and non-exportable purpose-bound Keystore keys. The emulator-installed APK SHA256 was checked as `4b500a32be9046723c24bd66345fdc90a1276804759e3fe78b2e6fbea989b660`, identical to the download. Temporary test users were removed afterward; original active user 0 and airplane mode 1 were preserved.
 
+After the exact-APK tests, the final download was installed in place, launched for the original user with `am start -W` (`Status: ok`, `my.fuelledger/.MainActivity`), and confirmed as the resumed activity. The original data was preserved.
+
 Native UIAutomator hierarchy retrieval timed out after 30s; the activity was resumed/focused during the earlier launch check. Native widget-launcher/shortcut gestures are not claimed from that failed hierarchy request. Their application routing is covered by host tests. Existing Android15 software-emulator system-wide ANRs leave native edge-back/cold-start checks pending on a reliable physical or accelerated device. No physical camera/gallery, external document/share provider, OEM launcher placement/resizing, TalkBack or sustained performance pass is claimed.
 
 ## Visual checks

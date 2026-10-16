@@ -18,7 +18,7 @@ Updated **17 October 2026 (Malaysia time)**. Implementation and final host verif
 
 No feature code is in progress. Final integration fixes include refund/Undo safeguards, format-5 encrypted receipt backup reading, widget budget fallbacks and rounded interaction styling, queued shortcut handling, preference scope for app lock, and observed Compose state instead of direct StateFlow reads.
 
-**283 host executions pass**, zero failures/errors/skipped. Debug, Android test and optimized unsigned release APKs build. Lint passes with **0 errors, 10 pre-existing advisory warnings and 1 hint**. Twenty matched five-screen renders plus two Home reference renders are retained. Nine native API26 offline/financial/backup/encryption/migration tests pass before the last UI-only polish; four additional OCR/permission/encryption checks pass on the exact delivered APK in airplane mode. Full provenance is recorded in [VALIDATION.md](VALIDATION.md).
+**283 host executions pass**, zero failures/errors/skipped. Debug, Android test and optimized unsigned release APKs build. Lint passes with **0 errors, 10 pre-existing advisory warnings and 1 hint**. Twenty matched five-screen renders plus two Home reference renders are retained. Nine native API26 offline/financial/backup/encryption/migration tests pass before the last UI-only polish; four additional OCR/permission/encryption checks pass on the exact delivered APK in airplane mode. The exact APK was installed in place and launched successfully (`Status: ok`), with MainActivity confirmed as resumed. Full provenance is recorded in [VALIDATION.md](VALIDATION.md).
 
 ## 3. Files created or modified
 
