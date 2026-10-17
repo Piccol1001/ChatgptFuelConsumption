@@ -139,7 +139,7 @@ import java.util.UUID
                                     shape = MaterialTheme.shapes.small,
                                     border = if (date == today) androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
                                     colors = CardDefaults.cardColors(containerColor = if (date == selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer)) {
-                                    Column(Modifier.padding(vertical = 5.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Column(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                         Text(day.toString(), style = MaterialTheme.typography.labelLarge)
                                         Text(if (values.isEmpty()) "" else if (LocalUiPreferences.current.privacyMode) "•••" else compactCalendarAmount(cents),
                                             style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)

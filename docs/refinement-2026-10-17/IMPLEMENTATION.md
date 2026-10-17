@@ -34,6 +34,10 @@ Ten retained APKs were inspected with Android build-tools, not inferred from fil
 
 `version.properties` feeds Gradle and the launcher label. Settings → About → App Version reads the installed PackageManager metadata; main headers show no version. `scripts/release.py` selects a semantic bump and a strictly greater code using known/actual artifact metadata, checks the existing external signing identity before building, runs tests/builds/lint, validates the binary package/version/certificate/alignment/offline permissions, then writes the new APK and release metadata. A failed build or validation consumes no version. Old files/ledger rows remain intact. [RELEASING.md](../../RELEASING.md), [RELEASES.md](../../RELEASES.md), [CHANGELOG.md](../../CHANGELOG.md) and repository AGENTS.md define the future workflow.
 
+## Visual alignment patch
+
+Screenshot review of the first successful 1.5.0/code7 build found that MaterialCard’s ColumnScope let nested content wrap at the leading edge. Calendar date text and chart plots could be offset despite centred card bounds. Both inner Columns now fill their width, and regressions measure the actual day text and plot bounds. The first artifact remains unchanged; the corrected build uses semantic patch **1.5.1/code8**. This preserves actual build history rather than replacing an old file under the same version.
+
 ## Verification and delivery
 
 FINAL_RESULTS_PENDING

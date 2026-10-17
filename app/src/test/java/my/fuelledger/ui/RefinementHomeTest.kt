@@ -50,6 +50,10 @@ class RefinementHomeTest {
         val label = compose.onNodeWithTag("home-budget-amount")
         label.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
         assertEquals(layouts.single().size.width.toFloat(), layouts.single().getLineRight(layouts.single().lineCount - 1), 1f)
+        compose.onNodeWithTag("calendar-date-$today").performScrollTo()
+        val cell = compose.onNodeWithTag("calendar-date-$today").fetchSemanticsNode().boundsInRoot
+        val dayText = compose.onNode(hasText(today.dayOfMonth.toString()) and hasAnyAncestor(hasTestTag("calendar-date-$today")), useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertEquals("Actual day text is centered inside its card", cell.center.x, dayText.center.x, .5f)
         val image = compose.onRoot().captureToImage().asAndroidBitmap()
         val directory = File("build/reports/refinement").apply { mkdirs() }
         File(directory, "home-${if(dark) "dark" else "light"}.png").outputStream().use { assertTrue(image.compress(Bitmap.CompressFormat.PNG, 100, it)) }

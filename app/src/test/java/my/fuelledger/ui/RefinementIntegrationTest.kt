@@ -124,5 +124,8 @@ class RefinementIntegrationTest {
         scroll(hasText("App Version"))
         compose.onNodeWithTag("installed-app-version").assertTextEquals(compose.activity.packageManager.getPackageInfo(compose.activity.packageName, 0).versionName.orEmpty())
         assertEquals(0, compose.activity.window.attributes.flags and android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        val image = compose.onRoot().captureToImage().asAndroidBitmap()
+        val directory = java.io.File("build/reports/refinement").apply { mkdirs() }
+        java.io.File(directory, "settings-about-api${android.os.Build.VERSION.SDK_INT}.png").outputStream().use { assertTrue(image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)) }
     }
 }

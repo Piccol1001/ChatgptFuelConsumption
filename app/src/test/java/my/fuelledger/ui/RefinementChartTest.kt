@@ -1,5 +1,8 @@
 package my.fuelledger.ui
 
+import android.graphics.Bitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
+import java.io.File
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
@@ -27,7 +30,7 @@ class RefinementChartTest {
     private val today = LocalDate.of(2026, 10, 17)
     private fun settle() { compose.mainClock.advanceTimeBy(1000); compose.waitForIdle() }
     private fun centered(date: LocalDate) {
-        val bar = compose.onNodeWithTag("daily-bar-$date").fetchSemanticsNode().boundsInRoot
+        val bar = compose.onNodeWithTag("daily-plot-$date", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         val viewport = compose.onNodeWithTag("daily-chart").fetchSemanticsNode().boundsInRoot
         assertEquals("$date is at viewport centre", viewport.center.x, bar.center.x, 1f)
     }
@@ -39,6 +42,9 @@ class RefinementChartTest {
             Surface { Box(Modifier.width(width.dp)) { DailySpending(Spending(points, zone), today.minusDays(40), today.plusDays(2), today) } }
         } } }
         settle(); centered(today)
+        val image = compose.onNodeWithTag("daily-chart-card").captureToImage().asAndroidBitmap()
+        val directory = File("build/reports/refinement").apply { mkdirs() }
+        File(directory, "daily-${if (dark) "dark" else "light"}-$width-api${android.os.Build.VERSION.SDK_INT}.png").outputStream().use { assertTrue(image.compress(Bitmap.CompressFormat.PNG, 100, it)) }
         compose.onNodeWithTag("daily-chart-selection").assertTextEquals("17 Oct 2026 · RM 12.50")
         compose.onNodeWithTag("daily-chart").performTouchInput { swipeLeft() }; settle()
         val viewport = compose.onNodeWithTag("daily-chart").fetchSemanticsNode().boundsInRoot

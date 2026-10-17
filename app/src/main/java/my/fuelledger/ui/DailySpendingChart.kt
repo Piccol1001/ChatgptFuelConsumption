@@ -42,7 +42,7 @@ fun DailySpending(totals: Spending, start: LocalDate, end: LocalDate, today: Loc
     LaunchedEffect(rangeKey) {
         if (alignedRange != rangeKey) { list.scrollToItem(todayIndex); selectedText = today.toString(); alignedRange = rangeKey }
     }
-    LedgerCard(Modifier.chartGestureRegion()) {
+    LedgerCard(Modifier.testTag("daily-chart-card").chartGestureRegion()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Daily expenditure", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
             TextButton({ selectedText = today.toString(); scope.launch { if (motion) list.animateScrollToItem(todayIndex) else list.scrollToItem(todayIndex) } }, Modifier.testTag("daily-chart-today")) { Text("Today") }
@@ -61,10 +61,10 @@ fun DailySpending(totals: Spending, start: LocalDate, end: LocalDate, today: Loc
                         this.selected = date == selected
                         contentDescription = maskAmounts("${dateLabel(date)}: ${Money.format(cents)}${if (date == today) ", Today" else ""}", privacy)
                     }, colors = CardDefaults.cardColors(containerColor = if (date == selected) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(10.dp)) {
-                        Column(Modifier.padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(if (date == today) "Today" else date.format(DateTimeFormatter.ofPattern("d MMM", Malaysia)), style = MaterialTheme.typography.labelSmall,
                                 textAlign = TextAlign.Center, maxLines = 2, color = if (date == today) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                            Box(Modifier.height(120.dp).width(22.dp)) {
+                            Box(Modifier.height(120.dp).width(22.dp).testTag("daily-plot-$date")) {
                                 val area = if (negatives) 60.dp else 120.dp
                                 val height = (area.value * abs(cents).toDouble() / maximum).dp
                                 Box(Modifier.fillMaxWidth().height(area), contentAlignment = Alignment.BottomCenter) {
