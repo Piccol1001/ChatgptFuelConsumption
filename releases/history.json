@@ -1,0 +1,122 @@
+[
+  {
+    "path": "downloads/Fuel-Expense-Tracker-debug.apk",
+    "versionName": "1.0.0",
+    "versionCode": 1,
+    "applicationId": "my.fuelledger",
+    "certificateSha256": "4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8",
+    "sha256": "4b9768f3d4d2cf1182550f001f4d8e7ec04e3c9121005a2fa05253a82acacdb0",
+    "firstRecorded": "2026-10-15T04:42:57Z",
+    "dateEvidence": "First Git addition; original release date unverified",
+    "signing": "Signed debug build",
+    "releaseDate": null
+  },
+  {
+    "path": "downloads/Fuel-Expense-Tracker-v1.2.0-debug.apk",
+    "versionName": "1.2.0",
+    "versionCode": 4,
+    "applicationId": "my.fuelledger",
+    "certificateSha256": "4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8",
+    "sha256": "47da1aa93b52acd78e50d569352e1f3c86af133289131317a0d6ac4addf5fec0",
+    "firstRecorded": "2026-10-15T12:26:50Z",
+    "dateEvidence": "First Git addition; original release date unverified",
+    "signing": "Signed debug build",
+    "releaseDate": null
+  },
+  {
+    "path": "downloads/Fuel-Expense-Tracker-v1.3.0-debug.apk",
+    "versionName": "1.3.0",
+    "versionCode": 5,
+    "applicationId": "my.fuelledger",
+    "certificateSha256": "4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8",
+    "sha256": "c85624e8ee2e9ce299718ad409150284577edb9413bfdb2d1c57fbfe722ef059",
+    "firstRecorded": "2026-10-15T13:28:56Z",
+    "dateEvidence": "First Git addition; original release date unverified",
+    "signing": "Signed debug build",
+    "releaseDate": null
+  },
+  {
+    "path": "downloads/Fuel-Expense-Tracker-v1.4.0-comprehensive-upgrade-debug.apk",
+    "versionName": "1.4.0",
+    "versionCode": 6,
+    "applicationId": "my.fuelledger",
+    "certificateSha256": "4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8",
+    "sha256": "4b500a32be9046723c24bd66345fdc90a1276804759e3fe78b2e6fbea989b660",
+    "firstRecorded": "2026-10-16T20:40:05Z",
+    "dateEvidence": "First Git addition; original release date unverified",
+    "signing": "Signed debug build",
+    "releaseDate": null
+  },
+  {
+    "path": "downloads/Fuel-Expense-Tracker-v1.4.0-debug.apk",
+    "versionName": "1.4.0",
+    "versionCode": 6,
+    "applicationId": "my.fuelledger",
+    "certificateSha256": "4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8",
+    "sha256": "180d4f2f7cc92c9c099774cec03e171da62fa312d4ea4494c225ec1cbf4a90ce",
+    "firstRecorded": "2026-10-15T15:59:05Z",
+    "dateEvidence": "First Git addition; original release date unverified",
+    "signing": "Signed debug build",
+    "releaseDate": null
+  },
+  {
+    "path": "downloads/Fuel-Expense-Tracker-v1.4.0-expense-entry-debug.apk",
+    "versionName": "1.4.0",
+    "versionCode": 6,
+    "applicationId": "my.fuelledger",
+    "certificateSha256": "4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8",
+    "sha256": "ce011e110952c4674834ba520b2be19e6cea70359ad61d75b3acbd4928c4cb47",
+    "firstRecorded": "2026-10-15T17:24:18Z",
+    "dateEvidence": "First Git addition; original release date unverified",
+    "signing": "Signed debug build",
+    "releaseDate": null
+  },
+  {
+    "path": "downloads/Fuel-Expense-Tracker-v1.4.0-journey-layout-debug.apk",
+    "versionName": "1.4.0",
+    "versionCode": 6,
+    "applicationId": "my.fuelledger",
+    "certificateSha256": "4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8",
+    "sha256": "efcaff409f5ae2694d161764af0637053e72e61678ebc684e30c94f7edf2551d",
+    "firstRecorded": "2026-10-16T13:21:30Z",
+    "dateEvidence": "First Git addition; original release date unverified",
+    "signing": "Signed debug build",
+    "releaseDate": null
+  },
+  {
+    "path": "downloads/Fuel-Expense-Tracker-v1.4.0-minimal-header-debug.apk",
+    "versionName": "1.4.0",
+    "versionCode": 6,
+    "applicationId": "my.fuelledger",
+    "certificateSha256": "4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8",
+    "sha256": "ea6f3d9b937ea98f000e1f569a15e2b9862bd5ad415c71ac982d4825af022ec1",
+    "firstRecorded": "2026-10-15T16:08:10Z",
+    "dateEvidence": "First Git addition; original release date unverified",
+    "signing": "Signed debug build",
+    "releaseDate": null
+  },
+  {
+    "path": "downloads/Fuel-Expense-Tracker-v1.4.0-press-feedback-debug.apk",
+    "versionName": "1.4.0",
+    "versionCode": 6,
+    "applicationId": "my.fuelledger",
+    "certificateSha256": "4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8",
+    "sha256": "4d1afc37dfdd04e0c48daebd5cd83af9ba14adac3661596e9964fd77020122d2",
+    "firstRecorded": "2026-10-16T01:00:08Z",
+    "dateEvidence": "First Git addition; original release date unverified",
+    "signing": "Signed debug build",
+    "releaseDate": null
+  },
+  {
+    "path": "downloads/Fuel-Expense-Tracker-v1.4.0-swipe-navigation-debug.apk",
+    "versionName": "1.4.0",
+    "versionCode": 6,
+    "applicationId": "my.fuelledger",
+    "certificateSha256": "4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8",
+    "sha256": "873fa8048054e902dde025e1801df502f8eaaaa1ae84ec46e92f45696e63a2c0",
+    "firstRecorded": "2026-10-16T15:01:25Z",
+    "dateEvidence": "First Git addition; original release date unverified",
+    "signing": "Signed debug build",
+    "releaseDate": null
+  }
+]

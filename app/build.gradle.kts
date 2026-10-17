@@ -1,6 +1,7 @@
 import com.android.build.api.instrumentation.FramesComputationMode
 import com.android.build.api.instrumentation.InstrumentationScope
 import my.fuelledger.build.OfflineMlKitTelemetry
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -10,7 +11,13 @@ plugins {
 }
 
 val ledgerAppName = "Fuel & Expense Tracker"
-val ledgerVersionName = "1.4.0"
+val ledgerVersion = Properties().apply {
+    rootProject.file("version.properties").inputStream().use { load(it) }
+}
+val ledgerVersionName = providers.gradleProperty("ledgerVersionName").orElse(ledgerVersion.getProperty("versionName")).get()
+val ledgerVersionCode = providers.gradleProperty("ledgerVersionCode").orElse(ledgerVersion.getProperty("versionCode")).get().toInt()
+require(Regex("(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)").matches(ledgerVersionName)) { "Use MAJOR.MINOR.PATCH." }
+require(ledgerVersionCode in 1..2_100_000_000) { "Invalid Android versionCode." }
 
 android {
     namespace = "my.fuelledger"
@@ -19,7 +26,7 @@ android {
         applicationId = "my.fuelledger"
         minSdk = 26
         targetSdk = 37
-        versionCode = 6
+        versionCode = ledgerVersionCode
         versionName = ledgerVersionName
         resValue("string", "app_name", ledgerAppName)
         resValue("string", "app_version", "v$ledgerVersionName")

@@ -13,3 +13,6 @@ captures/
 !buildSrc/src/main/java/my/fuelledger/build/*.java
 !buildSrc/src/test/java/my/fuelledger/build/
 !buildSrc/src/test/java/my/fuelledger/build/*.java
+
+# Local Python release-workflow bytecode caches.
+__pycache__/
