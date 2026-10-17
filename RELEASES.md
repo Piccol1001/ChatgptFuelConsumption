@@ -14,6 +14,7 @@ Actual version metadata is read from each APK, independently of filenames. Histo
 | [Fuel-Expense-Tracker-v1.4.0-minimal-header-debug.apk](downloads/Fuel-Expense-Tracker-v1.4.0-minimal-header-debug.apk) | 1.4.0 | 6 | Unverified | First Git addition; original release date unverified; first Git addition 2026-10-15T16:08:10Z |
 | [Fuel-Expense-Tracker-v1.4.0-press-feedback-debug.apk](downloads/Fuel-Expense-Tracker-v1.4.0-press-feedback-debug.apk) | 1.4.0 | 6 | Unverified | First Git addition; original release date unverified; first Git addition 2026-10-16T01:00:08Z |
 | [Fuel-Expense-Tracker-v1.4.0-swipe-navigation-debug.apk](downloads/Fuel-Expense-Tracker-v1.4.0-swipe-navigation-debug.apk) | 1.4.0 | 6 | Unverified | First Git addition; original release date unverified; first Git addition 2026-10-16T15:01:25Z |
+| [FuelExpenseTracker_v1.5.0.apk](downloads/FuelExpenseTracker_v1.5.0.apk) | 1.5.0 | 7 | 2026-10-17 | Built and verified by scripts/release.py |
 
 All recorded APKs use `my.fuelledger` and the original certificate SHA256 `4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8`. Reused historical version 1.4.0/code 6 is recorded honestly. No APK was relabelled or rebuilt to invent a different history.
 
