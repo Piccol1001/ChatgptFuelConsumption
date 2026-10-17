@@ -240,7 +240,12 @@ fun RefuelEditor(seed: Refuel?, id: String, busy: Boolean, vm: LedgerViewModel, 
         }
         ExpandableHelp("Estimate assumptions") { Text(FUEL_ESTIMATE_ASSUMPTION, style = MaterialTheme.typography.bodySmall) }
         TextButton({ details = !details }, Modifier.fillMaxWidth()) { Text(if (details) "Hide receipt & station" else "Receipt & station") }
-        if (details) TextField(station, { station = it }, "Petrol station (optional)", 100)
+        if (details) {
+            val types = listOf("RON95", "RON97", "Diesel", "Diesel Euro 5", "Other")
+            val options = (if (fuelType !in types) listOf(fuelType to fuelType.ifBlank { "Not recorded" }) else emptyList()) + types.map { it to it }
+            Choice("Fuel type (optional)", fuelType, options) { fuelType = it }
+            TextField(station, { station = it }, "Petrol station (optional)", 100)
+        }
         ReceiptAttachment(id, receiptFile, vm, busy, { receiptFile = it }, visible = details) { scanned ->
             scanned.litres?.let { litres = it }; scanned.amount?.let { runCatching { Money.parse(it) }.onSuccess { amount = it } }
             scanned.odometer?.let { odometer = it }; scanned.fuelType?.let { fuelType = it }

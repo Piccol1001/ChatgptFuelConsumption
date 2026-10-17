@@ -3,6 +3,7 @@ package my.fuelledger.widgets
 import android.appwidget.AppWidgetManager
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import my.fuelledger.LedgerApplication
@@ -42,7 +43,9 @@ class LedgerWidgetsTest {
         val summary = manager.createWidget(ExpenseSummaryWidget::class.java, R.layout.ledger_widget)
         val quick = manager.createWidget(QuickAddWidget::class.java, R.layout.ledger_widget)
         val overview = manager.createWidget(FinancialOverviewWidget::class.java, R.layout.ledger_widget)
-        withContextIo { LedgerWidgets.update(app) }
+        withContextIo { kotlinx.coroutines.coroutineScope {
+            List(8) { async(Dispatchers.IO) { LedgerWidgets.update(app) } }.forEach { it.await() }
+        } }
         assertEquals("RM ••••", manager.getViewFor(summary).findViewById<TextView>(R.id.widget_main).text.toString())
         assertEquals("Quick add", manager.getViewFor(quick).findViewById<TextView>(R.id.widget_title).text.toString())
         assertTrue(manager.getViewFor(overview).findViewById<TextView>(R.id.widget_detail).text.toString().contains("not a bank balance"))

@@ -9,6 +9,8 @@ import android.content.Intent
 import android.widget.RemoteViews
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import androidx.room.withTransaction
 import my.fuelledger.LedgerApplication
 import my.fuelledger.MainActivity
@@ -28,7 +30,7 @@ open class LedgerWidgetProvider : AppWidgetProvider() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try { LedgerWidgets.update(context); (context.applicationContext as LedgerApplication).scheduleRecurring() }
             catch (_: Exception) { LedgerWidgets.unavailable(context) }
-            finally { result.finish() }
+            finally { result?.finish() }
         }
     }
 }
@@ -53,11 +55,15 @@ fun widgetSummary(snapshot: Backup, month: YearMonth, zone: ZoneId): WidgetSumma
 }
 
 object LedgerWidgets {
+    // Preference writes, receiver refreshes and ledger commits can overlap. Serialize each
+    // snapshot/render batch so a stale refresh cannot finish over a newer privacy state.
+    private val updates = Mutex()
     private val providers = listOf(ExpenseSummaryWidget::class.java, QuickAddWidget::class.java, FinancialOverviewWidget::class.java)
     private fun pending(context: Context, action: String): PendingIntent = PendingIntent.getActivity(context, action.hashCode(),
         Intent(context, MainActivity::class.java).apply { putExtra("ledger_action", action); flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP },
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-    suspend fun update(context: Context) {
+    suspend fun update(context: Context) = updates.withLock { updateLocked(context) }
+    private suspend fun updateLocked(context: Context) {
         val manager = AppWidgetManager.getInstance(context)
         val ids = providers.associateWith { manager.getAppWidgetIds(ComponentName(context, it)) }
         if (ids.values.all { it.isEmpty() }) return
@@ -90,7 +96,7 @@ object LedgerWidgets {
             manager.updateAppWidget(id, view)
         }
     }
-    fun unavailable(context: Context) {
+    suspend fun unavailable(context: Context) = updates.withLock {
         val manager = AppWidgetManager.getInstance(context)
         providers.forEach { provider -> manager.getAppWidgetIds(ComponentName(context, provider)).forEach { id ->
             val view = RemoteViews(context.packageName, R.layout.ledger_widget)

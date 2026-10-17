@@ -46,7 +46,7 @@ Do not center it.
 
 Expected layout:
 
-Left: RM XXXX spent  
+Left: RM XXXX spent
 Right: RM XXXX budget
 
 Use a Compose Row with appropriate alignment or weight to ensure the right label is positioned at the trailing edge.
