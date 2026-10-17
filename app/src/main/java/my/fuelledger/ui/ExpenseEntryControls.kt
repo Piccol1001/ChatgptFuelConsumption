@@ -41,7 +41,7 @@ private fun EntryIconOption(label: String, icon: ImageVector, selected: Boolean,
     val interaction = rememberAppLockInteraction()
     val haptic = LocalHapticFeedback.current
     val color by animateColorAsState(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-        tween(if (LocalUiPreferences.current.reducedMotion) 0 else 150), label = "Expense selection")
+        tween(if (LocalPressMotionEnabled.current) 150 else 0), label = "Expense selection")
     val shape = RoundedCornerShape(16.dp)
     Column(modifier.clip(shape).selectable(selected, enabled = enabled, role = Role.RadioButton,
         onClick = { if (interaction()) { choose(); haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) } })
@@ -61,7 +61,7 @@ fun ExpenseCategoryRow(categories: List<Category>, selected: String, enabled: Bo
     val selectedItem = remember { BringIntoViewRequester() }
     LaunchedEffect(selected) { selectedItem.bringIntoView() }
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        val ordered = displayCategories(categories)
+        val ordered = manualExpenseCategories(categories)
         ordered.sortedWith(compareBy<Category> { if (it.id == OTHER_CATEGORY) 1 else 0 }.thenBy { preferred.indexOf(it.id).takeIf { i -> i >= 0 } ?: Int.MAX_VALUE }.thenBy { ordered.indexOf(it) }).forEach { category ->
             val label = when (category.id) { "food" -> "Food"; FUEL_CATEGORY -> "Fuel"; else -> category.name }
             EntryIconOption(label, categoryIcon(category.icon), selected == category.id, enabled, "Category ${category.name}",

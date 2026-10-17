@@ -24,7 +24,7 @@ fun EditorShell(title: String, busy: Boolean, error: String?, dismiss: () -> Uni
     delete: (() -> Unit)? = null, saveEnabled: Boolean = true, compact: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     val interaction = rememberAppLockInteraction()
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
-    Dialog(onDismissRequest = { if (!busy) dismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, securePolicy = SecureFlagPolicy.SecureOn)) {
+    Dialog(onDismissRequest = { if (!busy) dismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, securePolicy = SecureFlagPolicy.SecureOff)) {
         PrivacyDialogWindow()
         val width = if (compact) Modifier.widthIn(max = 560.dp).fillMaxWidth() else Modifier.fillMaxWidth().widthIn(max = 560.dp)
         Surface(width.padding(if (compact) 8.dp else 12.dp).heightIn(max = if (compact) 860.dp else 720.dp), shape = MaterialTheme.shapes.large) {
@@ -106,7 +106,7 @@ fun DateTimeFields(date: String, time: String, changeDate: (String) -> Unit, cha
         val picker = rememberTimePickerState(initialHour = selected.hour, initialMinute = selected.minute, is24Hour = true)
         LaunchedEffect(picker.hour, picker.minute) { interaction() }
         AlertDialog(onDismissRequest = { timeOpen = false }, title = { Text("Time") },
-            properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOn),
+            properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOff),
             text = { PrivacyDialogWindow(); TimeInput(picker) },
             confirmButton = { TextButton(onClick = { if (interaction()) { changeTime(LocalTime.of(picker.hour, picker.minute).toString()); timeOpen = false } }) { Text("Select") } },
             dismissButton = { TextButton(onClick = { timeOpen = false }) { Text("Cancel") } })
@@ -122,7 +122,7 @@ fun ExpenseEditor(seed: Expense?, id: String, categories: List<Category>, busy: 
     val frequent = remember(ledger.expenses) { ledger.expenses.filter { it.kind == "Expense" }.groupingBy { it.categoryId }.eachCount().filterValues { it >= 3 }.entries.sortedByDescending { it.value }.take(3).map { it.key } }
     val initial = remember(id) { Instant.ofEpochMilli(starting?.timestamp ?: initialDate?.atTime(12, 0)?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli() ?: System.currentTimeMillis()).atZone(ZoneId.systemDefault()) }
     var amount by rememberSaveable(id) { mutableLongStateOf(kotlin.math.abs(starting?.cents ?: 0L)) }
-    var category by rememberSaveable(id) { mutableStateOf(starting?.categoryId ?: vm.state.value.settings.lastExpenseCategory.takeIf { id -> categories.any { it.id == id } } ?: displayCategories(categories).first().id) }
+    var category by rememberSaveable(id) { mutableStateOf(starting?.categoryId?.takeIf { it != FUEL_CATEGORY || seed != null || starting.kind == "Refund" } ?: vm.state.value.settings.lastExpenseCategory.takeIf { id -> manualExpenseCategories(categories).any { it.id == id } } ?: manualExpenseCategories(categories).first().id) }
     var date by rememberSaveable(id) { mutableStateOf(initial.toLocalDate().toString()) }
     var time by rememberSaveable(id) { mutableStateOf(initial.toLocalTime().withSecond(0).withNano(0).toString()) }
     var description by rememberSaveable(id) { mutableStateOf(starting?.description.orEmpty()) }
@@ -152,6 +152,7 @@ fun ExpenseEditor(seed: Expense?, id: String, categories: List<Category>, busy: 
     }, if (seed != null) ({ confirmDelete = true }) else null,
         saveEnabled = amount > 0 && expensePaymentGroup(payment) != null && categories.any { it.id == category }, compact = true) {
         ExpenseAmount(amount)
+        if (category == FUEL_CATEGORY) Text("Existing category: Fuel & Transport", style = MaterialTheme.typography.bodySmall)
         ExpenseCategoryRow(categories, category, !busy, preferred = frequent) { category = it; categoryExplicit = true }
         ExpensePaymentRow(payment, !busy) { selected ->
             paymentExplicit = true
@@ -201,74 +202,59 @@ fun RefuelEditor(seed: Refuel?, id: String, busy: Boolean, vm: LedgerViewModel, 
     val initial = remember(id) { Instant.ofEpochMilli(seed?.timestamp ?: System.currentTimeMillis()).atZone(ZoneId.systemDefault()) }
     var odometer by rememberSaveable(id) { mutableStateOf(seed?.odometer?.toString().orEmpty()) }
     var litres by rememberSaveable(id) { mutableStateOf(seed?.litres?.toString().orEmpty()) }
-    var amount by rememberSaveable(id) { mutableStateOf(seed?.let { Money.decimal(it.cents) }.orEmpty()) }
+    var amount by rememberSaveable(id) { mutableLongStateOf(seed?.cents ?: 0L) }
     var date by rememberSaveable(id) { mutableStateOf(initial.toLocalDate().toString()) }
     var time by rememberSaveable(id) { mutableStateOf(initial.toLocalTime().withSecond(0).withNano(0).toString()) }
-    var full by rememberSaveable(id) { mutableStateOf(seed?.fullTank ?: false) }
     var station by rememberSaveable(id) { mutableStateOf(seed?.station.orEmpty()) }
     var stationLocation by rememberSaveable(id) { mutableStateOf(seed?.stationLocation.orEmpty()) }
-    var fuelType by rememberSaveable(id) { mutableStateOf(seed?.fuelType.orEmpty()) }
+    var fuelType by rememberSaveable(id) { mutableStateOf(seed?.fuelType ?: "RON95") }
     var receiptFile by rememberSaveable(id) { mutableStateOf(seed?.receiptFile) }
-    var notes by rememberSaveable(id) { mutableStateOf(seed?.notes.orEmpty()) }
+    var details by rememberSaveable(id) { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     EditorShell(if (seed == null) "Add refuel" else "Edit refuel", busy, error, dismiss, {
-        runCatching { Refuel(id, timestamp(date, time), measurement(odometer, "Odometer", true), measurement(litres, "Litres"), Money.parse(amount), full, station.trim(), notes.trim(), fuelType.trim(), stationLocation.trim(), receiptFile).also(::validateRefuel) }
-            .onSuccess { error = null; save(it) }.onFailure { error = it.message }
-    }, if (seed != null) ({ confirmDelete = true }) else null) {
-        Text("Use the odometer at every fill-up, including partial fills.", style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        runCatching {
+            val savedTime = if (seed != null && date == initial.toLocalDate().toString() && time == initial.toLocalTime().withSecond(0).withNano(0).toString()) seed.timestamp else timestamp(date, time)
+            Refuel(id, savedTime, measurement(odometer, "Odometer", true), measurement(litres, "Litres"), amount,
+                seed?.fullTank ?: false, station.trim(), seed?.notes.orEmpty(), fuelType, stationLocation, receiptFile).also(::validateRefuel)
+        }.onSuccess { error = null; save(it) }.onFailure { error = it.message }
+    }, if (seed != null) ({ confirmDelete = true }) else null, saveEnabled = amount > 0) {
+        DateTimeFields(date, time, { date = it }, { time = it })
         NumericField(odometer, { odometer = it }, "Odometer (km)")
         NumericField(litres, { litres = it }, "Fuel quantity (L)")
-        NumericField(amount, { amount = it }, "Total payment (RM)")
-        val price = runCatching { Money.parse(amount) / 100.0 / measurement(litres, "Litres") }.getOrNull()
+        Text("Fuel type: ${fuelType.ifBlank { "Not recorded" }}", style = MaterialTheme.typography.bodySmall)
+        ExpenseAmount(amount)
+        val price = runCatching { require(amount > 0); amount / 100.0 / measurement(litres, "Litres") }.getOrNull()
         if (price != null) Text("Price per litre: RM ${number(price, 3)}/L", color = MaterialTheme.colorScheme.primary)
+        CentsKeypad(amount, !busy, { amount = it; error = null }, { error = "Maximum amount is ${Money.format(MAX_CENTS)}." })
         val state by vm.state.collectAsStateWithLifecycle()
         val enteredTime = runCatching { timestamp(date, time) }.getOrNull()
         val previous = state.refuels.filter { it.id != id && enteredTime != null && it.timestamp < enteredTime }.maxByOrNull { it.timestamp }
-        if (previous != null) {
-            Text("Previous ODO: ${number(previous.odometer, 1)} km", style = MaterialTheme.typography.bodySmall)
-            val estimate = runCatching {
-                val point = FuelPoint(id, enteredTime!!, measurement(odometer, "Odometer", true), measurement(litres, "Litres"), Money.parse(amount), full)
-                fillEstimates(listOf(previous.point(), point)).singleOrNull()
-            }.getOrNull()
-            if (estimate != null) OutlinedCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text("Per-fill estimate", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Text("${number(estimate.kmPerLitre)} km/L", style = MaterialTheme.typography.headlineSmall)
-                    Text("${number(estimate.litresPer100Km)} L/100 km · RM ${number(estimate.costPerKm, 4)}/km", style = MaterialTheme.typography.bodySmall)
-                    Text("Distance since last fill: ${number(estimate.distance, 1)} km", style = MaterialTheme.typography.bodySmall)
-                    Text("Uses this purchase's litres. Varying tank levels can change the estimate.", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        } else Text("Your first fill establishes the ODO baseline. Your next fill-up will show distance and a fuel estimate.", style = MaterialTheme.typography.bodySmall)
-        ReceiptAttachment(id, receiptFile, vm, busy, { receiptFile = it }) { scanned ->
-            scanned.litres?.let { litres = it }; scanned.amount?.let { amount = it }
+        val estimate = runCatching {
+            val point = FuelPoint(id, enteredTime!!, measurement(odometer, "Odometer", true), measurement(litres, "Litres"), amount, seed?.fullTank ?: false)
+            previous?.let { fillEstimates(listOf(it.point(), point)).singleOrNull() }
+        }.getOrNull()
+        if (estimate != null) {
+            Text("Estimated Fuel Consumption · ${number(estimate.kmPerLitre)} km/L", style = MaterialTheme.typography.titleSmall)
+            Text("${number(estimate.litresPer100Km)} L/100 km · ${number(estimate.distance, 1)} km since previous fill", style = MaterialTheme.typography.bodySmall)
+        }
+        ExpandableHelp("Estimate assumptions") { Text(FUEL_ESTIMATE_ASSUMPTION, style = MaterialTheme.typography.bodySmall) }
+        TextButton({ details = !details }, Modifier.fillMaxWidth()) { Text(if (details) "Hide receipt & station" else "Receipt & station") }
+        if (details) TextField(station, { station = it }, "Petrol station (optional)", 100)
+        ReceiptAttachment(id, receiptFile, vm, busy, { receiptFile = it }, visible = details) { scanned ->
+            scanned.litres?.let { litres = it }; scanned.amount?.let { runCatching { Money.parse(it) }.onSuccess { amount = it } }
             scanned.odometer?.let { odometer = it }; scanned.fuelType?.let { fuelType = it }
             scanned.station?.let { station = it }; scanned.stationLocation?.let { stationLocation = it }
             scanned.date?.let { date = it }; scanned.time?.let { time = it }
         }
-        DateTimeFields(date, time, { date = it }, { time = it })
-        val types = listOf("" to "Not specified", "RON95" to "RON95", "RON97" to "RON97", "Diesel" to "Diesel", "Diesel Euro 5" to "Diesel Euro 5", "Other" to "Other")
-        Choice("Fuel type (optional)", fuelType, if (fuelType.isNotBlank() && types.none { it.first == fuelType }) types + (fuelType to fuelType) else types) { fuelType = it }
-        TextField(station, { station = it }, "Petrol station (optional)", 100)
-        TextField(stationLocation, { stationLocation = it }, "Station location (optional)", 200)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Full tank? (optional)", modifier = Modifier.weight(1f))
-            Switch(full, { full = it })
-        }
-        Text("Mark full tanks only when applicable to keep the additional full-tank measurement available. Per-fill estimates work with every fill-up.", style = MaterialTheme.typography.bodySmall)
-        TextField(notes, { notes = it }, "Notes (optional)", 2000, true)
-        Text("Payment is automatically included once in Fuel & Transport expenses.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
     }
-    if (confirmDelete) DeleteConfirmation("Delete refuel?", "This removes the refuel and its linked expense. Measured consumption will be recalculated.", busy, { confirmDelete = false }, delete)
+    if (confirmDelete) DeleteConfirmation("Delete refuel?", "This removes the refuel and its linked expense. Consumption estimates will be recalculated; Undo is available in Expenses.", busy, { confirmDelete = false }, delete)
 }
 @Composable
 fun DeleteConfirmation(title: String, detail: String, busy: Boolean, cancel: () -> Unit, confirm: () -> Unit) {
     val interaction = rememberAppLockInteraction()
     AlertDialog(onDismissRequest = { if (!busy) cancel() }, title = { Text(title) }, text = { PrivacyDialogWindow(); Text(detail) },
-        properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOn),
+        properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOff),
         confirmButton = { TextButton(onClick = { if (interaction()) confirm() }, enabled = !busy) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = cancel, enabled = !busy) { Text("Cancel") } })
 }

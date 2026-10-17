@@ -26,7 +26,7 @@ import org.robolectric.annotation.LooperMode
 @LooperMode(LooperMode.Mode.PAUSED)
 class MainPagerTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
-    private val labels = listOf("Home", "Fuel", "Expenses", "Journey", "Analysis")
+    private val labels = listOf("Home", "Expenses", "Fuel", "Journey", "Analysis")
     private fun nav(label: String) = compose.onNode(hasText(label) and hasClickAction() and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab))
     private fun settle() { compose.mainClock.advanceTimeBy(1_000); compose.waitForIdle() }
     private fun ready(dark: Boolean = false) {
@@ -60,8 +60,8 @@ class MainPagerTest {
             down(Offset(width * .82f, 35f)); moveTo(Offset(width * .25f, 35f), 450)
         }
         compose.onNodeWithTag("main-page-Home").assertIsDisplayed()
-        compose.onNodeWithTag("main-page-Fuel").assertIsDisplayed()
-        compose.onNodeWithTag("main-pager").performTouchInput { up() }; settle(); selected("Fuel")
+        compose.onNodeWithTag("main-page-Expenses").assertIsDisplayed()
+        compose.onNodeWithTag("main-pager").performTouchInput { up() }; settle(); selected("Expenses")
         for (label in labels.drop(2)) { swipe(true); selected(label) }
         swipe(true); selected("Analysis")
         for (label in labels.dropLast(1).reversed()) { swipe(false); selected(label) }
@@ -133,7 +133,7 @@ class MainPagerTest {
 
     @Test fun activityRecreationPreservesPageDraftScrollAndViewModel() {
         ready(dark = true)
-        swipe(true); selected("Fuel"); swipe(false); selected("Home")
+        swipe(true); selected("Expenses"); swipe(false); selected("Home")
         navigate("Journey")
         field("Origin").performTextInput("Draft after rotation")
         val journey = ViewModelProvider(compose.activity)[JourneyViewModel::class.java]
@@ -156,10 +156,11 @@ class MainPagerTest {
         val dialog = org.robolectric.shadows.ShadowDialog.getLatestDialog() as androidx.activity.ComponentDialog
         compose.runOnUiThread { dialog.onBackPressedDispatcher.onBackPressed() }; settle()
         compose.onNode(isDialog()).assertDoesNotExist(); selected("Home")
-        scroll("Home", hasContentDescription("Scan")); compose.onNodeWithContentDescription("Scan").performClick(); settle()
+        navigate("Expenses")
+        scroll("Expenses", hasText("Scan receipt")); compose.onNodeWithText("Scan receipt").performClick(); settle()
         compose.onAllNodesWithTag("main-pager").assertCountEquals(0)
-        back(); selected("Home")
-        scroll("Home", hasContentDescription("Scan")); compose.onNodeWithContentDescription("Scan").performClick(); settle()
+        back(); selected("Expenses")
+        scroll("Expenses", hasText("Scan receipt")); compose.onNodeWithText("Scan receipt").performClick(); settle()
         navigate("Fuel"); compose.onNodeWithTag("main-pager").assertExists()
         navigate("Home")
         scroll("Home", hasContentDescription("Settings")); compose.onNodeWithContentDescription("Settings").performClick(); settle()

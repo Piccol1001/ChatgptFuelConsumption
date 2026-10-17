@@ -222,6 +222,11 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
         applyPendingSettings()
         preferences.save(settings)
     }
+    /** Merge individual UI preferences under the same lock as restore and ledger writes. */
+    suspend fun updateSettings(change: (AppSettings) -> AppSettings) = writes.withLock {
+        applyPendingSettings()
+        preferences.save(change(preferences.settings.first()))
+    }
     suspend fun rememberExpensePayment(payment: String) = writes.withLock {
         require(payment in expensePaymentOptions) { "Choose Cash, Card or E-Wallet." }
         applyPendingSettings()

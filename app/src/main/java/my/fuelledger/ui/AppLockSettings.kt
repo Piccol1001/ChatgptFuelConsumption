@@ -106,7 +106,7 @@ fun PrivacyDialogWindow() {
     val originalAccessibility = remember(view) { view.importantForAccessibility }
     SideEffect {
         window?.let {
-            it.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            it.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
             val attributes = it.attributes
             attributes.alpha = if (locked) 0f else 1f
             val block = WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
@@ -145,7 +145,7 @@ fun AppLockSettings() {
     val activity = LocalContext.current.mainActivity() ?: return
     OutlinedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Privacy & app lock", style = MaterialTheme.typography.titleMedium)
+            Text("App lock", style = MaterialTheme.typography.titleMedium)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f)) {
@@ -168,7 +168,7 @@ fun AppLockSettings() {
                     style = MaterialTheme.typography.bodySmall)
             }
             controller.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            Text("Screenshots and recent-app previews are protected. App lock is optional; private data encryption stays enabled independently.",
+            Text("App lock protects access. Private data encryption remains enabled independently.",
                 style = MaterialTheme.typography.bodySmall)
         }
     }

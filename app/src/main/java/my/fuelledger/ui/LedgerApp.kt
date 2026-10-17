@@ -75,6 +75,7 @@ fun LedgerApp(vm: LedgerViewModel) {
         var navigationJob by remember { mutableStateOf<Job?>(null) }
         var settingsOpen by rememberSaveable { mutableStateOf(false) }
         var calendarOpen by rememberSaveable { mutableStateOf(false) }
+        var calendarDate by rememberSaveable { mutableStateOf<String?>(null) }
         var expenseDate by rememberSaveable { mutableStateOf<String?>(null) }
         var expenseDraft by rememberSaveable { mutableStateOf<String?>(null) }
         var scannerOpen by rememberSaveable { mutableStateOf(false) }
@@ -140,6 +141,7 @@ fun LedgerApp(vm: LedgerViewModel) {
             if (expense.fuelId != null) refuelEditId = expense.fuelId
             else expenseEditId = expense.id
         }
+        val motionEnabled = LocalPressMotionEnabled.current
         Scaffold(
             topBar = {
                 if (settingsOpen || financeOpen || scannerOpen || calendarOpen) TopAppBar(title = {
@@ -156,7 +158,7 @@ fun LedgerApp(vm: LedgerViewModel) {
                     NavigationBarItem(selected = pager.currentPage == index, onClick = {
                         scannerOpen = false
                         navigationJob?.cancel()
-                        navigationJob = navigationScope.launch { if (state.settings.reducedMotion) pager.scrollToPage(index) else pager.animateScrollToPage(index) }
+                        navigationJob = navigationScope.launch { if (!motionEnabled) pager.scrollToPage(index) else pager.animateScrollToPage(index) }
                     }, icon = { Icon(ledgerSymbol(destination.symbol), destination.label) }, label = { Text(destination.label) })
                 }
             } },
@@ -178,7 +180,7 @@ fun LedgerApp(vm: LedgerViewModel) {
                     val journeyVm: my.fuelledger.JourneyViewModel = viewModel(factory = financialViewModelFactory)
                     if (incomeOpen) FinanceIncomeEditor(null, incomeId, financeBusy, { incomeOpen = false }, { financeVm.saveIncome(it) { incomeOpen = false } }, null)
                     if (incomeOpen && financeError != null) AlertDialog(onDismissRequest = financeVm::dismissError, title = { Text("Income could not be saved") }, text = { PrivacyDialogWindow(); Text(financeError!!) }, confirmButton = { TextButton(financeVm::dismissError) { Text("OK") } })
-                    if (calendarOpen) SpendingCalendar(state, onExpense, { date -> newExpense(); expenseDate = date.toString() })
+                    if (calendarOpen) SpendingCalendar(state, onExpense, { date -> newExpense(); expenseDate = date.toString() }, calendarDate?.let(java.time.LocalDate::parse))
                     else if (scannerOpen) { SmartReceiptScreen(state, vm) } else if (financeOpen) {
                     FinanceScreen(financeVm, initialSection = financeSection)
                 } else if (settingsOpen) SettingsScreen(state, vm, busy,
@@ -186,21 +188,22 @@ fun LedgerApp(vm: LedgerViewModel) {
                     { backup.launch("fuel-expense-backup.fuelbackup") },
                     { encryptedImport.launch(arrayOf("application/octet-stream", "*/*")) },
                     { legacyImport.launch(arrayOf("application/zip", "application/json", "text/*", "application/octet-stream")) },
-                    { financeSection = "Expected Income"; financeOpen = true })
+                    { financeSection = "Planner"; financeOpen = true },
+                    { financeSection = "Fixed Monthly Expenses"; financeOpen = true })
                 else pageState.SaveableStateProvider("main-screens") {
                     MainPager(pager, enabled = state.settings.mainSwipeEnabled && !incomeOpen && !locked && !addExpense && expenseEditor == null && !addRefuel && refuelEditor == null &&
                         restore == null && operationError == null && pendingBackupOutput == null && pendingRestoreInput == null) { page ->
                         when (mainDestinations[page].key) {
-                            "Journey" -> JourneyScreen(state.settings, journeyVm, state.refuels, saveFallback = { value -> vm.saveSettings(state.settings.copy(consumption = value, consumptionFallbackEnabled = true)) {} }, openSettings = openSettings, expenses = state.expenses)
+                            "Journey" -> JourneyScreen(state.settings, journeyVm, state.refuels, saveFallback = { value -> vm.updateSettings({ it.copy(consumption = value, consumptionFallbackEnabled = true) }) }, openSettings = openSettings, expenses = state.expenses)
                             "Fuel" -> FuelScreen(state, newRefuel, { refuelEditId = it.id }, openSettings = openSettings)
-                            "Expenses" -> ExpensesScreen(state, newExpense, onExpense, openSettings = openSettings, vm = vm, openCalendar = { calendarOpen = true }, duplicate = duplicateExpense, refund = refundExpense)
+                            "Expenses" -> ExpensesScreen(state, newExpense, onExpense, openSettings = openSettings, vm = vm, scanReceipt = { vm.clearReceiptWork(); vm.clearReceiptSuccess(); scannerOpen = true }, openCalendar = { calendarDate = null; calendarOpen = true }, openDay = { date -> calendarDate = date.toString(); calendarOpen = true }, duplicate = duplicateExpense, refund = refundExpense, addRefuel = newRefuel)
                             "Analytics" -> AnalyticsScreen(state, financeState, openSettings = openSettings)
                             else -> HomeScreen(state, newExpense, newRefuel, onExpense, planner = {
                                 MonthlyPlanner(financeState, financeVm, compact = true, openDetails = { financeSection = "Planner"; financeOpen = true })
                             }, scanReceipt = { vm.clearReceiptWork(); vm.clearReceiptSuccess(); scannerOpen = true }, openSettings = openSettings, finance = financeState,
-                                openCalendar = { calendarOpen = true }, addIncome = { incomeId = UUID.randomUUID().toString(); incomeOpen = true },
+                                openCalendar = { calendarDate = null; calendarOpen = true }, openDay = { date -> calendarDate = date.toString(); calendarOpen = true }, addIncome = { incomeId = UUID.randomUUID().toString(); incomeOpen = true },
                                 openPlanner = { financeSection = "Planner"; financeOpen = true }, upcoming = { financeSection = "Fixed Monthly Expenses"; financeOpen = true },
-                                togglePrivacy = { vm.saveSettings(state.settings.copy(privacyMode = !state.settings.privacyMode)) {} })
+                                togglePrivacy = { vm.updateSettings({ it.copy(privacyMode = !it.privacyMode) }) })
                         }
                     }
                 }
@@ -243,12 +246,12 @@ fun LedgerApp(vm: LedgerViewModel) {
                 text = { PrivacyDialogWindow(); Text("Validated backup: ${pending.backup.expenses.size} expenses, ${pending.backup.refuels.size} refuels, ${pending.backup.categories.size} categories, ${pending.receiptCount} receipt photos, ${pending.backup.incomes.size} income records, ${pending.backup.budgets.size} budgets and ${pending.backup.recurring.size} recurring rules, ${pending.backup.plannerMonths.size} monthly plans, ${pending.backup.allocations.size} allocation plans, ${pending.backup.journeys.size} journeys and ${pending.backup.receiptMerchants.size} merchant rules. This replaces all current records, categories and preferences. Create an encrypted backup first if you want to keep your current data.") },
                 confirmButton = { Button(onClick = vm::confirmRestore, enabled = !busy) { Text("Replace data") } },
                 dismissButton = { TextButton(onClick = vm::cancelRestore, enabled = !busy) { Text("Cancel") } },
-                properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOn))
+                properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOff))
         }
         if (!locked) operationError?.let { message ->
             AlertDialog(onDismissRequest = vm::dismissError, title = { Text("Could not complete the action") },
                 text = { PrivacyDialogWindow(); Text(message) }, confirmButton = { TextButton(onClick = vm::dismissError) { Text("OK") } },
-                properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOn))
+                properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOff))
         }
     }
 }
@@ -288,5 +291,5 @@ private fun BackupPasswordDialog(creating: Boolean, busy: Boolean, dismiss: () -
             }
         }) { Text(if (creating) "Encrypt & save" else "Validate backup") } },
         dismissButton = { TextButton(onClick = dismiss, enabled = !busy) { Text("Cancel") } },
-        properties = DialogProperties(dismissOnBackPress = !busy, dismissOnClickOutside = !busy, securePolicy = SecureFlagPolicy.SecureOn))
+        properties = DialogProperties(dismissOnBackPress = !busy, dismissOnClickOutside = !busy, securePolicy = SecureFlagPolicy.SecureOff))
 }

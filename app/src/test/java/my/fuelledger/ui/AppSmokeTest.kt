@@ -119,7 +119,8 @@ class AppSmokeTest {
         captureScreen("analytics")
         scrollScreenTo(hasContentDescription("Settings"))
         compose.onNodeWithContentDescription("Settings").performClick()
-        waitFor("Fuel settings")
+        waitFor("Financial Planning")
+        compose.onNodeWithText("Journey defaults").performScrollTo().performClick()
         compose.onNodeWithText("Default petrol price (RM/L)").assertExists()
     }
 
@@ -144,7 +145,7 @@ class AppSmokeTest {
         assertTrue(snapshot.expenses.isEmpty()); assertTrue(snapshot.refuels.isEmpty())
         scrollScreenTo(hasContentDescription("Settings"))
         compose.onNodeWithContentDescription("Settings").performClick()
-        waitFor("Fuel settings")
+        waitFor("Financial Planning")
         scrollScreenTo(hasText("Theme"))
         compose.onNodeWithText("Theme").performClick()
         compose.onNodeWithText("Dark", useUnmergedTree = true).performClick()
@@ -293,11 +294,12 @@ class AppSmokeTest {
         }
         scrollScreenTo(hasContentDescription("Settings"))
         compose.onNodeWithContentDescription("Settings").performClick()
-        waitFor("Fuel settings")
+        waitFor("Financial Planning")
         compose.onAllNodesWithText("Monthly Allocation").assertCountEquals(0)
         scrollScreenTo(hasText("Monthly Money Planner"))
         compose.onNodeWithText("Monthly Money Planner").performClick()
         waitFor("Expected Income")
+        compose.onNodeWithText("Expected Income").performClick()
         compose.onNodeWithText("Received").performScrollTo().performClick()
         compose.onNodeWithText("Record received income").performScrollTo().performClick()
         waitFor("Add income")
@@ -336,10 +338,11 @@ class AppSmokeTest {
         waitFor("Add refuel")
         field("Odometer (km)").performScrollTo().performTextInput("10500")
         field("Fuel quantity (L)").performScrollTo().performTextInput("40")
-        field("Total payment (RM)").performScrollTo().performTextInput("82")
+        "8200".forEach { compose.onNodeWithTag("expense-key-$it").performScrollTo().performClick() }
 
-        compose.onNodeWithText("12.50 km/L").performScrollTo().assertIsDisplayed()
-        compose.onNode(isToggleable()).performScrollTo().assertIsOff()
+        compose.onNodeWithText("Estimated Fuel Consumption · 12.50 km/L").performScrollTo().assertIsDisplayed()
+        compose.onAllNodes(isToggleable()).assertCountEquals(0)
+        compose.onNodeWithText("Receipt & station").performScrollTo().performClick()
         compose.onNodeWithText("Choose receipt photo").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Save").performClick()
         waitForEditorToClose("Add refuel")
@@ -351,6 +354,7 @@ class AppSmokeTest {
         assertEquals(40.0, saved.litres, 0.0)
         assertEquals(8_200L, saved.cents)
         assertFalse(saved.fullTank)
+        assertEquals("RON95", saved.fuelType)
         assertNull(saved.receiptFile)
         assertEquals(2, snapshot.expenses.size)
         assertEquals(snapshot.refuels.map { it.id }.toSet(), snapshot.expenses.mapNotNull { it.fuelId }.toSet())
@@ -358,5 +362,12 @@ class AppSmokeTest {
         assertEquals(8_200L, snapshot.expenses.single { it.fuelId == saved.id }.cents)
         // Both partial fills appear once in spending; refuel records do not add a second charge.
         assertEquals(10_250L, snapshot.expenses.sumOf { it.cents })
+        navigate("Journey")
+        waitFor("8.00 L/100 km")
+        compose.onAllNodesWithText("Fallback (L/100 km)").assertCountEquals(0)
+        field("Outbound distance (km)").performScrollTo().performTextInput("150")
+        scrollScreenTo(hasText("RM 24.60"))
+        compose.onNodeWithText("RM 24.60").assertExists()
+
     }
 }

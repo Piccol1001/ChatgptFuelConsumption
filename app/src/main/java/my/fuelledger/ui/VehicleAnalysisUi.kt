@@ -10,21 +10,22 @@ import my.fuelledger.domain.*
     val coverage = vehicleCoverage(state.refuels, state.expenses, state.categories)
     LedgerCard {
         Text("Fuel performance & recorded costs", style = MaterialTheme.typography.titleMedium)
+        Text("Estimated consumption · equal post-refuel levels assumed", style = MaterialTheme.typography.bodySmall)
         Text(change?.let { "Recent consumption ${if (it.percent >= 0) "increased" else "improved"} ${number(kotlin.math.abs(it.percent), 1)}%" }
-            ?: "Consumption comparison needs four valid full-tank intervals.", style = MaterialTheme.typography.bodyMedium)
+            ?: "Consumption comparison needs four valid odometer intervals.", style = MaterialTheme.typography.bodyMedium)
         if (change != null) Text("Latest two intervals vs earlier intervals. Driving conditions affect consumption.", style = MaterialTheme.typography.bodySmall)
         Text(averageFuelPrice(state.refuels)?.let { "Average price paid: RM ${number(it, 3)}/L · volume weighted" } ?: "No recorded fuel prices", style = MaterialTheme.typography.bodyMedium)
         coverage?.let {
             Text("Fuel-only: RM ${number(it.fuelRmPerKm, 4)}/km", style = MaterialTheme.typography.titleMedium)
             Text("Recorded operating: RM ${number(it.recordedRmPerKm, 4)}/km", style = MaterialTheme.typography.titleMedium)
-            Text("${dateLabel(localDate(it.start))} – ${dateLabel(localDate(it.end))} · ${number(it.distance)} km in valid measured intervals", style = MaterialTheme.typography.bodySmall)
+            Text("${dateLabel(localDate(it.start))} – ${dateLabel(localDate(it.end))} · ${number(it.distance)} km in provisional odometer intervals", style = MaterialTheme.typography.bodySmall)
             Text("Includes fuel and recorded ${state.categories.filter { c -> c.id in it.categoryIds }.joinToString { c -> c.name }}. Complete ownership cost is unavailable.", style = MaterialTheme.typography.bodySmall)
-        } ?: Text("Cost per kilometre needs a complete full-tank interval.", style = MaterialTheme.typography.bodySmall)
+        } ?: Text("Cost per kilometre needs two valid odometer records.", style = MaterialTheme.typography.bodySmall)
         fuelCostDrivers(state.refuels.map { it.point() })?.let { driver ->
-            Text("Measured cost/km change · price RM ${number(driver.priceRmPerKm, 4)} · consumption RM ${number(driver.consumptionRmPerKm, 4)}", style = MaterialTheme.typography.bodySmall)
+            Text("Estimated cost/km change · price RM ${number(driver.priceRmPerKm, 4)} · consumption RM ${number(driver.consumptionRmPerKm, 4)}", style = MaterialTheme.typography.bodySmall)
         }
         val recent = state.refuels.sortedBy { it.timestamp }.takeLast(2)
-        if (recent.size == 2) Text("Last price change: RM ${number(recent[1].pricePerLitre - recent[0].pricePerLitre, 3)}/L. Price changes and consumption changes are measured separately.", style = MaterialTheme.typography.bodySmall)
+        if (recent.size == 2) Text("Last price change: RM ${number(recent[1].pricePerLitre - recent[0].pricePerLitre, 3)}/L. Prices are recorded; consumption remains an estimate.", style = MaterialTheme.typography.bodySmall)
     }
 }
 

@@ -104,7 +104,7 @@ fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel, refuels: List<Ref
         item {
             LedgerCard {
                 Text("Fuel settings", style = MaterialTheme.typography.titleMedium)
-                Text("Historical consumption", style = MaterialTheme.typography.labelLarge)
+                Text("Estimated Fuel Consumption", style = MaterialTheme.typography.labelLarge)
                 Text(historical?.let { "${number(it)} L/100 km" } ?: "Not enough fuel data", style = MaterialTheme.typography.titleLarge)
                 if (historical != null || input.consumptionOverride) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -127,7 +127,7 @@ fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel, refuels: List<Ref
                     val scenario = runCatching { journeyCost(input.plan(effectiveConsumption, consumptionSource).copy(petrolPrice = alternative)) }.getOrNull()
                     Text(scenario?.let { "Scenario fuel ${Money.format(it.fuelCents)} · total ${Money.format(it.totalCents)}" } ?: "Enter a valid price for comparison", style = MaterialTheme.typography.bodyMedium)
                 }
-                ExpandableHelp("Fuel estimate") { Text("Uses the distance-weighted full-tank average. Overrides affect only this journey. An enabled fallback is used only while history is insufficient.", style = MaterialTheme.typography.bodySmall) }
+                ExpandableHelp("Fuel estimate") { Text("Uses the weighted odometer estimate and assumes equal fuel levels after refuelling. Partial fills can be inaccurate. Overrides affect only this journey; fallback applies only without history.", style = MaterialTheme.typography.bodySmall) }
             }
         }
         item { FeeSection("Outbound toll fees", input.outboundTolls, "Toll", { update(input.copy(outboundTolls = it)) }) }

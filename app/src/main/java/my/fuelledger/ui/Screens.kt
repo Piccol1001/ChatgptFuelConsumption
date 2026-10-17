@@ -39,8 +39,8 @@ private val shortMonthFormat = DateTimeFormatter.ofPattern("MMM yy", Malaysia)
 fun HomeScreen(state: LedgerState, addExpense: () -> Unit, addRefuel: () -> Unit, edit: (Expense) -> Unit,
     planner: (@Composable () -> Unit)? = null, scanReceipt: (() -> Unit)? = null, openSettings: (() -> Unit)? = null,
     finance: my.fuelledger.FinanceState = my.fuelledger.FinanceState(), addIncome: () -> Unit = {},
-    openCalendar: () -> Unit = {}, openPlanner: () -> Unit = {}, upcoming: () -> Unit = openPlanner, togglePrivacy: () -> Unit = {}) {
-    OverviewDashboard(state, finance, addExpense, addIncome, scanReceipt ?: {}, openCalendar, openSettings, openPlanner, upcoming, togglePrivacy)
+    openCalendar: () -> Unit = {}, openDay: (LocalDate) -> Unit = { openCalendar() }, openPlanner: () -> Unit = {}, upcoming: () -> Unit = openPlanner, togglePrivacy: () -> Unit = {}) {
+    OverviewDashboard(state, finance, addExpense, addRefuel, edit, openDay, openSettings, upcoming, togglePrivacy)
 }
 
 @Composable
@@ -51,8 +51,9 @@ fun FuelScreen(state: LedgerState, add: () -> Unit, edit: (Refuel) -> Unit, open
     val current = state.refuels.filter { YearMonth.from(localDate(it.timestamp)) == month }
     val estimates = remember(state.refuels) { fillEstimates(state.refuels.map { it.point() }) }
     val measured = remember(state.refuels) { efficiencies(state.refuels.map { it.point() }) }
-    val measuredLast = measured.lastOrNull()
-    val measuredAverage = if (measured.isEmpty()) null else measured.sumOf { it.distance } / measured.sumOf { it.litres }
+    val latest = estimates.lastOrNull()
+    val historical = remember(state.refuels) { historicalConsumption(state.refuels.map { it.point() }) }
+    val average = historical?.let { 100 / it }
     val newest = state.refuels.maxByOrNull { it.timestamp }
     val records = state.refuels.sortedByDescending { it.timestamp }
     LazyColumn(contentPadding = ledgerScreenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -60,14 +61,14 @@ fun FuelScreen(state: LedgerState, add: () -> Unit, edit: (Refuel) -> Unit, open
         item {
             LedgerCard(emphasized = true) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Average fuel efficiency", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text("Estimated Fuel Consumption", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onPrimaryContainer)
                     Icon(ledgerSymbol("speed"), null, tint = MaterialTheme.colorScheme.primary)
                 }
-                Text(measuredAverage?.let { "${number(it)} km/L" } ?: "— km/L", style = MaterialTheme.typography.headlineLarge)
-                Text(historicalConsumption(state.refuels.map { it.point() })?.let { "${number(it)} L/100 km" } ?: "Complete two full-tank readings to begin.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text(average?.let { "${number(it)} km/L" } ?: "— km/L", style = MaterialTheme.typography.headlineLarge)
+                Text(historical?.let { "${number(it)} L/100 km" } ?: "Add two valid odometer readings to begin.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = .18f))
-                Text("WEIGHTED · FULL-TANK INTERVALS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                ExpandableHelp("Fuel calculation") { Text("Total litres consumed ÷ total measured distance × 100 across complete full-tank intervals. Partial fills within each interval are included once. Per-fill estimates remain in refuelling history.", style = MaterialTheme.typography.bodySmall) }
+                Text("PROVISIONAL · WEIGHTED ODOMETER INTERVALS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                ExpandableHelp("Fuel calculation") { Text(FUEL_ESTIMATE_ASSUMPTION, style = MaterialTheme.typography.bodySmall) }
             }
         }
         item { ResponsivePair(
@@ -75,22 +76,22 @@ fun FuelScreen(state: LedgerState, add: () -> Unit, edit: (Refuel) -> Unit, open
             second = { Stat("Latest price / litre", newest?.let { "RM ${number(it.pricePerLitre, 3)}" } ?: "—", it, newest?.let { dateLabel(localDate(it.timestamp)) } ?: "No refuels yet") }
         ) }
         item { LedgerAction("Add Refuel", ledgerSymbol("add"), Modifier.fillMaxWidth(), onClick = add) }
-        item { FuelTrend(measured.map { cycle ->
+        item { FuelTrend(estimates.map { cycle ->
             val record = state.refuels.find { it.id == cycle.endId }
             (record?.let { dateLabel(localDate(it.timestamp)) } ?: "Cycle") to cycle.kmPerLitre
-        }, "Valid full-tank intervals · km/L") }
+        }, "Provisional estimates · km/L") }
         item { VehicleAnalysisCard(state) }
         item { FuelPriceHistory(state.refuels) }
         item {
             LedgerCard {
-                Text("Historical consumption", style = MaterialTheme.typography.titleMedium)
-                Text(historicalConsumption(state.refuels.map { it.point() })?.let { "${number(it)} L/100 km" } ?: "Not enough fuel data", style = MaterialTheme.typography.headlineSmall)
-                if (measuredLast != null) {
-                    Text("${number(measuredLast.kmPerLitre)} km/L", style = MaterialTheme.typography.headlineSmall)
-                    Text("Latest measured cycle · ${number(measuredLast.litresPer100Km)} L/100 km · RM ${number(measuredLast.costPerKm, 4)}/km", style = MaterialTheme.typography.bodySmall)
-                    Text("Average ${number(measuredAverage!!)} km/L across ${measured.size} valid cycles", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                Text("Historical estimate", style = MaterialTheme.typography.titleMedium)
+                Text(historical?.let { "${number(it)} L/100 km" } ?: "Not enough fuel data", style = MaterialTheme.typography.headlineSmall)
+                if (latest != null) {
+                    Text("${number(latest.kmPerLitre)} km/L", style = MaterialTheme.typography.headlineSmall)
+                    Text("Latest estimated interval · ${number(latest.litresPer100Km)} L/100 km · RM ${number(latest.costPerKm, 4)}/km", style = MaterialTheme.typography.bodySmall)
+                    Text("Weighted ${number(average!!)} km/L across ${estimates.size} intervals", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                 }
-                ExpandableHelp("Full-tank calculation") { Text("Two full-tank records close a cycle. Partial fills between them are included; the first tank's purchase is excluded. The historical average weights cycles by distance.", style = MaterialTheme.typography.bodySmall) }
+                ExpandableHelp("Estimate assumptions") { Text(FUEL_ESTIMATE_ASSUMPTION, style = MaterialTheme.typography.bodySmall) }
             }
         }
         item {
@@ -126,8 +127,8 @@ private fun RefuelHistoryCard(refuel: Refuel, estimate: FillEstimate?, measured:
                 }
                 Text("${number(refuel.odometer, 1)} km ODO · ${number(refuel.litres)} L · RM ${number(refuel.pricePerLitre, 3)}/L", style = MaterialTheme.typography.bodySmall)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(8.dp)) {
-                        Text(if (refuel.fullTank) "Full tank" else "Partial fill", Modifier.padding(horizontal = 9.dp, vertical = 5.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    if (refuel.fullTank) Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(8.dp)) {
+                        Text("Recorded full tank", Modifier.padding(horizontal = 9.dp, vertical = 5.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
                     }
                     if (refuel.fuelType.isNotBlank()) Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, shape = RoundedCornerShape(8.dp)) {
                         Text(refuel.fuelType, Modifier.padding(horizontal = 9.dp, vertical = 5.dp), style = MaterialTheme.typography.labelSmall)
@@ -148,7 +149,7 @@ private fun RefuelHistoryCard(refuel: Refuel, estimate: FillEstimate?, measured:
 
 @Composable
 fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit, planner: (@Composable () -> Unit)? = null, scanReceipt: (() -> Unit)? = null, openSettings: (() -> Unit)? = null,
-    vm: my.fuelledger.LedgerViewModel? = null, openCalendar: () -> Unit = {}, duplicate: (Expense) -> Unit = {}, refund: (Expense) -> Unit = {}) {
+    vm: my.fuelledger.LedgerViewModel? = null, openCalendar: () -> Unit = {}, openDay: (LocalDate) -> Unit = { openCalendar() }, duplicate: (Expense) -> Unit = {}, refund: (Expense) -> Unit = {}, addRefuel: () -> Unit = {}) {
     val calendar = currentCalendar()
     val today = calendar.today
     val currentMonth = YearMonth.from(today)
@@ -166,7 +167,7 @@ fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit,
     val end = LocalDate.parse(endText)
     val rangeValid = !end.isBefore(start)
     val totals = remember(state.expenses, calendar.zone) { spending(state, calendar.zone) }
-    val filtered = remember(state.expenses, start, end, category, query, sort, paymentFilter, kindFilter) {
+    val filtered = remember(state.expenses, state.categories, calendar.zone, start, end, category, query, sort, paymentFilter, kindFilter) {
         val records = state.expenses.filter { rangeValid && localDate(it.timestamp) in start..end &&
             (category.isEmpty() || it.categoryId == category) && (paymentFilter.isEmpty() || expensePaymentGroup(it.payment) == paymentFilter) && (kindFilter.isEmpty() || it.kind == kindFilter) && matchesExpense(it, query, state.categories, calendar.zone) }
         when (sort) { "Oldest" -> records.sortedBy { it.timestamp }; "Highest" -> records.sortedByDescending { it.cents }; else -> records.sortedByDescending { it.timestamp } }
@@ -182,8 +183,9 @@ fun ExpensesScreen(state: LedgerState, add: () -> Unit, edit: (Expense) -> Unit,
             second = { Stat("This week", Money.format(totals.week(today)), it, "Monday–Sunday") }
         ) }
         item { LedgerAction("Add Expense", ledgerSymbol("add"), Modifier.fillMaxWidth(), onClick = add) }
-        item { TextButton(openCalendar) { Text("Spending Calendar") } }
-        if (vm != null && favouriteEntries.isNotEmpty()) item(key = "favourites") { ExpenseFavourites(vm, state, duplicate, favouriteEntries) }
+        if (scanReceipt != null) item { TextButton(scanReceipt) { Icon(Icons.Outlined.DocumentScanner, null); Spacer(Modifier.width(8.dp)); Text("Scan receipt") } }
+        item(key = "calendar") { EmbeddedSpendingCalendar(state, edit, openDay) }
+        if (vm != null && favouriteEntries.isNotEmpty()) item(key = "favourites") { ExpenseFavourites(vm, state, duplicate, favouriteEntries, addRefuel) }
         if (vm != null && undoEntries.isNotEmpty()) item(key = "transaction-undo") { TransactionUndoBar(vm, undoEntries.firstOrNull()) }
         item { SectionTitle("Transaction history", "${dateLabel(start)} – ${dateLabel(end)}") }
         item {
@@ -273,20 +275,6 @@ fun AnalyticsScreen(state: LedgerState, finance: my.fuelledger.FinanceState? = n
         if (customRange) maxOf(m.atDay(1), start) to minOf(m.atEndOfMonth(), end) else m.atDay(1) to m.atEndOfMonth()
     LazyColumn(contentPadding = ledgerScreenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item { ScreenHeading("Analytics", "Understand your spending, at your own pace.", ledgerSymbol("analytics"), openSettings) }
-        if (finance != null && !customRange) item {
-            val plan = finance.months.find { it.month == month.toString() }?.occurrences() ?: plannedOccurrences(finance.recurring, month)
-            val money = monthlyMoney(month, plan, finance.income, state.expenses, calendar.zone)
-            LedgerCard {
-                Text("Monthly plan vs actual · $month", style = MaterialTheme.typography.titleMedium)
-                Text("Expected income ${Money.format(money.expected)} · fixed commitments ${Money.format(money.fixed)}", style = MaterialTheme.typography.bodySmall)
-                Text("Planned available ${Money.format(money.plannedAvailable)}", style = MaterialTheme.typography.titleMedium)
-                Text("Actual net cash flow ${Money.format(money.actualNet)}", style = MaterialTheme.typography.titleSmall)
-                val allocations = (finance.allocations.find { it.scope == month.toString() } ?: finance.allocations.find { it.scope == "default" })?.categories() ?: defaultAllocations
-                val savings = allocationAmounts(money.plannedAvailable, allocations, state.expenses, month, calendar.zone, plan).filter { it.category.savings }.sumOf { it.allocated }
-                Text("Planned savings reserve ${Money.format(savings)} · no transfer recorded", style = MaterialTheme.typography.bodySmall)
-                Text("Charts below show actual recorded expenses, including paid fixed commitments.", style = MaterialTheme.typography.bodySmall)
-            }
-        }
         item {
             LedgerCard {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -338,7 +326,7 @@ fun AnalyticsScreen(state: LedgerState, finance: my.fuelledger.FinanceState? = n
         }
         if (distribution.isEmpty()) item { EmptyState("Your next insight starts here", "Add expenses in this date range to see category totals and spending patterns.") }
         if (valid) {
-            item { DailySpending(totals, start, end) }
+            item { DailySpending(totals, start, end, today) }
             if (customRange && YearMonth.from(start) < firstTrendMonth) item {
                 Text("Monthly charts show the latest 12 months of your selected period.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -361,30 +349,5 @@ fun AnalyticsScreen(state: LedgerState, finance: my.fuelledger.FinanceState? = n
             first = { Stat("Today", Money.format(totals.today(today)), it) },
             second = { Stat("This week", Money.format(totals.week(today)), it, "Monday–Sunday") }
         ) }
-    }
-}
-
-@Composable
-private fun DailySpending(totals: Spending, start: LocalDate, end: LocalDate) {
-    val privacy = LocalUiPreferences.current.privacyMode
-    val chartStart = maxOf(start, end.minusDays(30))
-    val days = generateSequence(chartStart) { it.plusDays(1) }.takeWhile { it <= end }.toList()
-    val data = days.map { totals.today(it) }
-    val max = data.maxOrNull()?.coerceAtLeast(1) ?: 1L
-    LedgerCard(Modifier.chartGestureRegion()) {
-        Text("Daily expenditure", style = MaterialTheme.typography.titleMedium)
-        Text("${dateLabel(chartStart)} – ${dateLabel(end)}${if (chartStart > start) " · latest 31 days in period" else ""} · swipe across · MYR", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
-            data.forEachIndexed { index, cents ->
-                Column(Modifier.widthIn(min = 54.dp).clearAndSetSemantics { contentDescription = maskAmounts("${dateLabel(days[index])}: ${Money.format(cents)}", privacy) }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(if (LocalUiPreferences.current.privacyMode) "••••" else Money.decimal(cents), style = MaterialTheme.typography.labelSmall)
-                    Box(Modifier.height(110.dp).width(22.dp), contentAlignment = Alignment.BottomCenter) {
-                        Box(Modifier.fillMaxWidth().height(if (cents > 0) (110 * cents.toDouble() / max).dp else 2.dp)
-                            .background(if (cents > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(5.dp)))
-                    }
-                    Text(days[index].format(DateTimeFormatter.ofPattern("d MMM", Malaysia)), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
     }
 }

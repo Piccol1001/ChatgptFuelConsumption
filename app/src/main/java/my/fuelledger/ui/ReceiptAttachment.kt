@@ -115,7 +115,7 @@ fun ReceiptAttachment(ownerId: String, fileName: String?, vm: LedgerViewModel, b
         }
     }
     if (viewing && fileName != null) Dialog(onDismissRequest = { viewing = false },
-        properties = DialogProperties(usePlatformDefaultWidth = false, securePolicy = SecureFlagPolicy.SecureOn)) {
+        properties = DialogProperties(usePlatformDefaultWidth = false, securePolicy = SecureFlagPolicy.SecureOff)) {
         PrivacyDialogWindow()
         Surface(Modifier.fillMaxWidth().fillMaxHeight(.92f).padding(12.dp), shape = MaterialTheme.shapes.large) {
             Column(Modifier.padding(16.dp)) {
@@ -178,7 +178,7 @@ internal fun ReceiptReviewDialog(suggestions: ReceiptSuggestions, categories: Li
     fun reviewedValue(key: String): String? = fields.indexOfFirst { it.key == key }.takeIf { it >= 0 && key in selected }
         ?.let { values[it].trim().ifBlank { null } }
     AlertDialog(onDismissRequest = dismiss, title = { Text("Review scanned details") },
-        properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOn),
+        properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOff),
         text = {
             PrivacyDialogWindow()
             Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {

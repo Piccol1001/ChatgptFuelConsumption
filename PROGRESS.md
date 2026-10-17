@@ -1,3 +1,42 @@
+# Current progress — Corrective UI/fuel update and version workflow
+
+17 October 2026 (Malaysia). Baseline `4ef21fc`, protected by local branch `checkpoint/refinement-2026-10-17`. This is an in-place extension of the existing app; Room schema 5, application ID and historical records are unchanged. The original request is in `docs/refinement-2026-10-17/REQUEST.md`.
+
+## Completed implementation
+
+Home now shows actual today's expenses, a trailing-aligned budget label, Expense/Fuel actions and the shared embedded calendar. Expenses embeds the same calendar, omits dedicated Fuel from manual category icons and orders payments E-Wallet/Cash/Card; historical fuel entries remain editable/filterable. Main pages are Home/Expenses/Fuel/Journey/Analysis. Fuel/Journey/analytics use weighted provisional consecutive-odometer estimates after two valid refuels. Refuel entry defaults to RON95, uses exact cents and retains hidden historical metadata. Analysis removes only its plan-vs-actual card and adds a virtualized daily chart centred on today. Settings is compact; preference writes merge atomically without global busy/disabled flashes. App/dialog screenshots are allowed while authentication and encrypted storage remain.
+
+## Currently being verified
+
+The Settings regression failed on both API26/35 before the fix. Targeted UI/fuel/calendar/chart checks pass, and integration tests verify stable unrelated-button pixels during a blocked preference write. Existing navigation/Settings tests were updated for the intentionally changed order, scanner location and collapsed controls. Final full-suite/build/lint/native checks remain in progress. No disabled tests or relaxed financial assertions are used.
+
+## Files / release preparation
+
+Affected code is in `ui/OverviewDashboard.kt`, `ExpenseToolsUi.kt`, `DailySpendingChart.kt`, `Screens.kt`, `SettingsScreen.kt`, `Editors.kt`, `MainPager.kt`, shared interactions/calendar/dialog windows, `domain/Calculations.kt`, `VehicleAnalysis.kt`, `LedgerViewModel.kt` and atomic settings updates in `LedgerRepository.kt`.
+
+All ten historical distribution APKs were inspected: 1.0.0/code1, 1.2.0/code4, 1.3.0/code5 and seven 1.4.0/code6 binaries. All share the original certificate. Historical filenames and metadata remain unchanged in RELEASES.md and releases/history.json. Six release-workflow tests pass, covering semantic bumps, failed attempts, wrong certificates/metadata, missing keys, overwrite refusal and historical preservation.
+
+The target new version is **1.5.0/code7**, for the embedded calendar/chart functionality and corrective update. It is **not released yet**: version.properties remains 1.4.0/code6 until `scripts/release.py` finishes all checks and verifies the actual APK. RELEASING.md and AGENTS.md define the future workflow. No key/password is added to Git.
+
+## Remaining / known issues
+
+Finish full verification, resolve any actual failures, run the release workflow, test the exact final APK on an isolated Android user, retain screen captures and reports, update the download link, commit/push and verify its public hash. Physical camera/gallery, OEM launcher/widget behavior, external providers and real system-edge gestures remain device checks. Screenshots now expose visible information to authorized device recording tools by explicit request.
+
+## Resume exactly
+
+```sh
+cd /workspace/ChatgptFuelConsumption
+git status --short --branch
+source /workspace/.tooling/fuel-ledger-env.sh
+python -m unittest discover -s scripts/tests -v
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+```
+
+Read RELEASING.md before publishing. Once source is verified/checkpointed, run `python scripts/release.py --bump minor --date 2026-10-17 --notes docs/refinement-2026-10-17/RELEASE_NOTES.md --variant debug` exactly once for this new distribution. Failed attempts do not advance recorded versions. Do not rerun after a successful publication merely to rebuild; use normal Gradle for the recorded version. Keep original signing identity, Room migrations, old APKs and owner app data. Source edits end before sequential release/lint checks. Detailed validation and final file inventory will be added after completion.
+
+<details>
+<summary>Preserved progress before the corrective update</summary>
+
 # Current progress — Comprehensive offline Android upgrade
 
 Updated **17 October 2026 (Malaysia time)**. Implementation and final host verification are complete. The existing Kotlin/Compose app was extended in place from `ece52c2`, with milestone commits `e413fc6`, `640ffdf`, `14e319c`, `956887a` and `b509388`. Previous progress is preserved below.
@@ -941,6 +980,8 @@ Statuses: **A** new, **M** modified, **D** previously removed/replaced launcher 
 | M | `app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt` |
 
 Total: **65 changed files**, including this document.
+
+</details>
 
 </details>
 

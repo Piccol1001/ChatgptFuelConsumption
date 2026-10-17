@@ -44,7 +44,7 @@ CSV exports and explicitly imported older JSON/ZIP backups are plaintext formats
 
 ## Lock, scheduling, and platform backup
 
-Optional app lock uses AndroidX BiometricPrompt or the device credential on older supported Android versions. It must relock after configured inactivity and backgrounding while retaining entry state behind protected UI. `FLAG_SECURE` protects app windows/recent-app previews. Locking and data encryption are separate controls; local scheduled payments still work without authenticating in a foreground session.
+Optional app lock uses AndroidX BiometricPrompt or the device credential on older supported Android versions. It must relock after configured inactivity and backgrounding while retaining entry state behind protected UI. At the user’s request, application and dialog windows allow normal screenshots (no `FLAG_SECURE`). This reduces protection against device screenshots, recent-app thumbnails and authorized recording tools. App lock still hides and blocks the underlying ledger/dialogs while locked; it does not impose a screenshot restriction. Locking and data encryption are separate controls; local scheduled payments still work without authenticating in a foreground session.
 
 Recurring payments use local dates/time zones, deterministic occurrence IDs, and transactional record/cursor updates. Reconciliation runs at launch and through local WorkManager work. Android may defer background work; reconciliation catches up when the app runs again.
 

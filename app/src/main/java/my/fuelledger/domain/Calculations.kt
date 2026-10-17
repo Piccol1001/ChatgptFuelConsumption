@@ -117,14 +117,20 @@ fun efficiencies(points: List<FuelPoint>): List<Efficiency> {
     return result
 }
 
-/** Distance-weighted, complete full-tank cycles only; purchases at the baseline are excluded. */
+/** Weighted provisional estimate. The baseline purchase is excluded; full flags are irrelevant.
+ * Equal post-refuel fuel levels are assumed, not verified. Arbitrary partial fills can be inaccurate.
+ */
 fun historicalConsumption(points: List<FuelPoint>): Double? {
-    val cycles = efficiencies(points).filter { it.distance.isFinite() && it.distance > 0 && it.litres.isFinite() && it.litres > 0 }
-    if (cycles.isEmpty()) return null
-    val distance = cycles.sumOf { it.distance }
-    val litres = cycles.sumOf { it.litres }
+    val intervals = fillEstimates(points)
+    if (intervals.isEmpty()) return null
+    val distance = intervals.sumOf { it.distance }
+    val litres = intervals.sumOf { it.litres }
     return (litres / distance * 100).takeIf { it.isFinite() && it > 0 }
 }
+
+const val FUEL_ESTIMATE_ASSUMPTION = "Assumes the same fuel level remains after each refuel. " +
+    "The later purchase's litres are used over the distance since the previous odometer. " +
+    "Arbitrary partial fills can make this estimate inaccurate because remaining fuel is unknown."
 
 data class SpendingPoint(val timestamp: Long, val cents: Long, val categoryId: String)
 class Spending(private val points: List<SpendingPoint>, val zone: ZoneId = ZoneId.systemDefault()) {

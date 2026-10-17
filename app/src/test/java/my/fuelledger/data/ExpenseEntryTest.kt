@@ -5,6 +5,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ExpenseEntryTest {
+    @Test fun manualCategoryChoicesOmitDedicatedFuelButKeepTransportParkingTollsAndHistoricalIds() {
+        val transport = listOf("Transport", "Parking", "Tolls").map { Category(it.lowercase(), it, "fuel", 1L) }
+        val choices = manualExpenseCategories(defaultCategories + transport)
+        assertFalse(choices.any { it.id == FUEL_CATEGORY })
+        assertTrue(choices.containsAll(transport)); assertEquals(OTHER_CATEGORY, choices.last().id)
+        assertTrue(defaultCategories.any { it.id == FUEL_CATEGORY })
+        assertEquals(listOf("E-wallet", "Cash", "Card"), expensePaymentOptions)
+    }
+
     @Test fun cardDisplayGroupingPreservesHistoricalStringsUnlessUserChangesGroup() {
         for (raw in listOf("Credit Card", "Debit Card", "Card")) {
             assertEquals("Card", expensePaymentGroup(raw))

@@ -1,5 +1,10 @@
 package my.fuelledger.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -31,13 +36,14 @@ import my.fuelledger.data.AllocationCategory
 fun ExpandableHelp(title: String = "How it works", content: @Composable () -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
     TextButton(onClick = { open = !open }) { Icon(Icons.Outlined.Info, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(if (open) "Hide $title" else title) }
-    if (open) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
+    val duration = if (LocalPressMotionEnabled.current) 150 else 0
+    AnimatedVisibility(open, enter = expandVertically(tween(duration)) + fadeIn(tween(duration)), exit = shrinkVertically(tween(duration)) + fadeOut(tween(duration))) { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { content() } }
 }
 
 @Composable
 fun JourneyTypeToggle(roundTrip: Boolean, change: (Boolean) -> Unit) {
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
-    val reduced = LocalUiPreferences.current.reducedMotion
+    val reduced = !LocalPressMotionEnabled.current
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val interaction = rememberAppLockInteraction()
     val latestInteraction by rememberUpdatedState(interaction)

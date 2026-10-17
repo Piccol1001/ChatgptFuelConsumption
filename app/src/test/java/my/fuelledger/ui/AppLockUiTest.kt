@@ -62,14 +62,14 @@ class AppLockUiTest {
             assertEquals(0f, dialog.window!!.attributes.alpha)
             assertTrue(dialog.window!!.attributes.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
             assertTrue(dialog.window!!.attributes.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE != 0)
-            assertTrue(compose.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0)
+            assertEquals(0, compose.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE)
             compose.activity.appLock.onForeground()
         }
         simulateSuccessfulAuthentication(AppLockAction.UNLOCK)
         compose.onNodeWithText("Private unfinished amount").assertExists()
         compose.runOnIdle {
             assertEquals(1f, dialog.window!!.attributes.alpha)
-            assertTrue(dialog.window!!.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0)
+            assertEquals(0, dialog.window!!.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE)
             assertEquals(0, dialog.window!!.attributes.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
         }
     }

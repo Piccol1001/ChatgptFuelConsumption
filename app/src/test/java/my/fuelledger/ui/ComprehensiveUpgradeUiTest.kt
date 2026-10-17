@@ -50,7 +50,8 @@ class ComprehensiveUpgradeUiTest {
     }
     @Test fun calendarOpensOutsidePagerAndCreatesExpenseOnSelectedLocalDate() {
         ready(); val repository = repo()
-        compose.onNodeWithContentDescription("Calendar").performClick(); settle()
+        scroll(hasTestTag("calendar-date-${LocalDate.now()}")); compose.onNodeWithTag("calendar-date-${LocalDate.now()}").performClick(); settle()
+        scroll(hasText("View day / add expense")); compose.onNodeWithText("View day / add expense").performClick(); settle()
         compose.onNodeWithTag("main-pager").assertDoesNotExist()
         val selected = LocalDate.now().withDayOfMonth(1)
         compose.onNodeWithTag("calendar-date-$selected").performClick()

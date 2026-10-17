@@ -42,12 +42,34 @@ import kotlinx.coroutines.delay
 // Shared main-screen insets; the app Scaffold owns system bars and navigation.
 internal val ledgerScreenPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 28.dp)
 
-// One calendar source updates a long-running dashboard after midnight or a time-zone change.
+// Device-local calendar reacts at midnight, on foreground and to Android clock/zone broadcasts.
 data class CalendarState(val today: LocalDate, val zone: ZoneId)
+internal val LocalCalendarOverride = androidx.compose.runtime.staticCompositionLocalOf<CalendarState?> { null }
 @Composable
 fun currentCalendar(): CalendarState {
-    val clock by produceState(CalendarState(LocalDate.now(), ZoneId.systemDefault())) {
-        while (true) { delay(60_000); value = CalendarState(LocalDate.now(), ZoneId.systemDefault()) }
+    LocalCalendarOverride.current?.let { return it }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    fun read() = ZoneId.systemDefault().let { CalendarState(LocalDate.now(it), it) }
+    val clock by produceState(read(), context, lifecycle) {
+        val refresh = { value = read() }
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) { refresh() }
+        }
+        val filter = android.content.IntentFilter().apply {
+            addAction(android.content.Intent.ACTION_DATE_CHANGED); addAction(android.content.Intent.ACTION_TIME_CHANGED); addAction(android.content.Intent.ACTION_TIMEZONE_CHANGED)
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 33) context.registerReceiver(receiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED)
+        else @Suppress("DEPRECATION") context.registerReceiver(receiver, filter)
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event -> if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) refresh() }
+        lifecycle.addObserver(observer)
+        try {
+            while (true) {
+                val now = ZonedDateTime.now()
+                val untilMidnight = Duration.between(now, now.toLocalDate().plusDays(1).atStartOfDay(now.zone)).toMillis()
+                delay(untilMidnight.coerceIn(1L, 60_000L)); refresh()
+            }
+        } finally { context.unregisterReceiver(receiver); lifecycle.removeObserver(observer) }
     }
     return clock
 }

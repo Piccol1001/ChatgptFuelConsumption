@@ -9,29 +9,29 @@ import java.time.*
 
 class RefinementTest {
     private fun point(id: String, time: Long, odo: Double, litres: Double, full: Boolean) = FuelPoint(id, time, odo, litres, 1000, full)
-    @Test fun weightedAverageUsesTotalConsumedFuelAndDistanceAcrossUnequalCycles() {
+    @Test fun weightedEstimateIncludesAllValidPartialIntervalsAndExcludesBaselinePurchase() {
         val points = listOf(point("a", 1, 1000.0, 99.0, true), point("partial1", 2, 1050.0, 3.0, false),
             point("partial2", 3, 1075.0, 2.0, false), point("b", 4, 1100.0, 5.0, true), point("c", 5, 1500.0, 20.0, true),
             point("unfinished", 6, 1700.0, 30.0, false))
-        assertEquals(6.0, historicalConsumption(points)!!, 0.00001)
-        assertEquals(6.0, historicalConsumption(points.reversed())!!, 0.00001)
-        assertNotEquals(7.5, historicalConsumption(points)!!, 0.01)
+        assertEquals(60.0 / 700.0 * 100, historicalConsumption(points)!!, 0.00001)
+        assertEquals(60.0 / 700.0 * 100, historicalConsumption(points.reversed())!!, 0.00001)
+        assertNotEquals(10.8, historicalConsumption(points)!!, 0.01)
     }
     @Test fun missingAndIncompleteHistoryHasNoInventedConsumption() {
         assertNull(historicalConsumption(emptyList()))
         val full = point("one", 1, 1000.0, 20.0, true)
         assertNull(historicalConsumption(listOf(full)))
-        assertNull(historicalConsumption(listOf(full.copy(full = false), point("p", 2, 1200.0, 10.0, false))))
+        assertEquals(5.0, historicalConsumption(listOf(full.copy(full = false), point("p", 2, 1200.0, 10.0, false)))!!, 0.0)
         assertNull(historicalConsumption(listOf(full, point("same", 2, 1000.0, 10.0, true))))
         assertNull(historicalConsumption(listOf(full, point("bad", 2, 1100.0, Double.NaN, false), point("last", 3, 1200.0, 10.0, true))))
     }
-    @Test fun editingOrDeletingFuelChangesAverageAndIncompleteTrailingPurchasesStayExcluded() {
+    @Test fun editingDeletingAndPartialFlagsUseTheSameHistoricalEstimate() {
         val first = point("a", 1, 1000.0, 30.0, true)
         val second = point("b", 2, 1200.0, 20.0, true)
         assertEquals(10.0, historicalConsumption(listOf(first, second))!!, 0.0)
         assertEquals(5.0, historicalConsumption(listOf(first, second.copy(odometer = 1400.0)))!!, 0.0)
         assertNull(historicalConsumption(listOf(first)))
-        assertNull(historicalConsumption(listOf(first, second.copy(full = false))))
+        assertEquals(10.0, historicalConsumption(listOf(first, second.copy(full = false)))!!, 0.0)
     }
     @Test fun invalidCycleDoesNotPolluteSubsequentValidCycle() {
         val points = listOf(point("a", 1, 1000.0, 30.0, true), point("bad", 2, 950.0, 5.0, true), point("c", 3, 1150.0, 10.0, true))

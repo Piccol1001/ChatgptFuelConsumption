@@ -22,18 +22,18 @@ import java.time.YearMonth
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class OverviewDashboardTest {
     @get:Rule val compose = createComposeRule()
-    @Test fun darkReferenceShowsActualPlanAndBudgetAndRenders() = reference(true)
-    @Test fun lightReferenceShowsActualPlanAndBudgetAndRenders() = reference(false)
+    @Test fun darkReferenceShowsTodayAndBudgetAndRenders() = reference(true)
+    @Test fun lightReferenceShowsTodayAndBudgetAndRenders() = reference(false)
     private fun reference(dark: Boolean) {
         val (state, finance) = overviewSample()
         val money = monthlyMoney(YearMonth.now(), plannedOccurrences(finance.recurring, YearMonth.now()), emptyList(), state.expenses)
         assertEquals(187000, money.plannedAvailable)
         var action = ""
-        compose.setContent { LedgerTheme(dark) { Surface { OverviewDashboard(state, finance, { action = "Expense" }, { action = "Income" }, { action = "Scan" }, { action = "Calendar" }, {}, {}, {}) } } }
-        compose.onNodeWithText("RM 1,870.00").assertExists()
+        compose.setContent { LedgerTheme(dark) { Surface { OverviewDashboard(state, finance, { action = "Expense" }, { action = "Fuel" }, {}, {}, {}, {}) } } }
+        compose.onNodeWithTag("home-today-amount", useUnmergedTree = true).assertTextEquals(my.fuelledger.domain.Money.format(state.expenses.filter { localDate(it.timestamp) == java.time.LocalDate.now() }.sumOf { it.cents }))
         compose.onNodeWithText("75%").assertExists()
-        compose.onNodeWithContentDescription("Income").performClick()
-        assertEquals("Income", action)
+        compose.onNodeWithContentDescription("Fuel").performClick()
+        assertEquals("Fuel", action)
         val image = compose.onRoot().captureToImage().asAndroidBitmap()
         val directory = File("build/reports/comprehensive-upgrade").apply { mkdirs() }
         File(directory, "overview-${if(dark) "dark" else "light"}.png").outputStream().use { assertTrue(image.compress(Bitmap.CompressFormat.PNG, 100, it)) }

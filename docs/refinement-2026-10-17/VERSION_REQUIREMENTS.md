@@ -1,0 +1,5 @@
+# Additional user requirement: automatic APK version management
+
+Preserve the existing package, signing certificate, offline architecture and financial records. Inspect current Gradle versionName/code and every accessible historical APK. Use MAJOR.MINOR.PATCH for architectural changes/new functionality/fixes, with a strictly greater code for each new distribution. Never consume a version on a failed or merely attempted build. Show the actual installed version only in Settings → About → App Version, with no main-header version.
+
+Maintain CHANGELOG.md (version, verified date, features/fixes/UI changes) and RELEASES.md (actual historical APK metadata and dates where verifiable). Preserve historical files/information; do not falsely relabel them. Use descriptive new names such as FuelExpenseTracker_v1.5.0.apk. Verify embedded package/version/certificate after building. Preserve compatible in-place updates without uninstall/data loss and report actual versionName, versionCode, APK location and signing status after successful distribution builds. Establish a consistent workflow for future Codex updates.

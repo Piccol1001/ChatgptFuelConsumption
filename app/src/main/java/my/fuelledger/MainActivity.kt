@@ -29,7 +29,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         appLock = ViewModelProvider(this)[AppLockController::class.java]
         authentication = AppLockAuthenticator(this, appLock)
         val delegate = window.callback

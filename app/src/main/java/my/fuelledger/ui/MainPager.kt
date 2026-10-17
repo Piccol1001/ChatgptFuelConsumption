@@ -20,8 +20,8 @@ import androidx.compose.ui.unit.Velocity
 
 internal data class MainDestination(val key: String, val label: String, val symbol: String)
 internal val mainDestinations = listOf(
-    MainDestination("Home", "Home", "home"), MainDestination("Fuel", "Fuel", "fuel"),
-    MainDestination("Expenses", "Expenses", "expenses"), MainDestination("Journey", "Journey", "route"),
+    MainDestination("Home", "Home", "home"), MainDestination("Expenses", "Expenses", "expenses"),
+    MainDestination("Fuel", "Fuel", "fuel"), MainDestination("Journey", "Journey", "route"),
     MainDestination("Analytics", "Analysis", "analytics"),
 )
 

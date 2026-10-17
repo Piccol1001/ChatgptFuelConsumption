@@ -249,7 +249,22 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
     }
     fun saveCategory(category: Category, done: () -> Unit) = perform("Category saved", done) { repository.saveCategory(category) }
     fun deleteCategory(id: String, done: () -> Unit) = perform("Category deleted; transactions moved to Others", done) { repository.deleteCategory(id) }
-    fun saveSettings(settings: AppSettings, done: () -> Unit) = perform("Preferences saved", done) { repository.saveSettings(settings); my.fuelledger.finance.PlannerReminders.update(app, repository) }
+    // Preferences do not own the global transaction spinner/disabled state. Keep unrelated
+    // controls stable, merge rapid changes atomically and report actual failures normally.
+    fun saveSettings(settings: AppSettings, done: () -> Unit) = updateSettings({ settings }, done)
+    fun updateSettings(change: (AppSettings) -> AppSettings, done: () -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    repository.updateSettings(change)
+                    runCatching { my.fuelledger.widgets.LedgerWidgets.update(app) }
+                    runCatching { my.fuelledger.finance.PlannerReminders.update(app, repository) }
+                }
+                done()
+            } catch (cancelled: CancellationException) { throw cancelled
+            } catch (error: Exception) { _operationError.value = error.message ?: "Preferences could not be saved." }
+        }
+    }
 
     fun export(uri: Uri, kind: String, password: CharArray? = null) {
         if (_busy.value) { password?.fill('\u0000'); return }

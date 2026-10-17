@@ -1,6 +1,7 @@
 package my.fuelledger.ui
 
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.semantics
@@ -57,9 +60,9 @@ import java.util.UUID
             if (expense.kind == "Refund") Text("Refund", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             TextButton({ menu = true }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Actions", style = MaterialTheme.typography.labelSmall) }
             DropdownMenu(menu, { menu = false }) {
-                listOf("Edit", "Duplicate", "Delete").forEach { label -> DropdownMenuItem({ Text(label) }, { menu = false; action(label) }) }
+                listOf("Edit", "Duplicate", "Delete").filterNot { it == "Duplicate" && expense.fuelId != null }.forEach { label -> DropdownMenuItem({ Text(label) }, { menu = false; action(label) }) }
                 if (expense.kind == "Expense") DropdownMenuItem({ Text("Record refund") }, { menu = false; refund(expense) })
-                if (vm != null && expense.kind == "Expense") DropdownMenuItem({ Text("Favourite") }, {
+                if (vm != null && expense.kind == "Expense" && expense.categoryId != FUEL_CATEGORY) DropdownMenuItem({ Text("Favourite") }, {
                     menu = false; vm.saveFavourite(favourite(UUID.randomUUID().toString(), expense.description.ifBlank { expense.merchant.ifBlank { "Favourite" } }.take(100), expense))
                 })
             }
@@ -71,7 +74,7 @@ import java.util.UUID
     }
 }
 
-@Composable fun ExpenseFavourites(vm: LedgerViewModel, state: LedgerState, review: (Expense) -> Unit, favourites: List<FavouriteExpense>) {
+@Composable fun ExpenseFavourites(vm: LedgerViewModel, state: LedgerState, review: (Expense) -> Unit, favourites: List<FavouriteExpense>, refuel: () -> Unit = {}) {
     var editing by remember { mutableStateOf<FavouriteExpense?>(null) }
     var deleting by remember { mutableStateOf<FavouriteExpense?>(null) }
     if (favourites.isNotEmpty()) {
@@ -81,7 +84,7 @@ import java.util.UUID
                 Column {
                     FilledTonalButton(onClick = {
                         val e = value.expense().copy(id = UUID.randomUUID().toString(), timestamp = System.currentTimeMillis())
-                        if (likelyDuplicates(e, state.expenses).isEmpty()) vm.saveExpense(e) {} else review(e)
+                        if (e.categoryId == FUEL_CATEGORY) refuel() else if (likelyDuplicates(e, state.expenses).isEmpty()) vm.saveExpense(e) {} else review(e)
                     }, modifier = Modifier.testTag("favourite-${value.id}")) { Text("${value.name} · ${Money.format(value.expense().cents)}") }
                     Row { TextButton({ editing = value }) { Text("Edit") }; TextButton({ deleting = value }) { Text("Remove") } }
                 }
@@ -110,37 +113,37 @@ import java.util.UUID
     deleting?.let { value -> DeleteConfirmation("Remove favourite?", "Existing transactions are kept.", false, { deleting = null }) { vm.deleteFavourite(value.id); deleting = null } }
 }
 
-@Composable fun SpendingCalendar(state: LedgerState, edit: (Expense) -> Unit, add: (LocalDate) -> Unit) {
-    val clock = currentCalendar()
-    var monthText by rememberSaveable { mutableStateOf(YearMonth.from(clock.today).toString()) }
-    var selectedText by rememberSaveable { mutableStateOf(clock.today.toString()) }
-    val month = YearMonth.parse(monthText)
-    val selected = LocalDate.parse(selectedText)
-    val summary = calendarSummary(state.expenses, month, clock.zone, clock.today)
-    val grouped = state.expenses.groupBy { Instant.ofEpochMilli(it.timestamp).atZone(clock.zone).toLocalDate() }
-    LazyColumn(contentPadding = ledgerScreenPadding, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton({ monthText = month.minusMonths(1).toString(); selectedText = month.minusMonths(1).atDay(1).toString() }, enabled = month.year > 1970) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, "Previous calendar month") }
-                Text(month.toString(), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-                IconButton({ monthText = month.plusMonths(1).toString(); selectedText = month.plusMonths(1).atDay(1).toString() }, enabled = month.year < 2999) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "Next calendar month") }
-            }
+/** One month grid and one local-date transaction source for Home, Expenses and the detail page. */
+@Composable fun SpendingCalendarMonth(state: LedgerState, month: YearMonth, selected: LocalDate,
+    today: LocalDate, zone: ZoneId, select: (LocalDate) -> Unit, changeMonth: (YearMonth) -> Unit) {
+    val privacy = LocalUiPreferences.current.privacyMode
+    val days = remember(state.expenses, zone) { state.expenses.groupBy { Instant.ofEpochMilli(it.timestamp).atZone(zone).toLocalDate() } }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton({ changeMonth(month.minusMonths(1)) }, enabled = month.year > 1970) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, "Previous calendar month") }
+            Text(month.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", my.fuelledger.domain.Malaysia)), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            IconButton({ changeMonth(month.plusMonths(1)) }, enabled = month.year < 2999) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "Next calendar month") }
         }
-        item {
-            val offset = month.atDay(1).dayOfWeek.value - 1
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row { listOf("M", "T", "W", "T", "F", "S", "S").forEach { Text(it, Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.labelSmall) } }
-                repeat((offset + month.lengthOfMonth() + 6) / 7) { row ->
+        Row { listOf("M", "T", "W", "T", "F", "S", "S").forEach { Text(it, Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.labelSmall) } }
+        androidx.compose.animation.Crossfade(month, animationSpec = androidx.compose.animation.core.tween(if (LocalPressMotionEnabled.current) 120 else 0), label = "Calendar month") { displayedMonth ->
+            val offset = displayedMonth.atDay(1).dayOfWeek.value - 1
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                repeat((offset + displayedMonth.lengthOfMonth() + 6) / 7) { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                         repeat(7) { col ->
                             val day = row * 7 + col - offset + 1
-                            if (day !in 1..month.lengthOfMonth()) Spacer(Modifier.weight(1f)) else {
-                                val date = month.atDay(day); val values = grouped[date].orEmpty()
-                                Surface(onClick = { selectedText = date.toString() }, Modifier.weight(1f).heightIn(min = 60.dp).testTag("calendar-date-$date"), shape = MaterialTheme.shapes.small,
-                                    color = if (date == selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer) {
-                                    Column(Modifier.padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            if (day !in 1..displayedMonth.lengthOfMonth()) Spacer(Modifier.weight(1f)) else {
+                                val date = displayedMonth.atDay(day); val values = days[date].orEmpty(); val cents = values.sumOf { it.cents }
+                                Card(onClick = { select(date) }, Modifier.weight(1f).heightIn(min = 48.dp).testTag("calendar-date-$date")
+                                    .semantics { contentDescription = maskAmounts("${dateLabel(date)}, ${Money.format(cents)}${if (date == today) ", Today" else ""}", privacy); this.selected = date == selected },
+                                    shape = MaterialTheme.shapes.small,
+                                    border = if (date == today) androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+                                    colors = CardDefaults.cardColors(containerColor = if (date == selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer)) {
+                                    Column(Modifier.padding(vertical = 5.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                         Text(day.toString(), style = MaterialTheme.typography.labelLarge)
-                                        if (values.isNotEmpty()) Text(if (LocalUiPreferences.current.privacyMode) "••••" else Money.decimal(values.sumOf { it.cents }), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                        Text(if (values.isEmpty()) "" else if (LocalUiPreferences.current.privacyMode) "•••" else compactCalendarAmount(cents),
+                                            style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                        if (values.isNotEmpty()) Box(Modifier.size(3.dp).background(MaterialTheme.colorScheme.primary, androidx.compose.foundation.shape.CircleShape))
                                     }
                                 }
                             }
@@ -149,10 +152,58 @@ import java.util.UUID
                 }
             }
         }
+    }
+}
+
+internal fun compactCalendarAmount(cents: Long): String = when {
+    kotlin.math.abs(cents) >= 100_000_000 -> "${number(cents / 100_000_000.0, 1)}m"
+    kotlin.math.abs(cents) >= 100_000 -> "${number(cents / 100_000.0, 1)}k"
+    else -> Money.decimal(cents)
+}
+
+/** Compact embedded calendar. Selecting a day exposes exact totals and its actual records. */
+@Composable fun EmbeddedSpendingCalendar(state: LedgerState, edit: (Expense) -> Unit, openDay: (LocalDate) -> Unit) {
+    val clock = currentCalendar()
+    var monthText by rememberSaveable { mutableStateOf(YearMonth.from(clock.today).toString()) }
+    var selectedText by rememberSaveable { mutableStateOf(clock.today.toString()) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    var lastToday by rememberSaveable { mutableStateOf(clock.today.toString()) }
+    LaunchedEffect(clock.today) {
+        val previousToday = LocalDate.parse(lastToday)
+        if (selectedText == lastToday && monthText == YearMonth.from(previousToday).toString()) {
+            monthText = YearMonth.from(clock.today).toString(); selectedText = clock.today.toString()
+        }
+        lastToday = clock.today.toString()
+    }
+    val month = YearMonth.parse(monthText); val selected = LocalDate.parse(selectedText)
+    val entries = remember(state.expenses, selected, clock.zone) { state.expenses.filter { Instant.ofEpochMilli(it.timestamp).atZone(clock.zone).toLocalDate() == selected }.sortedByDescending { it.timestamp } }
+    LedgerCard {
+        Text("Spending Calendar", style = MaterialTheme.typography.titleMedium)
+        SpendingCalendarMonth(state, month, selected, clock.today, clock.zone,
+            { selectedText = it.toString(); expanded = true }, { monthText = it.toString(); selectedText = it.atDay(1).toString(); expanded = false })
+        if (expanded) {
+            Text("${dateLabel(selected)} · ${Money.format(entries.sumOf { it.cents })}", style = MaterialTheme.typography.titleSmall)
+            entries.take(3).forEach { e -> ExpenseRow(e, state.categories.find { it.id == e.categoryId }) { edit(e) } }
+            if (entries.isEmpty()) Text("No recorded transactions", style = MaterialTheme.typography.bodySmall)
+            TextButton({ openDay(selected) }) { Text(if (entries.size > 3) "View all ${entries.size} transactions" else "View day / add expense") }
+        }
+    }
+}
+
+@Composable fun SpendingCalendar(state: LedgerState, edit: (Expense) -> Unit, add: (LocalDate) -> Unit, initialDate: LocalDate? = null) {
+    val clock = currentCalendar()
+    var monthText by rememberSaveable { mutableStateOf(YearMonth.from(initialDate ?: clock.today).toString()) }
+    var selectedText by rememberSaveable { mutableStateOf((initialDate ?: clock.today).toString()) }
+    val month = YearMonth.parse(monthText); val selected = LocalDate.parse(selectedText)
+    val summary = remember(state.expenses, month, clock) { calendarSummary(state.expenses, month, clock.zone, clock.today) }
+    val entries = remember(state.expenses, selected, clock.zone) { state.expenses.filter { Instant.ofEpochMilli(it.timestamp).atZone(clock.zone).toLocalDate() == selected }.sortedByDescending { it.timestamp } }
+    LazyColumn(contentPadding = ledgerScreenPadding, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item { SpendingCalendarMonth(state, month, selected, clock.today, clock.zone,
+            { selectedText = it.toString() }, { monthText = it.toString(); selectedText = it.atDay(1).toString() }) }
         item { Stat("Monthly spending", Money.format(summary.total), Modifier.fillMaxWidth(), "Highest: ${summary.highestDay?.toString() ?: "—"} · Average ${Money.format(kotlin.math.round(summary.dailyAverageSen).toLong())}/day") }
-        item { SectionTitle(dateLabel(selected), "${Money.format(grouped[selected].orEmpty().sumOf { it.cents })} net spending") }
+        item { SectionTitle(dateLabel(selected), "${Money.format(entries.sumOf { it.cents })} net spending") }
         item { LedgerAction("Add for this date", ledgerSymbol("add"), Modifier.fillMaxWidth()) { add(selected) } }
-        if (grouped[selected].isNullOrEmpty()) item { Text("No recorded transactions", style = MaterialTheme.typography.bodyMedium) }
-        items(grouped[selected].orEmpty().sortedByDescending { it.timestamp }, key = { it.id }) { e -> ExpenseRow(e, state.categories.find { it.id == e.categoryId }) { edit(e) } }
+        if (entries.isEmpty()) item { Text("No recorded transactions", style = MaterialTheme.typography.bodyMedium) }
+        items(entries, key = { it.id }) { e -> ExpenseRow(e, state.categories.find { it.id == e.categoryId }) { edit(e) } }
     }
 }
