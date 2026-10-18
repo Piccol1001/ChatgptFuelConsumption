@@ -47,6 +47,8 @@ The suite covers first-use bundled OCR without network; packaged permission rest
 
 Native launch recheck, 18 October 2026 (UTC): the saved API26 emulator was restarted with software acceleration (hardware acceleration unavailable). Android reported MainActivity Status: ok, but the captured display showed a system-wide “System UI isn't responding” dialog. The previous loading-screen observation therefore remains unresolved; this is not evidence of a ready Home screen or proof of an application root cause. See docs/refinement-2026-10-17/native-startup-system-ui-anr-api26.png. A responsive native device/emulator is required to complete startup and gesture acceptance. Temporary fixture user13 was removed successfully and active user0 was confirmed on 18 October. No user records were cleared. The exact APK remains a verification candidate, not a fully device-accepted release.
 
+18 October follow-up: reinstall completed with `Success`; a separate fresh profile10 also reached the loading UI, without a captured application exception. Debugger stacks showed initialization querying `LedgerDao.pendingSettings` while SQLCipher opened a secondary connection; this identifies the observed stage, not a verified deadlock or root cause. All threads were resumed and the debugger detached. Profile10 was then removed and user0 restored. The public GitHub APK returned HTTP200 with the exact recorded SHA256.
+
 All twelve retained APK checksums pass. Existing package/certificate plus code8 greater than all previous recorded codes1–7 provide a compatible in-place update path. Tests verify migrated/persistent fixture records; no claim is made about an unavailable physical phone’s contents.
 
 ## Visual verification

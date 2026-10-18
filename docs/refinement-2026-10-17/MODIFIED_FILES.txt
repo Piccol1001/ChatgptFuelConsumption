@@ -95,3 +95,4 @@ releases/history.json
 scripts/release.py
 scripts/tests/test_release.py
 version.properties
+docs/refinement-2026-10-17/native-fresh-profile-loading-api26.png
