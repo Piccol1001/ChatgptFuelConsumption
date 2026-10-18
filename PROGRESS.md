@@ -1,28 +1,38 @@
-# Current progress — Corrective UI/fuel update and version workflow
+# Current progress — Refined UI, fuel estimates and verified releases
 
-17 October 2026 (Malaysia). Baseline `4ef21fc`, protected by local branch `checkpoint/refinement-2026-10-17`. This is an in-place extension of the existing app; Room schema 5, application ID and historical records are unchanged. The original request is in `docs/refinement-2026-10-17/REQUEST.md`.
+Updated **18 October 2026 (UTC)**. Final application **1.5.1 / code 8**, package `my.fuelledger`, Room schema5 and original signing certificate. Baseline `4ef21fc` is protected by branch `checkpoint/refinement-2026-10-17`; final app source is `8366cc8`. Previous progress remains below.
 
-## Completed implementation
+## 1. Completed features
 
-Home now shows actual today's expenses, a trailing-aligned budget label, Expense/Fuel actions and the shared embedded calendar. Expenses embeds the same calendar, omits dedicated Fuel from manual category icons and orders payments E-Wallet/Cash/Card; historical fuel entries remain editable/filterable. Main pages are Home/Expenses/Fuel/Journey/Analysis. Fuel/Journey/analytics use weighted provisional consecutive-odometer estimates after two valid refuels. Refuel entry defaults to RON95, uses exact cents and retains hidden historical metadata. Analysis removes only its plan-vs-actual card and adds a virtualized daily chart centred on today. Settings is compact; preference writes merge atomically without global busy/disabled flashes. App/dialog screenshots are allowed while authentication and encrypted storage remain.
+- Home shows actual local-day expenses, right-aligned budget amounts, two Expense/Fuel actions, the shared embedded Calendar and upcoming payments. Date/zone/foreground changes refresh daily totals; income and planned bills do not become expenses.
+- Expenses embeds the same Calendar, keeps history/category filters in the requested order, omits dedicated Fuel from manual category icons, orders payment icons E-Wallet/Cash/Card and retains historical IDs/payment strings/records. Old fuel templates route to Refuel; scanner/income access remains.
+- Main navigation/pager order is Home/Expenses/Fuel/Journey/Analysis, with existing saveable state and child-gesture protection.
+- Fuel/Journey/analytics share weighted provisional consecutive-ODO estimates after two valid fills. Full flags are not required. New refuels default RON95 and use exact cents; optional type/station/receipt controls are collapsed. Removed location/full/notes inputs retain historical data.
+- Analysis removes only plan-vs-actual and provides an actual daily chart centred on today, with selection, scroll and Today action. Actual plot/day-text geometry is verified.
+- Settings is compact, without gesture/dashboard arrangement entries. Preference changes merge atomically without global busy flashes; independent interactions and error handling remain. Screenshots are allowed in app/dialog windows while authentication and encryption remain.
+- Overlapping widget refreshes are serialized. New release workflow verifies old-key signing, tests/build/lint and actual APK metadata before promotion. CHANGELOG.md, RELEASES.md, history JSON and central version.properties are maintained automatically.
 
-## Currently being verified
+## 2. Current work / verification
 
-The Settings regression failed on both API26/35 before the fix. Targeted UI/fuel/calendar/chart checks pass, and integration tests verify stable unrelated-button pixels during a blocked preference write. Existing navigation/Settings tests were updated for the intentionally changed order, scanner location and collapsed controls. Final full-suite/build/lint/native checks remain in progress. No disabled tests or relaxed financial assertions are used.
+Native startup investigation remains open; do not claim device acceptance. No source change was made during the latest run. All **306 app host tests** pass (35 suites, no failures/errors/skips); **6 release-workflow tests** pass. Debug, instrumentation and optimized unsigned release builds pass. Lint: **0 errors, 10 preserved warnings, 1 hint**. All **9 native offline/financial/backup/encryption/migration tests pass** on this exact APK in airplane mode (277.031s). The 18 October rerun executed all 306 host tests again (zero failures/errors/skips), six workflow tests, and debug/test APK builds. Native startup is not verified; see VALIDATION.md.
 
-## Files / release preparation
+## 3. Files created or modified
 
-Affected code is in `ui/OverviewDashboard.kt`, `ExpenseToolsUi.kt`, `DailySpendingChart.kt`, `Screens.kt`, `SettingsScreen.kt`, `Editors.kt`, `MainPager.kt`, shared interactions/calendar/dialog windows, `domain/Calculations.kt`, `VehicleAnalysis.kt`, `LedgerViewModel.kt` and atomic settings updates in `LedgerRepository.kt`.
+[Full path inventory](docs/refinement-2026-10-17/MODIFIED_FILES.txt). [Implementation, Settings root cause, fuel formula and limits](docs/refinement-2026-10-17/IMPLEMENTATION.md). [Per-suite test results](docs/refinement-2026-10-17/TEST_RESULTS.md). Original requests, matched screenshots, actual chart/About captures and unchanged Journey route-form comparison are retained in the same directory.
 
-All ten historical distribution APKs were inspected: 1.0.0/code1, 1.2.0/code4, 1.3.0/code5 and seven 1.4.0/code6 binaries. All share the original certificate. Historical filenames and metadata remain unchanged in RELEASES.md and releases/history.json. Six release-workflow tests pass, covering semantic bumps, failed attempts, wrong certificates/metadata, missing keys, overwrite refusal and historical preservation.
+Latest APK: `downloads/FuelExpenseTracker_v1.5.1.apk` — **76,259,491 bytes**, signed debug with the original certificate; SHA256 `799b7682e84b1cedf64567caba7f9639bb1c6d9628e8588bca48fcedb1c3c1bb`.
 
-The target new version is **1.5.0/code7**, for the embedded calendar/chart functionality and corrective update. It is **not released yet**: version.properties remains 1.4.0/code6 until `scripts/release.py` finishes all checks and verifies the actual APK. RELEASING.md and AGENTS.md define the future workflow. No key/password is added to Git.
+All ten old APKs and first successful 1.5.0/code7 feature build remain unchanged. The later 1.5.1/code8 patch fixes inner calendar/chart alignment; no binary was overwritten under the same version. The earlier failed widget-race release attempt consumed no version.
 
-## Remaining / known issues
+## 4. Remaining tasks
 
-Finish full verification, resolve any actual failures, run the release workflow, test the exact final APK on an isolated Android user, retain screen captures and reports, update the download link, commit/push and verify its public hash. Physical camera/gallery, OEM launcher/widget behavior, external providers and real system-edge gestures remain device checks. Screenshots now expose visible information to authorized device recording tools by explicit request.
+Automated checks pass. Native startup remains a release-acceptance blocker: prior loading screen and current emulator System UI ANR require a responsive Android device for diagnosis. Manual physical camera/gallery, external share/document providers, OEM widget placement/resizing, TalkBack, large thermal receipts, sustained performance and Android15 system-edge gestures on a reliable device remain. These are verification limits, not claimed passes. Final publication details are in VALIDATION.md and Git history.
 
-## Resume exactly
+## 5. Known errors / compilation issues
+
+No compilation or automated-test failure remains. Native startup is unresolved; the software emulator displays a System UI ANR. Lint's preserved advisories: six unused name/version resources, SQLite update, offset lambda, two optional KTX suggestions and primitive-state hint. Gradle deprecation advisories remain. Long navigation labels may wrap at accessibility font sizes. Fuel consumption is provisional and assumes equal post-refuel levels. Screenshots expose visible information to authorized capture/recording tools by explicit user request. The native screenshot and launch result is documented separately from host rendering.
+
+## 6. Exact resume instructions
 
 ```sh
 cd /workspace/ChatgptFuelConsumption
@@ -30,9 +40,14 @@ git status --short --branch
 source /workspace/.tooling/fuel-ledger-env.sh
 python -m unittest discover -s scripts/tests -v
 ./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew :app:assembleRelease
+./gradlew :app:lintDebug
+(cd downloads && sha256sum -c SHA256SUMS)
 ```
 
-Read RELEASING.md before publishing. Once source is verified/checkpointed, run `python scripts/release.py --bump minor --date 2026-10-17 --notes docs/refinement-2026-10-17/RELEASE_NOTES.md --variant debug` exactly once for this new distribution. Failed attempts do not advance recorded versions. Do not rerun after a successful publication merely to rebuild; use normal Gradle for the recorded version. Keep original signing identity, Room migrations, old APKs and owner app data. Source edits end before sequential release/lint checks. Detailed validation and final file inventory will be added after completion.
+These reproduce **1.5.1/code8** and do not increment versions. Do not rerun the completed release command merely to rebuild. For future changed distributions, read AGENTS.md/RELEASING.md and invoke `python scripts/release.py --bump patch|minor|major --notes <reviewed-notes.md> --variant debug` using the actual scope. It chooses a code above known artifacts, checks the original certificate before building and updates versions only after success. Never manually overwrite historical APKs or generate a different key for compatible updates. Keep private keys/passwords/databases/caches outside Git.
+
+Finish source changes before lint and run release/lint sequentially. Preserve Room migrations1→2→3→4→5, exact sen, raw historical payment/fuel metadata, encrypted preferences and stable pager/ViewModels. Use an isolated temporary Android test user; never clear/uninstall the owner's app. Preserve old progress/report sections and checkpoints. Authorized GitHub delivery uses `git push origin HEAD:main` without force; verify the public APK hash after push.
 
 <details>
 <summary>Preserved progress before the corrective update</summary>

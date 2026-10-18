@@ -1,3 +1,83 @@
+# Corrective update and version-management validation
+
+Verified 17 October 2026 (Malaysia). Baseline `4ef21fc`; final app source `8366cc8`. **Version 1.5.1 / code 8**, package `my.fuelledger`, Room schema 5 and the original certificate. All historical reports remain below and apply to their own binaries.
+
+## Final artifact and version evidence
+
+[`downloads/FuelExpenseTracker_v1.5.1.apk`](downloads/FuelExpenseTracker_v1.5.1.apk), **76,259,491 bytes**, SHA256 `799b7682e84b1cedf64567caba7f9639bb1c6d9628e8588bca48fcedb1c3c1bb`. Signed debug build; certificate SHA256 `4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8`. Embedded package/version/code/debuggable metadata and signature were read from the APK using Android build-tools. About's rendered PackageManager value is 1.5.1 / Build 8; main headers contain no version.
+
+Ten earlier distribution APKs were audited before development. Their actual versions/codes and first Git records are in [RELEASES.md](RELEASES.md). A first Git addition is not treated as a verified original release date. The successful feature build 1.5.0/code7 is retained unchanged; screenshot review then prompted the real alignment patch 1.5.1/code8. The first failed gate (widget refresh race) left recorded version 1.4.0/code6 unchanged. No historical APK was overwritten, renamed or falsely relabelled. `scripts/release.py` advanced each version only after all configured checks passed; [workflow](RELEASING.md).
+
+## Automated tests
+
+**306 app host executions across 35 suites: 0 failures, 0 errors, 0 skipped.** [Per-suite results](docs/refinement-2026-10-17/TEST_RESULTS.md). Includes APIs26/35 real Compose app tests and domain/SQLite/encryption/parser regressions; host tests are distinguished from native tests below.
+
+New/updated coverage checks:
+
+- Today's local spending reacts to edits, deletion and date rollover; income is excluded and linked fuel is counted once. Budget text's final glyph reaches the trailing edge at 320/393dp, including large values; over-budget bar clamps safely.
+- Two partial fills, later-purchase volume, unequal-interval weighted history, invalid/equal ODO/timestamps/quantities, baseline exclusion, flag-independent estimates and Journey's shared value/cost (two partial fills → 8 L/100km → RM24.60 for 150km at RM2.05).
+- Historical refuel date precision, sen, RON97, full flag, note whitespace and location survive editing. New entries default RON95. Payment order is E-Wallet/Cash/Card and raw historic Card strings survive. Fuel category history remains accessible; old fuel favourites open Add Refuel without another expense.
+- Embedded Calendar records/totals match Home and Expenses, selected dates seed entry, main pager remains in scope, and chronological filtering/Undo/receipt features persist.
+- New Home/Expenses/Fuel/Journey/Analysis order, forward/back/boundary drags, selected tabs, state/scroll/draft restoration, scanner/planner/detail scope, child sliders/categories/charts/row gestures and unchanged ViewModel identity.
+- Actual daily plot bounds centre on today at 320/393dp, on both APIs/themes, with horizontal scroll/recentre, zero future/empty days, refund baselines and first/last-date centring. Actual calendar day text is centred too. Monthly plan-vs-actual is absent; other analytics remain.
+- Settings preference writes keep global busy false, persist to encrypted storage and merge queued transforms. With the repository write deliberately blocked, an unrelated Settings button remains enabled and its pixels are identical before/after the switch press. The original busy-state regression failed on both APIs before the fix. Independent interaction sources/haptics were preserved.
+- App-lock tests still hide/block locked dialogs and retain drafts; Activity and dialog FLAG_SECURE values are now zero, including locked states. No authentication hardware pass is implied.
+- Eight simultaneous real RemoteViews refreshes on each API, inflation, budget/category fallbacks and privacy. The detected refresh race is fixed with serialized snapshot/render batches.
+
+**Six additional Python workflow tests pass** for semantic bump/code ordering (including unlisted discovered metadata), failed builds, missing/different signing keys, embedded metadata/certificate mismatch, historical preservation and overwrite refusal. These use fake build/inspection seams for failure paths; actual final APK inspection/signature/alignment checks also ran separately.
+
+No test was disabled to obtain a pass. Existing tests were updated for intentionally moved controls/navigation, caching Activity-owned test dependencies before IO, and native graphics for real-app rendering. All previous financial, scanner, backup, allocation and data tests remain.
+
+## Build, lint and binary privacy
+
+The final release workflow completed sequentially:
+
+1. `:app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest` with temporary version overrides: **successful, 1m13s**.
+2. `:app:assembleRelease`: **successful, 2m3s**, optimized unsigned output; release vital lint passes.
+3. `:app:lintDebug`: **successful, 1m23s**, **0 errors, 10 preserved advisory warnings and 1 hint**. Six unused app-name/version resources, SQLite update, offset lambda and two KTX suggestions remain; primitive-state hint and Gradle deprecation advisories remain. No new lint warning/error was introduced.
+4. Distributable debug APK signature, original-certificate match, package/version/code, 16KiB alignment and absence of network permissions pass. Optimized unsigned release alignment also passes. That unsigned file is not the download.
+
+No new runtime dependency or dependency version change. APK audit retains21 bundled OCR assets, no DataTransport runtime/CCT or Firebase Analytics/Crashlytics classes, and the four reviewed no-op telemetry sinks. Merged APK permissions contain no INTERNET, network-state, camera, gallery/media or public-storage permission. Automatic backup remains disabled. Room schema/migrations, private receipts, SQLCipher, Keystore/Tink and password-authenticated backup formats are unchanged by this corrective update. Screenshot permission is deliberately less restrictive; encryption/authentication remain.
+
+## Native checks on the exact final APK
+
+**9 native instrumentation tests pass**, `OK (9 tests)`, **277.031s**, on the exact final version 1.5.1/code8 APK in API26 emulator `emulator-5556`. Candidate SHA256 `799b7682e84b1cedf64567caba7f9639bb1c6d9628e8588bca48fcedb1c3c1bb` is identical to the promoted download. Airplane mode was enabled before first use in a fresh isolated test user (13).
+
+The suite covers first-use bundled OCR without network; packaged permission restrictions; financial records, recurring/fixed payments, allocation/Journey/receipt workflows and encrypted photo backup/restore; real SQLCipher/Keystore persistence and purpose-bound non-exportable keys; plaintext schemas1–4 migrating safely into encrypted schema5; damaged/incomplete sources and missing/wrong keys failing without replacing records. Both APK updates installed successfully with `install -r`; the owner's app data was never cleared or uninstalled.
+
+Native launch recheck, 18 October 2026 (UTC): the saved API26 emulator was restarted with software acceleration (hardware acceleration unavailable). Android reported MainActivity Status: ok, but the captured display showed a system-wide “System UI isn't responding” dialog. The previous loading-screen observation therefore remains unresolved; this is not evidence of a ready Home screen or proof of an application root cause. See docs/refinement-2026-10-17/native-startup-system-ui-anr-api26.png. A responsive native device/emulator is required to complete startup and gesture acceptance. Temporary fixture user13 was removed successfully and active user0 was confirmed on 18 October. No user records were cleared. The exact APK remains a verification candidate, not a fully device-accepted release.
+
+All twelve retained APK checksums pass. Existing package/certificate plus code8 greater than all previous recorded codes1–7 provide a compatible in-place update path. Tests verify migrated/persistent fixture records; no claim is made about an unavailable physical phone’s contents.
+
+## Visual verification
+
+Twenty matched real-app native-graphics **host** renders: all five main screens at 393×851dp Light/Dark, 320×640dp Dark and 393×851dp Light/font scale1.6, mdpi/API35. Four daily-chart captures, two Home fixtures and two About captures are retained too: [screens](docs/refinement-2026-10-17/screens/) and [report directory](docs/refinement-2026-10-17/). The charts and fixed calendar alignment were visually inspected. The route-form region of Journey is RGB-identical to the prior build in all four configurations; [exact cropped regions](docs/refinement-2026-10-17/JOURNEY_COMPARISON.txt). Fuel-source/help and navigation changes are intentionally outside that comparison.
+
+The initial 1.5.0 screenshot caught nested MaterialCard Columns wrapping their content at the leading edge. The 1.5.1 patch fills inner widths; new geometry assertions verify day text and actual plots rather than outer card bounds. There is no global scaling/density hack or Journey redesign. Shared 16dp margins, card/input conventions and navigation sizing remain. Large navigation labels can wrap at accessibility font sizes.
+
+## Limits and reproduction
+
+Fuel estimates assume equal post-refuel tank levels; arbitrary partial fills can be inaccurate. No claim of exact measured consumption or mechanical diagnosis. Daily history extends the chosen range to include today/context; other analytics stay range-filtered. Screenshots reduce protection against device recording; system authentication/external pickers keep their own OS capture rules.
+
+Physical camera/gallery, external share/document providers, OEM widget placement/resizing, TalkBack, large thermal receipts, sustained performance and native system edge gestures on a reliable Android15 device remain manual checks. No physical-device pass is claimed.
+
+```sh
+cd /workspace/ChatgptFuelConsumption
+source /workspace/.tooling/fuel-ledger-env.sh
+python -m unittest discover -s scripts/tests -v
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew :app:assembleRelease
+./gradlew :app:lintDebug
+(cd downloads && sha256sum -c SHA256SUMS)
+```
+
+These commands reproduce the current recorded version without consuming a new release. New distribution/version advancement must follow RELEASING.md. Native instrumentation uses a fresh temporary Android user and `am instrument --user ID -w -r my.fuelledger.test/androidx.test.runner.AndroidJUnitRunner`; never clear/uninstall the owner's application.
+
+Session evidence: `/tmp/refine-before.log`, `/tmp/refine-release-attempt1.log`, `/tmp/refine-release-workflow.log`, `/tmp/refine-patch-release.log`, `/tmp/refine-native-candidate.json`, `/tmp/refine-native.log`, `/tmp/refine-final-apk-audit.log`, `/tmp/refine-final-signature.log` and `/tmp/refine-final-permissions.log`. Machine-local logs are not permanent artifacts; tests, metadata, per-suite results, comparisons and screenshots are retained in Git. [Implementation, root cause, formulas and file inventory](docs/refinement-2026-10-17/IMPLEMENTATION.md).
+
+<details>
+<summary>Preserved validation before the corrective update</summary>
+
 # Comprehensive upgrade validation
 
 Verified **17 October 2026 (Malaysia time)** against the existing app extended from `ece52c2`. Final feature source checkpoint: `312cc7a`. Package `my.fuelledger`, version 1.4.0/code 6 and original signing identity are retained. Room is now schema 5 through additive migration 4→5; all older migrations remain registered and destructive fallback is absent. Previous validation reports are preserved below and apply to their recorded builds.
@@ -586,6 +666,8 @@ The complete setup script was exercised, including wrapper activation, SDK setup
 ## Remaining verification
 
 No physical phone or hardware emulator was attached (`/dev/kvm` is absent). Robolectric tests are automated Android simulations, not physical-device tests. On your phone, verify the document picker, CSV export, backup/restore, keyboard behavior, accessibility/font scaling and updates with the same signing key before depending on it for irreplaceable records. The app supports one vehicle and MYR; backups replace existing data after confirmation and are not encrypted. CSV import is not provided.
+
+</details>
 
 </details>
 

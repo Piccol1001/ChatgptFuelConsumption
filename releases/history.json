@@ -132,5 +132,19 @@
     "dateEvidence": "Built and verified by scripts/release.py",
     "signing": "Signed debug build",
     "sourceCheckpoint": "c48b33b710b2094513c5322faa72f17785bdc3e9"
+  },
+  {
+    "path": "downloads/FuelExpenseTracker_v1.5.1.apk",
+    "applicationId": "my.fuelledger",
+    "versionName": "1.5.1",
+    "versionCode": 8,
+    "debuggable": true,
+    "certificateSha256": "4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8",
+    "sha256": "799b7682e84b1cedf64567caba7f9639bb1c6d9628e8588bca48fcedb1c3c1bb",
+    "bytes": 76259491,
+    "releaseDate": "2026-10-17",
+    "dateEvidence": "Built and verified by scripts/release.py",
+    "signing": "Signed debug build",
+    "sourceCheckpoint": "8366cc8ccd9e177cb9adbd8840d02fff07da532e"
   }
 ]

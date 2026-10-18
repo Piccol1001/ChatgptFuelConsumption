@@ -4,11 +4,11 @@ A native Android app for personal spending and car fuel records. Kotlin, Jetpack
 
 ## Download the APK
 
-[**Download Fuel & Expense Tracker for Android**](https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/downloads/Fuel-Expense-Tracker-v1.4.0-comprehensive-upgrade-debug.apk)
+[**Download Fuel & Expense Tracker for Android**](https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/downloads/FuelExpenseTracker_v1.5.1.apk)
 
-Version 1.4.0, signed debug build, Android 8.0 or later. Open this link on your phone, download the `.apk` file, then open it to install. If Android asks, allow installation for the browser or file manager you used. The APK is also available in this repository's `downloads` folder. Its SHA-256 checksum is in `downloads/SHA256SUMS`; build and test evidence is in [VALIDATION.md](VALIDATION.md).
+**Verification candidate:** version 1.5.1 (code 8), signed debug build, Android 8.0 or later. Automated tests pass, but native startup acceptance remains blocked by an emulator System UI ANR; see [VALIDATION.md](VALIDATION.md). Open this link on your phone, download the `.apk` file, then open it to install. If Android asks, allow installation for the browser or file manager you used. The APK is also available in this repository's `downloads` folder. Its SHA-256 checksum is in `downloads/SHA256SUMS`; build and test evidence is in [VALIDATION.md](VALIDATION.md).
 
-The launcher icon now combines a fuel pump and wallet in ivory and gold on teal. The installed app is named **Fuel & Expense Tracker v1.4.0**; main screens begin with their screen title and an inline Settings button, without an app-name/version header or empty toolbar row. Project metadata remains version 1.4.0 / code 6. Android adaptive icons follow the launcher’s circle, squircle or rounded-square shape, and Android 13+ themed icons use a monochrome companion. Install this APK over the existing app to keep your records: the application ID and signing key are unchanged, and version code increases to 6 (from 5 in version 1.3.0).
+The launcher icon now combines a fuel pump and wallet in ivory and gold on teal. The installed app is named **Fuel & Expense Tracker v1.5.1**; main screens begin with their screen title and an inline Settings button, without an app-name/version header or empty toolbar row. Project metadata is now managed by the verified release workflow (1.5.1 / code 8). Android adaptive icons follow the launcher’s circle, squircle or rounded-square shape, and Android 13+ themed icons use a monochrome companion. Install this APK over the existing app to keep your records: the application ID and signing key are unchanged, and version code 8 is greater than every known previous artifact (codes 1–7).
 
 ## Install on your phone
 
@@ -18,9 +18,9 @@ Requires **Android 8.0 or later**. The default units are Malaysian Ringgit (MYR/
 2. Transfer the APK to your phone using USB, Bluetooth or a private file transfer service.
 3. Open the APK with your phone's file manager.
 4. When Android asks, allow **Install unknown apps** for that file manager or browser. Install, then turn that permission off again if desired.
-5. Open **Fuel & Expense Tracker v1.4.0**. No Internet connection is needed for installation or use once the APK is on the phone.
+5. Open **Fuel & Expense Tracker v1.5.1**. No Internet connection is needed for installation or use once the APK is on the phone.
 
-A debug APK is already signed with a development key and is suitable for personal testing. A release APK is optimized and should be signed with **your own private key**. Updates must have the same application ID, the same signing key and a higher version code to retain data. Keep your signing key safe. If Android reports a signing mismatch, stop before uninstalling. **Create and test a complete encrypted backup first**; uninstalling removes local records and their Keystore keys. Keep the existing signing key for an in-place update.
+A debug APK is already signed with a development key and is suitable for personal testing. An optimized release APK must be signed with the **existing application key** for a compatible update. Updates must have the same application ID, the same signing key and a higher version code to retain data. Keep your signing key safe. If Android reports a signing mismatch, stop before uninstalling. **Create and test a complete encrypted backup first**; uninstalling removes local records and their Keystore keys. Keep the existing signing key for an in-place update.
 
 ## Build in Android Studio (beginner workflow)
 
@@ -42,27 +42,27 @@ Configure `ANDROID_HOME` or let Android Studio create the ignored `local.propert
 
 ## Using the app
 
-Swipe left/right between **Home → Fuel → Expenses → Journey → Analysis**, or tap the matching bottom tab. Pages stop at either end and retain their drafts and scroll positions. Category rows, the Journey toggle and chart regions keep their own gestures; forms, Settings, scanner and planner configuration retain their existing Back behavior. Main-screen swipes can be disabled in Settings. See [current implementation and verification](docs/comprehensive-upgrade/IMPLEMENTATION.md).
+Swipe left/right between **Home → Expenses → Fuel → Journey → Analysis**, or tap the matching bottom tab. Pages stop at either end and retain their drafts and scroll positions. Category rows, the Journey toggle and chart regions keep their own gestures; forms, Settings, scanner and planner configuration retain their existing Back behavior. See [current implementation and verification](docs/refinement-2026-10-17/IMPLEMENTATION.md).
 
 Journey now shares the reference screens' content margins, omits empty suggestion spacing, and uses concise labels that fit small phones. See the [measured layout investigation and matching screenshots](docs/journey-layout/README.md).
 
-- **Home:** month/Overview header, planned available after fixed commitments, real monthly budget progress, Expense/Income/Scan/Calendar shortcuts, upcoming payments and an amount-privacy eye control. No bank balance or safe-to-spend recommendation is shown.
-- **Fuel:** weighted full-tank consumption and trends, retained per-fill history, recent change detection, actual price history and measured fuel/recorded transport costs per kilometre with coverage labels.
-- **Expenses:** favourites, merchant/category/payment memory, refunds, duplicate warnings, persistent Undo, configurable row swipes and advanced date/category/payment/type/search filters. Others stays last; category filters remain below Transaction history. Spending Calendar shows actual daily records and supports date-seeded entry.
-- **Analysis:** actual income and net expenses, category/daily/monthly trends, budget performance, paid fixed/variable spending, planned forecasts/reserves, local insights, vehicle statistics and local CSV/PDF reports. Select current/previous/3/6/12-month or custom ranges.
+- **Home:** month/Overview header, actual today’s expenses, right-aligned monthly budget progress, two Expense/Fuel actions, an embedded Spending Calendar, upcoming payments and an amount-privacy eye control. No bank balance or safe-to-spend recommendation is shown.
+- **Fuel:** weighted provisional odometer consumption after two valid fills, retained per-fill/full-cycle history, recent change detection, actual price history and estimated fuel/recorded transport costs per kilometre with coverage labels.
+- **Expenses:** favourites, merchant/category/payment memory, refunds, duplicate warnings, persistent Undo, configurable row swipes and advanced date/category/payment/type/search filters. Others stays last; category filters remain below Transaction history. The embedded shared Spending Calendar shows actual daily records and supports date-seeded entry. Dedicated Fuel is omitted from manual entry; historical fuel records and general Transport/Parking/Tolls remain.
+- **Analysis:** actual income and net expenses, category/daily/monthly trends, budget performance, paid fixed/variable spending, planned forecasts/reserves, local insights, vehicle statistics and local CSV/PDF reports. Select current/previous/3/6/12-month or custom ranges. Daily expenditure scrolls horizontally, starts centred on today and offers a Today action; the Monthly plan vs actual card is removed.
 - **Journey:** named local routes and presets, reverse direction, independent outbound/return distances and tolls, price scenarios, explicit existing-expense links, estimated/actual comparisons and text/PNG sharing. Planning/linking creates no transactions; missing actuals remain unavailable.
-- **Settings:** one Monthly Money Planner, existing allocation sliders, themes, dashboard order/visibility, swipe actions, haptics, reduced animation, privacy, app lock, local data cleanup, exports and encrypted backups. About shows the installed version.
+- **Settings:** one Monthly Money Planner, recurring transactions, existing allocation sliders, themes, scanner, privacy, app lock, category management, local data cleanup, exports and encrypted backups. Gestures/feedback and dashboard arrangement entries are removed; built-in behavior remains. About → App Version shows actual installed metadata.
 - **Home-screen widgets:** monthly expense/budget summary, quick-add shortcuts and actual income/expenses/net cash flow. Amounts are hidden by default; widgets use local updates and the device's light/dark appearance.
 
-[Full implementation, migrations, screenshots and limitations](docs/comprehensive-upgrade/IMPLEMENTATION.md).
+[Current changes, calculation assumptions, screenshot policy and verification](docs/refinement-2026-10-17/IMPLEMENTATION.md). [Prior comprehensive upgrade](docs/comprehensive-upgrade/IMPLEMENTATION.md).
 
-Each refuel automatically creates one expense in **Fuel & Transport**. Editing or deleting it updates or deletes that expense in the same SQLite transaction. Tap a linked expense to open its refuel editor. A manually added Fuel & Transport expense is independent; avoid entering a refuel's payment manually as well.
+Each refuel automatically creates one expense in **Fuel & Transport**. Editing or deleting it updates or deletes that expense in the same SQLite transaction. Tap a linked expense to open its refuel editor. Historical manually entered Fuel & Transport expenses remain independent and accessible; new refuelling belongs in Add Refuel. Do not record the same pump payment twice.
 
-Enter the **ODO reading and litres purchased at every fill-up**, including partial fills. The first record establishes a baseline. Each later record shows distance since the preceding ODO reading, estimated km/L, L/100 km and cost/km using the current purchase's litres and payment. For example, 10,000 km followed by 10,500 km with 40 L gives a **12.50 km/L per-fill estimate**. Tank levels can vary, so this is explicitly an estimate rather than measured consumption. New entries default to partial fill; fuel type (RON95/RON97/Diesel/Other), station and station location are optional.
+Enter the **ODO reading and litres purchased at every fill-up**, including partial fills. The first record establishes a baseline. Each later record shows distance since the preceding ODO reading, estimated km/L, L/100 km and cost/km using the current purchase's litres and payment. For example, 10,000 km followed by 10,500 km with 40 L gives a **12.50 km/L per-fill estimate**. Tank levels can vary, so this is explicitly an estimate rather than measured consumption. New entries default to RON95 and use the cents-first keypad. Optional fuel-type changes, station and receipts are under Receipt & station. Location, full-tank and notes inputs are removed; historical values remain unchanged when edited.
 
-For the primary historical measured-consumption value, first enter a **full tank** as the baseline. Enter any partial refuels, then the next full tank. Measured fuel is the litres purchased **after** the baseline, including the final full tank. The first tank alone cannot measure consumption. Dates and odometers must increase strictly; existing records can be edited but cannot reverse that order. This app tracks **one vehicle**; mixing vehicles would invalidate measurements.
+The primary **Estimated Fuel Consumption** needs two valid increasing-odometer/date readings; full tanks are not required. Each interval uses the later fill’s litres. Historical L/100 km is 100 × total included litres ÷ total included distance, and km/L is total distance ÷ total litres. The baseline purchase is excluded, and each later purchase appears once. This assumes equal fuel levels after each refuel; arbitrary partial fills can be inaccurate because fuel remaining in the tank is unknown. Invalid/equal odometers, invalid quantities and ambiguous same-time order do not produce an interval. Original full-tank fields and verified full-cycle history remain available as supplementary historical information. This app tracks **one vehicle**.
 
-The shared historical value is 100 × total valid-cycle litres ÷ total valid-cycle distance, rather than an average of interval ratios. It updates on refuel edits/deletions and excludes incomplete/invalid cycles. Settings and Journey show “Not enough fuel data” until a valid cycle exists; fallback consumption is used only after explicit entry/enablement. The estimator uses distance × consumption ÷ 100 and petrol price. The example 150 km, 7 L/100 km, RM2.05/L produces **10.50 L, RM21.53, RM0.1435/km and 14.29 km/L**. Estimated money uses decimal HALF_UP rounding; stored payments use exact integer sen. Overall measured efficiency is total valid-cycle km divided by total valid-cycle litres.
+The same weighted estimate updates Fuel, Journey and analytics after refuel edits/deletions. Fallback consumption is used only after explicit entry/enablement when no valid history exists. The estimator uses distance × consumption ÷ 100 and actual petrol price. The example 150 km, 7 L/100 km, RM2.05/L produces **10.50 L, RM21.53, RM0.1435/km and 14.29 km/L**. Estimated money uses decimal HALF_UP rounding; stored payments use exact integer sen.
 
 Week totals use Monday–Sunday. Calendar totals and date filters use the phone's local time zone, including daylight saving changes; timestamps are stored as epoch milliseconds. Changing the device time zone can change the calendar day a transaction appears under. Analysis daily averages include every calendar day in the selected range, including empty days. Spending Calendar uses elapsed days for the current month and full days for other months.
 
@@ -70,9 +70,9 @@ Week totals use Monday–Sunday. Calendar totals and date filters use the phone'
 
 Tap **Expense** on Home or **Add Expense** in Expenses, choose an icon in the horizontal category row (custom categories are retained, Others stays last), and use the cents-first keypad. Starting at RM 0.00, digits 1 → 2 → 3 → 4 → 5 produce RM 0.01 → RM 0.12 → RM 1.23 → RM 12.34 → RM 123.45. Backspace removes the last digit; Clear resets to zero. There is no decimal key or software keyboard for the amount. Save requires a positive amount and a selected payment method; values are exact integer sen and limited to the existing RM1,000,000,000 maximum.
 
-Choose **Cash**, **Card** or **E-Wallet**. The last selected method is saved in encrypted local DataStore, including when cancelling the draft, and highlighted for the next new expense (initially Cash). Existing Credit Card/Debit Card payments display as Card but retain their original stored strings when edited within that group. Historical Not specified records remain intact and prompt for an explicit method before saving changes. Existing amounts initialize directly from their stored sen; untouched transaction timestamps retain their original precision.
+Choose **E-Wallet**, **Cash** or **Card** in that order. The last selected method is saved in encrypted local DataStore, including when cancelling the draft, and highlighted for the next new expense (initially Cash). Existing Credit Card/Debit Card payments display as Card but retain their original stored strings when edited within that group. Historical Not specified records remain intact and prompt for an explicit method before saving changes. Existing amounts initialize directly from their stored sen; untouched transaction timestamps retain their original precision.
 
-Open **Details & receipt** for date, time, merchant, description, collapsed notes, Photo Picker/camera and offline OCR review. Choose Refund there for an unlinked refund, or use a transaction’s Actions → Record refund to link it to the purchase. Favourites can be created from Actions or the editor details and managed in Expenses. Collapsing the section retains the attachment. The expense list's category filters now sit directly below **Transaction history**; their filtering, scrolling and ordering are unchanged. The app name/version metadata and prior header cleanup remain unchanged (1.4.0 / code 6).
+Open **Details & receipt** for date, time, merchant, description, collapsed notes, Photo Picker/camera and offline OCR review. Choose Refund there for an unlinked refund, or use a transaction’s Actions → Record refund to link it to the purchase. Favourites can be created from Actions or the editor details and managed in Expenses. Collapsing the section retains the attachment. The expense list's category filters now sit directly below **Transaction history**; their filtering, scrolling and ordering are unchanged. Main screens retain their clean titles without the app-name/version header.
 
 ### Touch feedback
 
@@ -80,7 +80,7 @@ App controls use a subtle 0.97× press animation instead of grey ripple overlays
 
 ## Receipt photos and offline scanning
 
-In Add/Edit Expense or Refuel, select **Choose receipt photo**. The app reads the original without changing it and retains a normalized, orientation-correct JPEG copy encrypted in private storage. You can view, replace or remove the attachment. No public receipt album is created.
+In Add/Edit Expense, open **Details & receipt**; in Add/Edit Refuel, open **Receipt & station**, then select **Choose receipt photo**. The app reads the original without changing it and retains a normalized, orientation-correct JPEG copy encrypted in private storage. You can view, replace or remove the attachment. No public receipt album is created.
 
 **Scan & review receipt** runs the bundled Latin OCR model locally. Edit suggested merchant, total, date/time, category and applicable fuel details before applying selected fields to the form. ODO is suggested only when explicitly printed. Unit prices, tax and loyalty values are not treated as totals. Blurry or ambiguous receipts need manual correction; scanning inside an existing form always waits for you to save. The separate dashboard scanner supports the optional Smart Auto-Save mode described below. Choose the delete-after-extraction option if you do not want to retain the imported copy. Removing an existing saved photo takes effect when the transaction edit is saved; cancelling preserves the original record.
 
@@ -88,7 +88,7 @@ In Add/Edit Expense or Refuel, select **Choose receipt photo**. The app reads th
 
 Open Settings → Financial Planning → **Monthly Money Planner**. Choose **Expected Income → Sources** to set multiple Salary, Allowance, Stock / Investment Income, Passive Income, Part-Time Income or Other Income sources. Optional irregular estimates can be blank; zero estimates never become received income. Use **Expected Income → Received** for actual received-income records. Choose **Fixed Monthly Expenses** to manage rent, subscriptions and other commitments. Both reuse the existing recurrence rules; daily, weekly and monthly schedules support start/end dates and pause/resume. For a monthly bill on the 29th–31st, shorter months use their last day and the following month returns to the original day.
 
-The dashboard distinguishes:
+The Monthly Money Planner distinguishes:
 
 - **Planned available:** expected income − fixed commitments.
 - **Actual monthly net cash flow:** income received − all actual recorded expenses.
@@ -110,7 +110,7 @@ Add one total toll entry or several named toll segments for each direction, plus
 
 ## Automatic offline receipt scanner
 
-Tap **Scan Receipt** on the dashboard. Use **Take receipt photo** or Android Photo Picker. Camera capture uses the device's camera app through a narrowly scoped private FileProvider; the app needs no camera or gallery permission. Camera failure/denial leaves gallery selection available. The temporary private camera file is removed after import; abandoned camera files are cleaned after 24 hours on the next app startup. Gallery originals are unchanged. Imported photos, crop/rotate results and retained attachments are encrypted privately. Long portrait receipts keep up to 4096 pixels on their long side, subject to pixel/file limits.
+Tap **Scan receipt** in Expenses (or use the existing Scan widget shortcut). Use **Take receipt photo** or Android Photo Picker. Camera capture uses the device's camera app through a narrowly scoped private FileProvider; the app needs no camera or gallery permission. Camera failure/denial leaves gallery selection available. The temporary private camera file is removed after import; abandoned camera files are cleaned after 24 hours on the next app startup. Gallery originals are unchanged. Imported photos, crop/rotate results and retained attachments are encrypted privately. Long portrait receipts keep up to 4096 pixels on their long side, subject to pixel/file limits.
 
 Recognition uses the bundled ML Kit Latin model, including on first offline launch. Crop top/bottom borders or rotate 90° and rescan if needed. Parser rules rank final totals and reject subtotal, tax, tendered cash and change. Missing or conflicting values remain for review. Low contrast, likely blur, small images, ambiguous totals/dates, foreign currencies, unknown categories, petrol receipts and possible duplicates prevent automatic saving.
 
@@ -142,7 +142,7 @@ Automatic cloud backup and device transfer are excluded through Android backup r
 
 ## Local app lock
 
-Settings offers optional fingerprint or device-credential authentication, configurable inactivity timeout, and immediate relocking after backgrounding. Sensitive windows/recent-app previews are protected. App lock is independent of encryption and needs no login or connection. Returning from a file picker may require unlocking again; forms remain behind the lock. Actual authentication support depends on the device and enrolled screen lock.
+Settings offers optional fingerprint or device-credential authentication, configurable inactivity timeout, and immediate relocking after backgrounding. App windows and dialogs now allow screenshots at the user’s request; this reduces protection against screenshots, recent-app thumbnails and authorized recording tools. Locking still hides and blocks the ledger/dialogs while locked. App lock is independent of encryption and needs no login or connection. Returning from a file picker may require unlocking again; forms remain behind the lock. Actual authentication support depends on the device and enrolled screen lock.
 
 ## Project structure
 
@@ -156,7 +156,7 @@ app/
       MainActivity.kt               Compose entry point
       LedgerApplication.kt          Application-scoped repository
       LedgerViewModel.kt            Observable UI state and file operations
-      domain/Calculations.kt        Money, trip, full-tank and spending logic
+      domain/Calculations.kt        Money, trip, provisional/full-cycle fuel and spending logic
       data/Database.kt              Room entities, relationships and DAO
       data/LedgerRepository.kt      Transactions and record synchronization
       data/SettingsStore.kt         Encrypted DataStore settings/migration
@@ -181,33 +181,18 @@ The shared fintech design uses navy `#0B1220`, cards `#18263B`, emerald `#4DE0B1
 
 The UI reads state through `LedgerViewModel`. Writes go through `LedgerRepository`; Room exposes flows, so adding, editing and deleting records updates dashboards automatically. Heavy database and document operations run off the main thread. Calculation logic is separate from Android and is tested with JUnit. Room integration tests use Robolectric with an actual SQLite database.
 
-Room is at schema version 4 and exports all four schemas. Additive migrations retain existing records and expense links; the encryption upgrade verifies a replacement before replacing a legacy plaintext database. Future database changes must increment the version and implement/test a migration. **Do not add destructive migration fallback**, which would erase records. Appearance and scanner preferences use encrypted DataStore; allocation plans and month overrides use encrypted Room. System Default is the theme for new installations; saved Light/System/Dark choices are retained. Keep the stable application ID `my.fuelledger` for updates.
+Room is at schema version 5 and exports schemas 1–5. Additive migrations retain existing records and expense links; the encryption upgrade verifies a replacement before replacing a legacy plaintext database. Future database changes must increment the version and implement/test a migration. **Do not add destructive migration fallback**, which would erase records. Appearance and scanner preferences use encrypted DataStore; allocation plans and month overrides use encrypted Room. System Default is the theme for new installations; saved Light/System/Dark choices are retained. Keep the stable application ID `my.fuelledger` for updates.
 
 In this prepared cloud workspace, use `source /workspace/.tooling/fuel-ledger-env.sh` before running Gradle. To reproduce the full cloud setup, run `bash scripts/setup-cloud.sh` from this project. It downloads checksum-verified build tools outside the checkout, reuses the platform's proxy and certificate trust, accepts SDK licenses and runs the tests, debug build and lint. This script is specifically for the cloud `/workspace` layout; use the Android Studio instructions on your own computer.
 
-## Signed release APK
+## Versioning and compatible APK releases
 
-The easiest path is Android Studio → Build → Generate Signed App Bundle / APK → APK. Create or choose a keystore **outside this repository**, choose `release`, and keep the key and passwords private. Studio can sign the APK without adding passwords to project files.
+Follow [RELEASING.md](RELEASING.md) and use `scripts/release.py` for a new distribution. It reads the highest verified version/code, checks the original signing identity, runs tests/builds/lint, verifies the actual APK, and advances `version.properties` only after success. [CHANGELOG.md](CHANGELOG.md) and [RELEASES.md](RELEASES.md) retain the verified history. Normal Gradle builds reproduce the recorded version without incrementing it.
 
-For command-line signing:
-
-```sh
-./gradlew :app:assembleRelease
-# Create a key outside the repository; keytool prompts for passwords.
-keytool -genkeypair -v -keystore /private/path/fuel-ledger.jks \
-  -alias fuel-ledger -keyalg RSA -keysize 3072 -validity 10000
-
-# Use the binaries in your SDK's build-tools directory.
-zipalign -p -f 4 app/build/outputs/apk/release/app-release-unsigned.apk /private/path/fuel-ledger-aligned.apk
-apksigner sign --ks /private/path/fuel-ledger.jks --ks-key-alias fuel-ledger \
-  --out /private/path/fuel-ledger-release.apk /private/path/fuel-ledger-aligned.apk
-apksigner verify --verbose /private/path/fuel-ledger-release.apk
-```
-
-Never commit keystores, passwords or `signing.properties`. Increase `versionCode` and update `versionName` in `app/build.gradle.kts` for each installed update. Back up your data before updating.
+Compatible updates must retain the **existing package and signing certificate** and have a higher code. Do not generate or substitute a new key for an existing installation; that prevents an in-place update. Keep credentials outside Git. The current downloadable build is signed with the original development key. Optimized unsigned release builds compile separately; a distributable optimized APK must be signed with that same key and pass the documented binary checks. Do not uninstall to bypass a mismatch, because uninstalling removes records and Keystore keys.
 
 ## Validation and limitations
 
-The comprehensive upgrade passes 283 host tests, debug/release builds and lint (0 errors). Native offline/security/migration checks and their build provenance are recorded in [VALIDATION.md](VALIDATION.md). Automated checks exercise the specified trip example, exact currency, daily/monthly/category aggregation, timezone and year boundaries, partial fills, edits/deletions, linked expenses, invalid input, CSV and backup restoration.
+The current refinement passes 306 app host tests, six release-workflow tests, debug/release builds and lint (0 errors). Native offline/security/migration checks and their build provenance are recorded in [VALIDATION.md](VALIDATION.md). Automated checks exercise the specified trip example, exact currency, daily/monthly/category aggregation, timezone and year boundaries, partial fills, edits/deletions, linked expenses, invalid input, CSV and backup restoration.
 
 This is a personal, single-vehicle, MYR app. It does not include multi-vehicle tracking or CSV import. Release signing requires your own key. Before relying on it for irreplaceable data, verify the app and backup/restore on your phone and keep regular backups. A compiled APK is not a claim of physical-device testing.

@@ -1,0 +1,4 @@
+393-Dark: unchanged Journey route-form region (0, 0, 393, 600): RGB identical=True
+393-Light: unchanged Journey route-form region (0, 0, 393, 600): RGB identical=True
+320-Dark: unchanged Journey route-form region (0, 0, 320, 560): RGB identical=True
+393-font160-Light: unchanged Journey route-form region (0, 0, 393, 600): RGB identical=True

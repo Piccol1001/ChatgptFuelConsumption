@@ -40,7 +40,14 @@ Screenshot review of the first successful 1.5.0/code7 build found that MaterialC
 
 ## Verification and delivery
 
-FINAL_RESULTS_PENDING
+Final **1.5.1/code8** is a signed debug APK using the original certificate: [`downloads/FuelExpenseTracker_v1.5.1.apk`](../../downloads/FuelExpenseTracker_v1.5.1.apk), 76,259,491 bytes, SHA256 `799b7682e84b1cedf64567caba7f9639bb1c6d9628e8588bca48fcedb1c3c1bb`. The first successful 1.5.0/code7 APK is retained unchanged alongside all ten historical files. Its four-byte size difference is not a claim of equivalent content; each artifact has its own verified hash and embedded metadata.
+
+- **306 app host executions pass** across 35 suites, zero failures/errors/skips. [Per-suite results](TEST_RESULTS.md). This includes actual today/rollover/linked-fuel totals, trailing glyph alignment at 320/393dp, weighted provisional fuel math, legacy metadata/payment preservation, calendar/navigation integration, actual plot centring/scroll/recentre/endpoints, switch persistence/atomic merges, blocked-write pixel stability, app-lock dialog input hiding with screenshot flags clear, and concurrent RemoteViews updates.
+- **6 Python release-workflow tests pass**: semantic/code selection, failed-build non-advancement, signing-key preflight, metadata/certificate mismatch refusal, historical preservation and overwrite refusal. The real first gate caught a widget race and consumed no version; 1.5.0 and then its alignment patch 1.5.1 were recorded only after successful checks.
+- Debug, instrumentation and optimized unsigned release APKs build. Final debug lint has **0 errors, 10 preserved advisory warnings and 1 hint**. Release vital lint passes. Debug signature and 16KiB alignment verify; unsigned optimized output is built separately.
+- Twenty matched real-app host renders cover all five screens in Light/Dark, narrow 320dp and font scale 1.6. Two Home samples, four daily-chart captures and two installed-version About captures are retained. The route-form region in all four Journey comparisons is RGB-identical to the prior comprehensive build; [comparison](JOURNEY_COMPARISON.txt). Geometry tests measure actual day text and plot bounds, not merely outer cards.
+- Native verification of this exact final checksum is recorded in [VALIDATION.md](../../VALIDATION.md). Physical-device limitations are listed below.
+- Full baseline-to-final path inventory: [MODIFIED_FILES.txt](MODIFIED_FILES.txt). [PROGRESS.md](../../PROGRESS.md) contains exact resume instructions. Signing keys, passwords, local databases and caches remain outside Git.
 
 ## Limitations
 
@@ -49,3 +56,7 @@ FINAL_RESULTS_PENDING
 - Daily history deliberately includes today/context even when another report range is selected; the other range-based analytics stay filtered.
 - No physical camera/gallery, external share/document provider, OEM launcher/widget, TalkBack or sustained performance pass is claimed. Native system edge-gesture verification still requires a reliable physical/accelerated device.
 - Android/system authentication and external picker windows retain their own system screenshot rules; only this app's windows were changed.
+
+## Native startup recheck — 18 October 2026
+
+Native launch recheck, 18 October 2026 (UTC): the saved API26 emulator was restarted with software acceleration (hardware acceleration unavailable). Android reported MainActivity Status: ok, but the captured display showed a system-wide “System UI isn't responding” dialog. The previous loading-screen observation therefore remains unresolved; this is not evidence of a ready Home screen or proof of an application root cause. See docs/refinement-2026-10-17/native-startup-system-ui-anr-api26.png. A responsive native device/emulator is required to complete startup and gesture acceptance. No user records were cleared. The exact APK remains a verification candidate, not a fully device-accepted release.
