@@ -45,6 +45,15 @@ class PlannerRepositoryTest {
         assertEquals(1, db.dao().allExpenses().size); assertEquals(94000L, db.dao().allExpenses().single().cents)
         assertEquals("rent", db.dao().allExpenses().single().recurringRuleId)
     }
+    @Test fun refundCannotBeLinkedAsPaymentOfAFixedCommitment() = runBlocking {
+        finance.saveRecurring(rule())
+        val refund = Expense("refund", -1000, "bills", 1000, kind = "Refund")
+        ledger.saveExpense(refund)
+        val due = finance.ensureMonth(month).occurrences().single()
+        assertTrue(runCatching { finance.markPaid(due, date(), 95000, refund.id) }.isFailure)
+        assertEquals(refund, db.dao().expense(refund.id))
+        assertNull(db.dao().occurrence(due.ruleId, due.date))
+    }
     @Test fun paymentEditsKeepProvenanceAndDeletingPaymentReopensIt() = runBlocking {
         finance.saveRecurring(rule()); val due = finance.ensureMonth(month).occurrences().single()
         finance.markPaid(due, date(), 95000)

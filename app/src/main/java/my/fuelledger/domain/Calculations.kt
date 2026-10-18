@@ -76,8 +76,7 @@ private fun validFuelPoint(point: FuelPoint) = point.timestamp >= 0 && point.odo
 
 fun validateSequence(points: List<FuelPoint>) {
     points.forEach {
-        require(it.timestamp >= 0 && it.odometer.isFinite() && it.odometer >= 0 && it.odometer <= 1e9 &&
-            it.litres.isFinite() && it.litres > 0 && it.litres <= 1e9 && it.cents in 1..MAX_CENTS) { "Invalid refuelling values." }
+        require(validFuelPoint(it)) { "Invalid refuelling values." }
     }
     points.sortedBy { it.timestamp }.zipWithNext().forEach { (a, b) ->
         require(b.timestamp > a.timestamp && b.odometer > a.odometer) {
@@ -95,8 +94,7 @@ fun efficiencies(points: List<FuelPoint>): List<Efficiency> {
     var valid = true
     var previous: FuelPoint? = null
     for (point in points.sortedBy { it.timestamp }) {
-        val numericValid = point.timestamp >= 0 && point.odometer.isFinite() && point.odometer >= 0 && point.odometer <= 1e9 &&
-            point.litres.isFinite() && point.litres > 0 && point.litres <= 1e9 && point.cents in 1..MAX_CENTS
+        val numericValid = validFuelPoint(point)
         if (!numericValid ||
             (previous != null && (point.odometer <= previous.odometer || point.timestamp <= previous.timestamp))) valid = false
         if (baseline != null) {

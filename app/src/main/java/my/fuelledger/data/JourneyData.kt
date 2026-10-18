@@ -92,9 +92,10 @@ class JourneyRepository(private val database: LedgerDatabase) {
         validateSavedJourney(value)
         database.withTransaction {
             val links = value.plan().actualLinks.map { it.expenseId }.toSet()
-            val others = database.journeyDao().allJourneys().filter { it.id != value.id }.flatMap { it.plan().actualLinks }.map { it.expenseId }.toSet()
+            val saved = database.journeyDao().allJourneys()
+            val others = saved.filter { it.id != value.id }.flatMap { it.plan().actualLinks }.map { it.expenseId }.toSet()
             require(links.intersect(others).isEmpty()) { "An expense is already attributed to another journey." }
-            val previous = database.journeyDao().allJourneys().find { it.id == value.id }?.plan()?.actualLinks?.map { it.expenseId }.orEmpty().toSet()
+            val previous = saved.find { it.id == value.id }?.plan()?.actualLinks?.map { it.expenseId }.orEmpty().toSet()
             require(database.dao().allExpenses().map { it.id }.toSet().containsAll(links - previous)) { "A selected expense no longer exists." }
             database.journeyDao().put(value)
         }

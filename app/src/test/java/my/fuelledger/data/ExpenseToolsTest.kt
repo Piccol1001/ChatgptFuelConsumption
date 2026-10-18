@@ -48,6 +48,20 @@ class ExpenseToolsTest {
         repo.undoTransaction(db.toolsDao().allUndo().first { it.change().after?.cents == 1400L }.id)
         assertEquals(1300L, db.dao().expense(e.id)!!.cents)
     }
+    @Test fun undoCannotReducePurchaseBelowRefundsAddedAfterTheEdit() = runBlocking {
+        val original = Expense("purchase", 1000, "food", 1000)
+        repo.saveExpense(original)
+        val increased = original.copy(cents = 2000)
+        repo.saveExpense(increased)
+        val edit = db.toolsDao().allUndo().single()
+        repo.saveExpense(original.copy(id = "refund", cents = -1500, kind = "Refund", refundOf = original.id))
+        assertTrue(runCatching { repo.undoTransaction(edit.id) }.isFailure)
+        assertEquals(increased, db.dao().expense(original.id))
+        assertNotNull(db.toolsDao().undo(edit.id))
+        repo.deleteExpense("refund")
+        repo.undoTransaction(edit.id)
+        assertEquals(original, db.dao().expense(original.id))
+    }
     @Test fun favouritesAndMerchantMemoryRoundTripThroughBackup() = runBlocking {
         val e = Expense("e", 1500, "food", 1000, "Lunch", payment = "Card", merchant = "Cafe")
         repo.saveExpense(e); repo.saveFavourite(favourite("f", "Lunch", e))

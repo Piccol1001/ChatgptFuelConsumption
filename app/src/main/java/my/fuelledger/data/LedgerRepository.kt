@@ -137,6 +137,10 @@ class LedgerRepository(val database: LedgerDatabase, val preferences: Preference
                 val original = dao.expense(change.before.refundOf)
                 if (original != null) require(-change.before.cents + dao.allExpenses().filter { it.id != change.before.id && it.refundOf == original.id }.sumOf { -it.cents } <= original.cents) { "Restoring would exceed the original expense's refundable amount." }
             }
+            if (change.before.kind == "Expense") {
+                val refunded = dao.allExpenses().filter { it.refundOf == change.before.id }.sumOf { -it.cents }
+                require(refunded <= change.before.cents) { "Restoring would reduce the purchase below its refunded amount. Review its refunds first." }
+            }
             change.receiptScans.forEach { scan ->
                 val current = database.receiptAutomationDao().scan(scan.fingerprint)
                 require(current == null || current == scan) { "This receipt has been used by another transaction. Review it before restoring." }

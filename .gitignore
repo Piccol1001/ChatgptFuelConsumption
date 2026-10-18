@@ -16,3 +16,5 @@ captures/
 
 # Local Python release-workflow bytecode caches.
 __pycache__/
+.DS_Store
+*.hprof

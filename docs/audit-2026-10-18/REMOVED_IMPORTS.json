@@ -1,0 +1,41 @@
+{
+  "app/src/main/java/my/fuelledger/data/Refinement.kt": [
+    "import my.fuelledger.domain.Malaysia"
+  ],
+  "app/src/main/java/my/fuelledger/ui/Components.kt": [
+    "import androidx.compose.material.icons.automirrored.outlined.ReceiptLong",
+    "import androidx.compose.ui.text.font.FontWeight"
+  ],
+  "app/src/main/java/my/fuelledger/ui/FinanceScreen.kt": [
+    "import androidx.compose.material.icons.outlined.AccountBalanceWallet"
+  ],
+  "app/src/main/java/my/fuelledger/ui/Screens.kt": [
+    "import androidx.compose.material.icons.automirrored.outlined.ReceiptLong",
+    "import androidx.compose.ui.graphics.Color",
+    "import androidx.compose.ui.semantics.clearAndSetSemantics",
+    "import androidx.compose.ui.semantics.contentDescription",
+    "import androidx.compose.ui.text.font.FontWeight"
+  ],
+  "app/src/main/java/my/fuelledger/ui/SettingsScreen.kt": [
+    "import androidx.compose.foundation.lazy.items",
+    "import androidx.compose.ui.res.stringResource",
+    "import my.fuelledger.R"
+  ],
+  "app/src/main/java/my/fuelledger/ui/PersonalizationSettings.kt": [
+    "import androidx.compose.ui.unit.dp"
+  ],
+  "app/src/main/java/my/fuelledger/ui/MonthlyPlannerScreen.kt": [
+    "import androidx.compose.foundation.horizontalScroll",
+    "import androidx.compose.foundation.rememberScrollState"
+  ],
+  "app/src/main/java/my/fuelledger/ui/LocalDataSettings.kt": [
+    "import androidx.compose.ui.unit.dp",
+    "import java.io.File"
+  ],
+  "app/src/main/java/my/fuelledger/ui/ExpenseToolsUi.kt": [
+    "import androidx.lifecycle.compose.collectAsStateWithLifecycle"
+  ],
+  "app/src/main/java/my/fuelledger/ui/JourneyToolsUi.kt": [
+    "import androidx.compose.ui.Modifier"
+  ]
+}

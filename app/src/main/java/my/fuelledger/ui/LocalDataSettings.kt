@@ -5,13 +5,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import my.fuelledger.LedgerState
 import my.fuelledger.LedgerViewModel
-import java.io.File
 import java.time.*
 
 @Composable fun LocalDataSettings(state: LedgerState, vm: LedgerViewModel, busy: Boolean) {

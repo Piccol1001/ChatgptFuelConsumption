@@ -1,6 +1,5 @@
 package my.fuelledger.data
 
-import my.fuelledger.domain.Malaysia
 import java.time.*
 import java.time.format.DateTimeFormatter
 

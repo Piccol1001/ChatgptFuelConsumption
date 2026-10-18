@@ -42,7 +42,8 @@ class FinanceRepository(private val database: LedgerDatabase) {
     }
     suspend fun saveAllocation(value: AllocationPlan) = database.withTransaction {
         validateAllocationPlan(value)
-        require(value.categories().flatMap { it.categoryIds }.all { id -> database.dao().allCategories().any { it.id == id } }) { "A spending category no longer exists." }
+        val categoryIds = database.dao().allCategories().map { it.id }.toSet()
+        require(value.categories().flatMap { it.categoryIds }.all { it in categoryIds }) { "A spending category no longer exists." }
         if (value.scope == "default") freezePastAllocations()
         database.plannerDao().putAllocation(value)
     }
@@ -67,8 +68,11 @@ class FinanceRepository(private val database: LedgerDatabase) {
         require(linked == null || linked.id == existingExpenseId) { "This payment already has a linked expense." }
         if (existingExpenseId != null) {
             val existing = requireNotNull(database.dao().expense(existingExpenseId)) { "Expense no longer exists." }
+            require(existing.kind == "Expense") { "A refund cannot pay a fixed commitment." }
             require(existing.fuelId == null && (existing.recurringRuleId == null || existing.id == linked?.id)) { "Expense already belongs to another payment." }
-            database.dao().putExpense(existing.copy(recurringRuleId = occurrence.ruleId, recurringDate = occurrence.date))
+            val updated = existing.copy(recurringRuleId = occurrence.ruleId, recurringDate = occurrence.date)
+            validateExpense(updated)
+            database.dao().putExpense(updated)
         } else {
             val category = if (database.dao().allCategories().any { it.id == planned.categoryId }) planned.categoryId else OTHER_CATEGORY
             val value = Expense("recurring:${occurrence.ruleId}:${occurrence.date}", cents, category,
