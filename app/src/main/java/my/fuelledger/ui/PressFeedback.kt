@@ -35,6 +35,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 internal val LocalPressMotionEnabled = staticCompositionLocalOf { true }
+private const val PressedScale = .98f
 
 /** Apply inside MaterialTheme, which otherwise replaces LocalIndication with its own ripple. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,7 +80,7 @@ internal fun Modifier.pressFeedback(source: MutableInteractionSource, shape: Sha
     val focused = source.collectIsFocusedAsState()
     val motion = LocalPressMotionEnabled.current
     val active = pressed || dragged
-    val scale = animateFloatAsState(if (motion && active) .97f else 1f,
+    val scale = animateFloatAsState(if (motion && active) PressedScale else 1f,
         tween(if (active) 90 else 130), label = "Press scale")
     val accent = MaterialTheme.colorScheme.primary
     return drawWithContent {
@@ -129,7 +130,7 @@ private class ScalePressNode(private val source: InteractionSource, private val 
                 }
                 animation?.cancel()
                 animation = coroutineScope.launch {
-                    if (motion.value) scale.animateTo(if (presses.isNotEmpty()) .97f else 1f, tween(if (presses.isNotEmpty()) 90 else 130))
+                    if (motion.value) scale.animateTo(if (presses.isNotEmpty()) PressedScale else 1f, tween(if (presses.isNotEmpty()) 90 else 130))
                     else scale.snapTo(1f)
                 }
             }

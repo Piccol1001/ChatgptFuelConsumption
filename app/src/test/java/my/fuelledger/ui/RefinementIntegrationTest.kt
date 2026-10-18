@@ -87,7 +87,8 @@ class RefinementIntegrationTest {
         for (tab in listOf("Home", "Expenses")) {
             nav(tab).performClick(); settle(); scroll(hasTestTag("calendar-date-$today"))
             compose.onNodeWithTag("calendar-date-$today").performClick(); settle()
-            scroll(hasText("${dateLabel(today)} · RM 8.50")); compose.onNodeWithText("${dateLabel(today)} · RM 8.50").assertIsDisplayed()
+            scroll(hasTestTag("calendar-selected-summary"))
+            compose.onNodeWithTag("calendar-selected-summary").assertContentDescriptionEquals("${dateLabel(today)} · RM 8.50").assertIsDisplayed()
             compose.onNodeWithText("Calendar meal").assertExists()
             compose.onNodeWithTag("main-pager").assertExists(); nav(tab).assertIsSelected()
         }

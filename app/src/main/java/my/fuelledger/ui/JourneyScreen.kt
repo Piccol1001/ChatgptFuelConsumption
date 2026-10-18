@@ -73,7 +73,7 @@ fun JourneyScreen(settings: AppSettings, vm: JourneyViewModel, refuels: List<Ref
     val estimate = runCatching { journeyCost(input.plan(effectiveConsumption, consumptionSource)) }
     val locations = journeys.flatMap { listOf(it.plan().origin, it.plan().destination) }.distinct()
     LazyColumn(state = listState, contentPadding = ledgerScreenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { ScreenHeading("Journey", "Offline journey estimates", ledgerSymbol("route"), openSettings) }
+        item { ScreenHeading("Journey", "Offline journey estimates", openSettings) }
         item {
             LedgerCard {
                 Text(if (saved != null) "Edit saved journey" else "Plan a journey", style = MaterialTheme.typography.titleMedium)

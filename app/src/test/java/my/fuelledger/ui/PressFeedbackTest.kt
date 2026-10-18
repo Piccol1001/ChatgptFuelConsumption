@@ -135,7 +135,7 @@ class PressFeedbackTest {
             assertEquals("A held press must not invoke the click", clicksBeforePress, clicks)
             val held = capture("$target-stage")
             val heldPaint = held.paintedBounds()
-            assertEquals("Pressed visuals should shrink gently", .97,
+            assertEquals("Pressed visuals should shrink gently", .98,
                 heldPaint.width.toDouble() / idlePaint.width, .012)
             assertTrue("The held centre must keep its accent colour, without a grey ripple",
                 held.isMarker(held.width / 2, held.height / 2))

@@ -44,8 +44,8 @@ val LedgerLightColors = lightColorScheme(
     secondary = Color(0xFF285F7A), onSecondary = Color.White,
     secondaryContainer = Color(0xFFDCEEF8), onSecondaryContainer = Color(0xFF12384C),
     tertiary = Color(0xFF675698), onTertiary = Color.White,
-    background = Color(0xFFF3F6FA), onBackground = Color(0xFF0B1220),
-    surface = Color(0xFFF3F6FA), onSurface = Color(0xFF0B1220),
+    background = Color(0xFFF5F6F3), onBackground = Color(0xFF0B1220),
+    surface = Color(0xFFF5F6F3), onSurface = Color(0xFF0B1220),
     surfaceVariant = Color(0xFFE5EBF2), onSurfaceVariant = Color(0xFF53647A),
     surfaceContainerLowest = Color.White, surfaceContainerLow = Color(0xFFFFFFFF),
     surfaceContainer = Color(0xFFFFFFFF), surfaceContainerHigh = Color(0xFFEDF2F7),
@@ -57,9 +57,9 @@ val LedgerLightColors = lightColorScheme(
 private val ledgerFont = FontFamily.SansSerif
 val LedgerTypography = Typography(
     displaySmall = TextStyle(fontFamily = ledgerFont, fontWeight = FontWeight.Bold, fontSize = 42.sp, lineHeight = 50.sp, letterSpacing = (-1.2).sp),
-    headlineLarge = TextStyle(fontFamily = ledgerFont, fontWeight = FontWeight.Bold, fontSize = 36.sp, lineHeight = 44.sp, letterSpacing = (-.9).sp),
+    headlineLarge = TextStyle(fontFamily = ledgerFont, fontWeight = FontWeight.Bold, fontSize = 32.sp, lineHeight = 40.sp, letterSpacing = (-.7).sp),
     headlineMedium = TextStyle(fontFamily = ledgerFont, fontWeight = FontWeight.Bold, fontSize = 30.sp, lineHeight = 38.sp, letterSpacing = (-.6).sp),
-    headlineSmall = TextStyle(fontFamily = ledgerFont, fontWeight = FontWeight.SemiBold, fontSize = 26.sp, lineHeight = 34.sp, letterSpacing = (-.4).sp),
+    headlineSmall = TextStyle(fontFamily = ledgerFont, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, lineHeight = 32.sp, letterSpacing = (-.4).sp),
     titleLarge = TextStyle(fontFamily = ledgerFont, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, lineHeight = 30.sp, letterSpacing = (-.3).sp),
     titleMedium = TextStyle(fontFamily = ledgerFont, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 24.sp),
     titleSmall = TextStyle(fontFamily = ledgerFont, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp),

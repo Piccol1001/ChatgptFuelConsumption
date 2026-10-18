@@ -1,3 +1,38 @@
+# Current progress — audit complete, CLARITY refinement in verification
+
+Updated **18 October 2026 (Malaysia)**. Current successful audit artifact: **1.5.2 / code9**, original package/certificate and Room schema5. Source checkpoint `48e3c51`; artifact checkpoint `f9ab990`. The CLARITY UI phase is separate and not yet released. Previous progress records remain below.
+
+## 1. Features completed
+
+- Whole-repository audit, verified unused content removal, two regression-proven financial guards, query/lookup optimizations; see CLEANUP_REPORT.md.
+- CLARITY Home: navy financial card, actual daily/monthly spending and actual received income; budget alignment, two Add actions, shared calendar with selected total, upcoming payments.
+- Shared 16dp cards, 24sp headings and 32sp primary amounts; warm light palette and existing requested navy/emerald dark palette; .98 press feedback with reduced-motion behavior.
+- Fuel history before charts, estimated-consumption info dialog and compact record details; existing calculations/metadata retained.
+- Consistent heading gutters, grouped Settings, wider-screen navigation rail and bounded editor width. Existing pager, form entry, data and privacy behavior retained.
+
+## 2. Current work
+
+Running complete CLARITY functional/visual regressions before a separately versioned release. The audit's nine native data/OCR/security cases passed; its added startup case hit the first-state 30-second budget in the combined run. A baseline standalone readiness/recreation test previously passed and actual Home was captured. The first-state test budget now matches readiness (120 seconds) for software emulation; final follow-up is pending. Do not claim all ten native tests passed yet.
+
+## 3. Files
+
+CLEANUP_REPORT.md and docs/audit-2026-10-18 contain audit inventory/request/evidence. docs/clarity-2026-10-18 contains the new request and logo status. The working diff contains shared UI tokens, Home/Fuel/Settings/navigation changes and targeted visual/functional tests. Preserve all existing APKs and historical reports.
+
+## 4. Remaining tasks
+
+Finish automated checks and inspect representative renders, build CLARITY through scripts/release.py, verify native behavior and actual APK metadata, finalize reports/inventories, commit and push. **Logo replacement is deferred with explicit user authorization:** both named Option4 PNGs are absent locally and from fetched GitHub design-assets/. Never substitute an invented logo.
+
+## 5. Known issues
+
+Software-emulator startup is slow; no physical-device performance claim. One native first-state timeout was observed and must remain in the report. Layout regressions from header alignment and intentionally split calendar summary semantics were corrected; existing tests remain. AppSmoke's old Analysis subtitle expectation was updated to the new caption. Physical camera/gallery, provider/OEM widgets, TalkBack and reliable Android15 edge gestures remain manual limits.
+
+## 6. Resume
+
+Read AGENTS.md, CLEANUP_REPORT.md and current git status. Load `/workspace/.tooling/fuel-ledger-env.sh`. Ongoing logs: `/tmp/clarity-final-host.log`, `/tmp/clarity-adaptive.log`, `/tmp/audit-native-final.log`. Finish source before release/lint. Run complete app tests/builds, buildSrc tests and Python workflow tests; only then use the documented patch release workflow with reviewed CLARITY notes. Native fixture user12 is active; never clear/uninstall owner0. Restore user0 and remove only the test fixture at completion. Keep airplane mode1. Recheck named logo files before final delivery; skip branding if still absent.
+
+<details>
+<summary>Preserved progress before the audit and CLARITY phase</summary>
+
 # Current progress — Refined UI, fuel estimates and verified releases
 
 Updated **18 October 2026 (UTC)**. Final application **1.5.1 / code 8**, package `my.fuelledger`, Room schema5 and original signing certificate. Baseline `4ef21fc` is protected by branch `checkpoint/refinement-2026-10-17`; final app source is `8366cc8`. Previous progress remains below.
@@ -995,6 +1030,8 @@ Statuses: **A** new, **M** modified, **D** previously removed/replaced launcher 
 | M | `app/src/test/java/my/fuelledger/ui/AppSmokeTest.kt` |
 
 Total: **65 changed files**, including this document.
+
+</details>
 
 </details>
 

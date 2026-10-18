@@ -142,6 +142,14 @@ fun LedgerApp(vm: LedgerViewModel) {
             else expenseEditId = expense.id
         }
         val motionEnabled = LocalPressMotionEnabled.current
+        val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
+        val largeLabels = androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.3f
+        val showMainNavigation = !settingsOpen && !financeOpen && !calendarOpen
+        val selectMain: (Int) -> Unit = { index ->
+            scannerOpen = false
+            navigationJob?.cancel()
+            navigationJob = navigationScope.launch { if (!motionEnabled) pager.scrollToPage(index) else pager.animateScrollToPage(index) }
+        }
         Scaffold(
             topBar = {
                 if (settingsOpen || financeOpen || scannerOpen || calendarOpen) TopAppBar(title = {
@@ -153,18 +161,28 @@ fun LedgerApp(vm: LedgerViewModel) {
                     navigationIcon = { if (settingsOpen || financeOpen || scannerOpen || calendarOpen) IconButton(onClick = { if (calendarOpen) calendarOpen = false else if (scannerOpen) scannerOpen = false else if (financeOpen) financeOpen = false else settingsOpen = false }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
                     actions = { if (!settingsOpen && !financeOpen) IconButton(onClick = openSettings) { Icon(ledgerSymbol("settings"), "Settings") } })
             },
-            bottomBar = { if (!settingsOpen && !financeOpen && !calendarOpen) NavigationBar {
+            bottomBar = { if (showMainNavigation && !wide) NavigationBar {
                 mainDestinations.forEachIndexed { index, destination ->
-                    NavigationBarItem(selected = pager.currentPage == index, onClick = {
-                        scannerOpen = false
-                        navigationJob?.cancel()
-                        navigationJob = navigationScope.launch { if (!motionEnabled) pager.scrollToPage(index) else pager.animateScrollToPage(index) }
-                    }, icon = { Icon(ledgerSymbol(destination.symbol), destination.label) }, label = { Text(destination.label) })
+                    if (largeLabels) Row(Modifier.weight(if (pager.currentPage == index) 1.6f else 1f)) {
+                        NavigationBarItem(selected = pager.currentPage == index, onClick = { selectMain(index) }, alwaysShowLabel = false,
+                            icon = { Icon(ledgerSymbol(destination.symbol), destination.label) }, label = { Text(destination.label) })
+                    } else NavigationBarItem(selected = pager.currentPage == index, onClick = { selectMain(index) },
+                        icon = { Icon(ledgerSymbol(destination.symbol), destination.label) }, label = { Text(destination.label) })
                 }
             } },
             snackbarHost = { SnackbarHost(snackbar) }
         ) { padding ->
-            Box(Modifier.fillMaxSize().padding(padding)) {
+            Row(Modifier.fillMaxSize().padding(padding)) {
+                if (wide && showMainNavigation) NavigationRail(
+                    modifier = Modifier.width(if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.3f) 120.dp else 104.dp).fillMaxHeight(),
+                    windowInsets = WindowInsets(0, 0, 0, 0)) {
+                    mainDestinations.forEachIndexed { index, destination ->
+                        LedgerRailItem(pager.currentPage == index, { selectMain(index) },
+                            icon = { Icon(ledgerSymbol(destination.symbol), destination.label) }, label = { Text(destination.label) })
+                    }
+                }
+                Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
+                Box(Modifier.widthIn(max = LedgerSpacing.contentMaxWidth).fillMaxSize()) {
                 if (!ready || state.categories.isEmpty()) {
                     Column(Modifier.align(Alignment.Center).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         if (startupError == null) { CircularProgressIndicator(); Text("Opening your local ledger…") }
@@ -209,6 +227,8 @@ fun LedgerApp(vm: LedgerViewModel) {
                 }
                 }
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter))
+                }
+                }
             }
         }
         if (ready && state.categories.isNotEmpty() && (addExpense || expenseEditor != null)) {

@@ -26,7 +26,7 @@ fun EditorShell(title: String, busy: Boolean, error: String?, dismiss: () -> Uni
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     Dialog(onDismissRequest = { if (!busy) dismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, securePolicy = SecureFlagPolicy.SecureOff)) {
         PrivacyDialogWindow()
-        val width = if (compact) Modifier.widthIn(max = 560.dp).fillMaxWidth() else Modifier.fillMaxWidth().widthIn(max = 560.dp)
+        val width = Modifier.widthIn(max = 560.dp).fillMaxWidth()
         Surface(width.padding(if (compact) 8.dp else 12.dp).heightIn(max = if (compact) 860.dp else 720.dp), shape = MaterialTheme.shapes.large) {
             Column(Modifier.imePadding().padding(if (compact) 16.dp else 20.dp), verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {

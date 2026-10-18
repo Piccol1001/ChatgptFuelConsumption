@@ -21,6 +21,7 @@ import java.time.*
         Text("Paid fixed ${Money.format(report.fixedPaid)} · variable ${Money.format(report.variable)}")
         Text("Net cash flow ${Money.format(report.net)}", style = MaterialTheme.typography.titleMedium)
     }
+    SpendingBars("Income vs Expenses", listOf("Actual income" to report.income, "Net expenses" to report.expenses))
     val months = generateSequence(YearMonth.from(start)) { it.plusMonths(1) }.takeWhile { it <= YearMonth.from(end) }.toList().takeLast(12)
     SpendingBars("Income trend · actual", months.map { m -> m.toString() to finance.income.filter {
         val date = Instant.ofEpochMilli(it.timestamp).atZone(zone).toLocalDate(); date in maxOf(start, m.atDay(1))..minOf(end, m.atEndOfMonth())

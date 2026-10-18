@@ -47,7 +47,9 @@ class ProductionStartupTest {
                 assertEquals(0, activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE)
             }
             withTimeout(120_000) { model.ready.first { it } }
-            val initial = withTimeout(30_000) { model.state.first { it.categories.isNotEmpty() } }
+            // SQLCipher can open additional observed-query connections after initialization.
+            // Keep the same bounded software-emulator budget as the readiness stage.
+            val initial = withTimeout(120_000) { model.state.first { it.categories.isNotEmpty() } }
             assertTrue(initial.categories.map { it.id }.containsAll(my.fuelledger.data.defaultCategories.map { it.id }))
             instrumentation.runOnMainSync { activity.recreate() }
             val recreated = withTimeout(60_000) { while (active.get() === activity) delay(50); active.get()!! }

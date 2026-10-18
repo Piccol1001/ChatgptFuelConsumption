@@ -163,6 +163,7 @@ internal fun compactCalendarAmount(cents: Long): String = when {
 /** Compact embedded calendar. Selecting a day exposes exact totals and its actual records. */
 @Composable fun EmbeddedSpendingCalendar(state: LedgerState, edit: (Expense) -> Unit, openDay: (LocalDate) -> Unit) {
     val clock = currentCalendar()
+    val privacy = LocalUiPreferences.current.privacyMode
     var monthText by rememberSaveable { mutableStateOf(YearMonth.from(clock.today).toString()) }
     var selectedText by rememberSaveable { mutableStateOf(clock.today.toString()) }
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -180,8 +181,13 @@ internal fun compactCalendarAmount(cents: Long): String = when {
         Text("Spending Calendar", style = MaterialTheme.typography.titleMedium)
         SpendingCalendarMonth(state, month, selected, clock.today, clock.zone,
             { selectedText = it.toString(); expanded = true }, { monthText = it.toString(); selectedText = it.atDay(1).toString(); expanded = false })
+        Row(Modifier.fillMaxWidth().testTag("calendar-selected-summary").semantics(mergeDescendants = true) {
+            contentDescription = maskAmounts("${dateLabel(selected)} · ${Money.format(entries.sumOf { it.cents })}", privacy)
+        }, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(dateLabel(selected), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(Money.format(entries.sumOf { it.cents }), style = MaterialTheme.typography.titleSmall)
+        }
         if (expanded) {
-            Text("${dateLabel(selected)} · ${Money.format(entries.sumOf { it.cents })}", style = MaterialTheme.typography.titleSmall)
             entries.take(3).forEach { e -> ExpenseRow(e, state.categories.find { it.id == e.categoryId }) { edit(e) } }
             if (entries.isEmpty()) Text("No recorded transactions", style = MaterialTheme.typography.bodySmall)
             TextButton({ openDay(selected) }) { Text(if (entries.size > 3) "View all ${entries.size} transactions" else "View day / add expense") }

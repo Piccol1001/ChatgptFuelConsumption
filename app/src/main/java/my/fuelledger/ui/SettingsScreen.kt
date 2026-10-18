@@ -72,6 +72,7 @@ fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, expor
                 }
             }
         }
+        item(key = "preferences-group") { Text("Preferences", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         item(key = "appearance") {
             LedgerCard {
                 Text("Appearance", style = MaterialTheme.typography.titleMedium)
@@ -101,10 +102,6 @@ fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, expor
                 ExpandableHelp("Scanner safeguards") { Text("Recognition stays offline. Ambiguous values, duplicates and petrol receipts require review; forms always wait for Save.", style = MaterialTheme.typography.bodySmall) }
             }
         }
-        item(key = "privacy") {
-            PersonalizationSettings(state, vm, busy)
-        }
-        item(key = "lock") { AppLockSettings() }
         item(key = "categories") {
             LedgerCard {
                 ExpandableHelp("Manage categories (${state.categories.size})") {
@@ -119,6 +116,11 @@ fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, expor
                 }
             }
         }
+        item(key = "privacy-data-group") { Text("Privacy and Data", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item(key = "privacy") {
+            PersonalizationSettings(state, vm, busy)
+        }
+        item(key = "lock") { AppLockSettings() }
         item(key = "backup") {
             LedgerCard {
                 Text("Backup & Export", style = MaterialTheme.typography.titleMedium)
@@ -134,6 +136,7 @@ fun SettingsScreen(state: LedgerState, vm: LedgerViewModel, busy: Boolean, expor
                 ExpandableHelp("Manage local storage") { LocalDataSettings(state, vm, busy) }
             }
         }
+        item(key = "general-group") { Text("General", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         item(key = "about") {
             val installed = context.packageManager.getPackageInfo(context.packageName, 0)
             LedgerCard {

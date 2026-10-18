@@ -12,8 +12,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -35,24 +33,39 @@ fun OverviewDashboard(state: LedgerState, finance: FinanceState, expense: () -> 
     val spent = totals.month(month)
     val budget = finance.budgets.find { it.month == month.toString() && it.categoryId.isEmpty() }?.cents
     val due = remember(plan, state.expenses) { plan.filter { it.kind == "Expense" && state.expenses.none { e -> e.recurringRuleId == it.ruleId && e.recurringDate == it.date } }.sortedBy { it.date }.take(4) }
-    val isDark = MaterialTheme.colorScheme.background.luminance() < .4f
-    LazyColumn(contentPadding = ledgerScreenPadding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    val received = remember(finance.income, month, now.zone) { financeMonthlyIncome(finance.income, month, now.zone) }
+    LazyColumn(contentPadding = ledgerScreenPadding, verticalArrangement = Arrangement.spacedBy(LedgerSpacing.section)) {
         item(key = "header") {
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(month.format(DateTimeFormatter.ofPattern("MMMM yyyy", Malaysia)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(now.today.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Malaysia)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("Overview", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
                 }
-                IconButton(togglePrivacy) { Icon(if (state.settings.privacyMode) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, "Hide or reveal amounts") }
                 if (settings != null) IconButton(settings) { Icon(ledgerSymbol("settings"), "Settings") }
             }
         }
         item(key = "today") {
-            Surface(Modifier.fillMaxWidth().clickable { openDay(now.today) }, color = if (isDark) Color(0xFF14283D) else MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(24.dp)) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Today's Expenses", style = MaterialTheme.typography.labelLarge)
+            Surface(Modifier.fillMaxWidth().testTag("home-financial-card").clickable { openDay(now.today) }, color = DashboardColors.surface,
+                contentColor = DashboardColors.primary, shape = RoundedCornerShape(LedgerSpacing.heroRadius)) {
+                Column(Modifier.padding(LedgerSpacing.card), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Today's Expenses", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = DashboardColors.secondary)
+                        IconButton(togglePrivacy, Modifier.size(LedgerSpacing.touchTarget)) {
+                            Icon(if (state.settings.privacyMode) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, "Hide or reveal amounts", tint = DashboardColors.secondary)
+                        }
+                    }
                     Text(Money.format(totals.today(now.today)), Modifier.testTag("home-today-amount"), style = MaterialTheme.typography.headlineLarge)
-                    Text(dateLabel(now.today), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    HorizontalDivider(color = DashboardColors.divider)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("This Month", style = MaterialTheme.typography.bodySmall, color = DashboardColors.secondary)
+                            Text(Money.format(spent), Modifier.testTag("home-month-amount"), style = MaterialTheme.typography.titleMedium)
+                        }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Income Received", style = MaterialTheme.typography.bodySmall, color = DashboardColors.secondary)
+                            Text(Money.format(received), Modifier.testTag("home-income-amount"), style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
                 }
             }
         }
@@ -72,10 +85,11 @@ fun OverviewDashboard(state: LedgerState, finance: FinanceState, expense: () -> 
             }
         }
         item(key = "actions") {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 listOf(Triple("Expense", Icons.Outlined.Add, expense), Triple("Fuel", Icons.Outlined.LocalGasStation, refuel)).forEach { (label, icon, action) ->
-                    FilledTonalButton(action, Modifier.weight(1f).heightIn(min = 56.dp), shape = RoundedCornerShape(16.dp)) {
-                        Icon(icon, label); Spacer(Modifier.width(8.dp)); Text(label)
+                    FilledTonalButton(action, Modifier.weight(1f).heightIn(min = 56.dp).fillMaxHeight(), shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)) {
+                        Icon(icon, label); Spacer(Modifier.width(8.dp)); Text("Add $label")
                     }
                 }
             }
@@ -107,9 +121,9 @@ internal fun overviewSample(): Pair<LedgerState, FinanceState> {
         FinanceRecurring("wifi", "Wi-Fi", 12000, "bills", "Monthly", month.atEndOfMonth().toString(), month.atEndOfMonth().toString(), manualPayment = true),
         FinanceRecurring("rent", "Rent", 101000, "bills", "Monthly", month.atDay(1).toString(), month.atDay(1).toString(), manualPayment = true))
     return LedgerState(categories = defaultCategories, expenses = listOf(Expense("sample", 25000, "food", LocalDate.now().atTime(12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()), Expense("sample-rent", 101000, "bills", date, recurringRuleId = "rent", recurringDate = month.atDay(1).toString()))) to
-        FinanceState(budgets = listOf(FinanceBudget("sample", month.toString(), 168000)), recurring = rules)
+        FinanceState(income = listOf(FinanceIncome("sample-income", 300000, date, "Salary")), budgets = listOf(FinanceBudget("sample", month.toString(), 168000)), recurring = rules)
 }
-@Preview(name = "Overview reference dark", widthDp = 393, heightDp = 851)
+@Preview(name = "CLARITY Overview dark", widthDp = 393, heightDp = 852)
 @Composable private fun OverviewReferenceDark() { val (s, f) = overviewSample(); LedgerTheme(true) { Surface { OverviewDashboard(s, f, {}, {}, {}, {}, {}, {}) } } }
-@Preview(name = "Overview reference light", widthDp = 393, heightDp = 851)
+@Preview(name = "CLARITY Overview light", widthDp = 393, heightDp = 852)
 @Composable private fun OverviewReferenceLight() { val (s, f) = overviewSample(); LedgerTheme(false) { Surface { OverviewDashboard(s, f, {}, {}, {}, {}, {}, {}) } } }

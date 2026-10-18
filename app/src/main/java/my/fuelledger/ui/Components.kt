@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -38,7 +39,7 @@ import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.delay
 
 // Shared main-screen insets; the app Scaffold owns system bars and navigation.
-internal val ledgerScreenPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 28.dp)
+internal val ledgerScreenPadding = PaddingValues(start = LedgerSpacing.screen, end = LedgerSpacing.screen, top = 8.dp, bottom = 28.dp)
 
 // Device-local calendar reacts at midnight, on foreground and to Android clock/zone broadcasts.
 data class CalendarState(val today: LocalDate, val zone: ZoneId)
@@ -104,10 +105,9 @@ fun categoryIcon(icon: String): ImageVector = ledgerSymbol(icon)
 
 @Composable
 fun LedgerCard(modifier: Modifier = Modifier, emphasized: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
-    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp),
-        color = if (emphasized) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
-        border = BorderStroke(1.dp, if (emphasized) MaterialTheme.colorScheme.primary.copy(alpha = .18f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = .55f))) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp), content = content)
+    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(LedgerSpacing.cardRadius),
+        color = if (emphasized) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer) {
+        Column(Modifier.padding(LedgerSpacing.card), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
     }
 }
 
@@ -133,14 +133,11 @@ fun SectionTitle(title: String, subtitle: String? = null) {
 }
 
 @Composable
-fun ScreenHeading(title: String, subtitle: String, icon: ImageVector, openSettings: (() -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(46.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-        }
+fun ScreenHeading(title: String, subtitle: String, openSettings: (() -> Unit)? = null) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Top) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
         }
         if (openSettings != null) IconButton(onClick = openSettings) { Icon(ledgerSymbol("settings"), "Settings") }
     }
@@ -235,7 +232,8 @@ fun ExpenseRow(expense: Expense, category: Category?, onClick: () -> Unit) {
 @Composable
 fun SpendingBars(title: String, data: List<Pair<String, Long>>, color: Color = MaterialTheme.colorScheme.primary) {
     val privacy = LocalUiPreferences.current.privacyMode
-    val max = data.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1L
+    val max = data.maxOfOrNull { kotlin.math.abs(it.second) }?.coerceAtLeast(1) ?: 1L
+    val signed = data.any { it.second < 0 }
     LedgerCard(Modifier.chartGestureRegion()) {
         Text(title, style = MaterialTheme.typography.titleMedium)
         data.forEach { (label, value) ->
@@ -244,8 +242,19 @@ fun SpendingBars(title: String, data: List<Pair<String, Long>>, color: Color = M
                     Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                     Text(Money.format(value), style = MaterialTheme.typography.labelMedium)
                 }
-                Box(Modifier.fillMaxWidth().height(7.dp).background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(4.dp))) {
-                    if (value > 0) Box(Modifier.fillMaxWidth((value.toDouble() / max).toFloat()).fillMaxHeight().background(color, RoundedCornerShape(4.dp)))
+                Box(Modifier.fillMaxWidth().height(7.dp).testTag("bar-track-$title-$label").background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(4.dp))) {
+                    val fraction = (kotlin.math.abs(value).toDouble() / max).toFloat().coerceIn(0f, 1f)
+                    if (signed) {
+                        Row(Modifier.fillMaxSize()) {
+                            Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.CenterEnd) {
+                                if (value < 0) Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().testTag("bar-negative-$label").background(color, RoundedCornerShape(4.dp)))
+                            }
+                            Box(Modifier.weight(1f).fillMaxHeight()) {
+                                if (value > 0) Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().testTag("bar-positive-$label").background(color, RoundedCornerShape(4.dp)))
+                            }
+                        }
+                        Box(Modifier.align(Alignment.Center).width(1.dp).fillMaxHeight().background(MaterialTheme.colorScheme.outline))
+                    } else if (value > 0) Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().background(color, RoundedCornerShape(4.dp)))
                 }
             }
         }

@@ -15,6 +15,7 @@ import androidx.compose.material3.FilledTonalIconButton as MaterialFilledTonalIc
 import androidx.compose.material3.FilterChip as MaterialFilterChip
 import androidx.compose.material3.IconButton as MaterialIconButton
 import androidx.compose.material3.NavigationBarItem as MaterialNavigationBarItem
+import androidx.compose.material3.NavigationRailItem as MaterialNavigationRailItem
 import androidx.compose.material3.OutlinedButton as MaterialOutlinedButton
 import androidx.compose.material3.OutlinedCard as MaterialOutlinedCard
 import androidx.compose.material3.Slider as MaterialSlider
@@ -183,6 +184,15 @@ fun RowScope.NavigationBarItem(
     val source = pressSource(interactionSource)
     MaterialNavigationBarItem(selected, onClick, icon, modifier.pressFeedback(source), enabled,
         label, alwaysShowLabel, colors, source)
+}
+
+@Composable
+internal fun LedgerRailItem(selected: Boolean, onClick: () -> Unit, icon: @Composable () -> Unit, label: @Composable () -> Unit) {
+    val source = pressSource(null)
+    MaterialNavigationRailItem(selected = selected, onClick = onClick, icon = icon, label = label,
+        modifier = Modifier.pressFeedback(source), interactionSource = source,
+        colors = NavigationRailItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.primary))
 }
 
 @Composable
