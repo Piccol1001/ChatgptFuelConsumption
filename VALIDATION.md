@@ -44,7 +44,7 @@ python -m unittest discover -s scripts/tests -v
 (cd downloads && sha256sum -c SHA256SUMS)
 ```
 
-These commands reproduce1.5.4/code11 without incrementing versions. Source is frozen after `a093f63`; new distributables after future source changes must use RELEASING.md. Native tests require a new isolated test user; never clear/uninstall owner0. GitHub publication/hash verification is recorded after delivery.
+These commands reproduce1.5.4/code11 without incrementing versions. Source is frozen after `a093f63`; new distributables after future source changes must use RELEASING.md. Native tests require a new isolated test user; never clear/uninstall owner0. GitHub main received the source/reports/APKs; the public final download returned HTTP200 and its exact bytes/SHA matched the verified artifact. [Publication evidence](docs/clarity-2026-10-18/PUBLICATION.md).
 
 <details>
 <summary>Preserved validation before the audit and CLARITY phase</summary>

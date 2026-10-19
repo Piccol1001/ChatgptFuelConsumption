@@ -14,7 +14,7 @@ Updated **19 October 2026 (Malaysia)**. Final build: **1.5.4 / code11**, package
 
 ## 2. Features currently being implemented
 
-No application feature remains in progress for the audit/CLARITY delivery. GitHub publication verification is the final delivery step. The requested logo replacement is explicitly deferred until its actual source PNGs are supplied.
+No application feature remains in progress for the audit/CLARITY delivery. The source, reports and APKs are pushed to GitHub; the public final APK returns HTTP200 with the exact verified SHA. [Publication evidence](docs/clarity-2026-10-18/PUBLICATION.md). The requested logo replacement is explicitly deferred until its actual source PNGs are supplied.
 
 ## 3. Files created or modified
 
@@ -24,7 +24,7 @@ APK: downloads/FuelExpenseTracker_v1.5.4.apk —76,275,157 bytes, signed debug w
 
 ## 4. Remaining tasks
 
-Finish authorized GitHub push and public hash verification. Future branding requires `design-assets/Fuel_Expense_Logo_Option_4.png` and `design-assets/Fuel_Expense_Android_Adaptive_Foreground.png`; both remain absent locally and on fetched main as of19 October. Do not invent/substitute a logo. Physical startup/performance, IME, camera/gallery, thermal receipt variability, external providers, OEM widgets, TalkBack and reliable native Android15 edge gestures remain manual checks.
+No outstanding automated build/test or publication task. Future branding requires `design-assets/Fuel_Expense_Logo_Option_4.png` and `design-assets/Fuel_Expense_Android_Adaptive_Foreground.png`; both remain absent locally and on fetched main as of19 October. Do not invent/substitute a logo. Physical startup/performance, IME, camera/gallery, thermal receipt variability, external providers, OEM widgets, TalkBack and reliable native Android15 edge gestures remain manual checks.
 
 ## 5. Known errors or compilation issues
 

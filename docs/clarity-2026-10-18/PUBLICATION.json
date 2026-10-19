@@ -1,0 +1,12 @@
+{
+  "verifiedAt": "2026-10-19T11:37:19.927416+08:00",
+  "artifactCommit": "6471767d4ec6b84f41e9171795ffa97578933113",
+  "remoteMainAtVerification": "6471767d4ec6b84f41e9171795ffa97578933113",
+  "url": "https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/downloads/FuelExpenseTracker_v1.5.4.apk",
+  "resolvedUrl": "https://raw.githubusercontent.com/Piccol1001/ChatgptFuelConsumption/refs/heads/main/downloads/FuelExpenseTracker_v1.5.4.apk",
+  "httpStatus": 200,
+  "bytes": 76275157,
+  "sha256": "92ec7a5887651e60cf78dd6601c522fc14ffef574880e248ca5a002b6e50d1ca",
+  "versionName": "1.5.4",
+  "versionCode": 11
+}

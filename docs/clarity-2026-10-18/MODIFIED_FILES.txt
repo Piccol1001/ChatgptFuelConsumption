@@ -59,6 +59,8 @@ docs/clarity-2026-10-18/LOGO_STATUS.md
 docs/clarity-2026-10-18/MODIFIED_FILES.txt
 docs/clarity-2026-10-18/NATIVE_RESULTS.md
 docs/clarity-2026-10-18/PATCH_NOTES.md
+docs/clarity-2026-10-18/PUBLICATION.json
+docs/clarity-2026-10-18/PUBLICATION.md
 docs/clarity-2026-10-18/RELEASE_NOTES.md
 docs/clarity-2026-10-18/REQUEST.md
 docs/clarity-2026-10-18/SCREENS.md

@@ -60,3 +60,5 @@ Optional existing receipt/station/fuel-type controls remain collapsed in Add Ref
 ## Delivered build
 
 [FuelExpenseTracker_v1.5.4.apk](downloads/FuelExpenseTracker_v1.5.4.apk), version1.5.4/code11,76,275,157 bytes, signed debug with the original certificate. SHA256 `92ec7a5887651e60cf78dd6601c522fc14ffef574880e248ca5a002b6e50d1ca`. [Build/privacy verification](docs/clarity-2026-10-18/BUILD_RESULTS.md). Earlier artifacts1.5.2/code9 and1.5.3/code10 remain immutable, with their own actual metadata and verification results.
+
+[GitHub publication and public APK checksum verification](docs/clarity-2026-10-18/PUBLICATION.md).
