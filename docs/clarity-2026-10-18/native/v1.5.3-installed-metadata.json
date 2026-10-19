@@ -1,0 +1,10 @@
+{
+  "versionName": "1.5.3",
+  "versionCode": 10,
+  "sha256": "f0eb9be2ceb3b7a9c1cf703852a69031a0dc6703bb9363f7cb23e7b3f8e63602",
+  "installedSha256": "f0eb9be2ceb3b7a9c1cf703852a69031a0dc6703bb9363f7cb23e7b3f8e63602",
+  "user": 14,
+  "airplaneMode": 1,
+  "device": "emulator-5556",
+  "api": 26
+}

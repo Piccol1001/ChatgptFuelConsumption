@@ -1,0 +1,71 @@
+{
+  "artifact": {
+    "path": "downloads/FuelExpenseTracker_v1.5.4.apk",
+    "applicationId": "my.fuelledger",
+    "versionName": "1.5.4",
+    "versionCode": 11,
+    "debuggable": true,
+    "certificateSha256": "4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8",
+    "sha256": "92ec7a5887651e60cf78dd6601c522fc14ffef574880e248ca5a002b6e50d1ca",
+    "bytes": 76275157,
+    "releaseDate": "2026-10-19",
+    "dateEvidence": "Built and verified by scripts/release.py",
+    "signing": "Signed debug build",
+    "sourceCheckpoint": "a093f634838ceb17c75391d019a293e7b74f1fa0"
+  },
+  "ocrAssets": [
+    "assets/mlkit-google-ocr-models/aksara/aksara_page_layout_analysis_rpn_gcn.binarypb",
+    "assets/mlkit-google-ocr-models/aksara/aksara_page_layout_analysis_ti_rpn_gcn.binarypb",
+    "assets/mlkit-google-ocr-models/gocr/gocr_models/line_recognition_legacy_mobile/Latn_ctc/optical/assets.extra/LabelMap.pb",
+    "assets/mlkit-google-ocr-models/gocr/gocr_models/line_recognition_legacy_mobile/Latn_ctc/optical/conv_model.fb",
+    "assets/mlkit-google-ocr-models/gocr/gocr_models/line_recognition_legacy_mobile/Latn_ctc/optical/lstm_model.fb",
+    "assets/mlkit-google-ocr-models/gocr/gocr_models/line_recognition_legacy_mobile/Latn_ctc_cpu.binarypb",
+    "assets/mlkit-google-ocr-models/gocr/gocr_models/line_recognition_legacy_mobile/tflite_langid.tflite",
+    "assets/mlkit-google-ocr-models/gocr/layout/line_clustering_custom_ops/model.tflite",
+    "assets/mlkit-google-ocr-models/gocr/layout/line_splitting_custom_ops/model.tflite",
+    "assets/mlkit-google-ocr-models/taser/detector/region_proposal_text_detector_tflite_vertical_mbv2_v1.bincfg",
+    "assets/mlkit-google-ocr-models/taser/detector/rpn_text_detector_mobile_space_to_depth_quantized_mbv2_v1.tflite",
+    "assets/mlkit-google-ocr-models/taser/rpn_text_detection_tflite_mobile_mbv2.binarypb",
+    "assets/mlkit-google-ocr-models/taser/segmenter/tflite_script_detector_0.3.bincfg",
+    "assets/mlkit-google-ocr-models/taser/segmenter/tflite_script_detector_0.3.conv_model",
+    "assets/mlkit-google-ocr-models/taser/segmenter/tflite_script_detector_0.3.lstm_model",
+    "assets/mlkit-google-ocr-models/taser/taser_script_identification_tflite_mobile.binarypb",
+    "assets/mlkit-google-ocr-models/taser_tflite_gocrlatin_mbv2_scriptid_aksara_layout_gcn_mobile_engine.binarypb",
+    "assets/mlkit-google-ocr-models/taser_tflite_gocrlatin_mbv2_scriptid_aksara_layout_gcn_mobile_engine_ti.binarypb",
+    "assets/mlkit-google-ocr-models/taser_tflite_gocrlatin_mbv2_scriptid_aksara_layout_gcn_mobile_recognizer.binarypb",
+    "assets/mlkit-google-ocr-models/taser_tflite_gocrlatin_mbv2_scriptid_aksara_layout_gcn_mobile_runner.binarypb",
+    "assets/mlkit-google-ocr-models/taser_tflite_gocrlatin_mbv2_scriptid_aksara_layout_gcn_mobile_runner_ti.binarypb"
+  ],
+  "absentDexMarkers": [
+    "Lcom/google/android/datatransport/runtime/",
+    "Lcom/google/android/datatransport/cct/",
+    "Lcom/google/firebase/analytics/",
+    "Lcom/google/firebase/crashlytics/"
+  ],
+  "lint": {
+    "Warning": 4,
+    "Hint": 1
+  },
+  "backupManifestAttributes": [
+    "A: android:allowBackup(0x01010280)=(type 0x12)0x0",
+    "A: android:fullBackupContent(0x010104eb)=@0x7f110000",
+    "A: android:dataExtractionRules(0x0101063e)=@0x7f110001"
+  ],
+  "packagedPermissions": [
+    "package: my.fuelledger",
+    "uses-permission: name='android.permission.POST_NOTIFICATIONS'",
+    "uses-permission: name='android.permission.USE_BIOMETRIC'",
+    "uses-permission: name='android.permission.USE_FINGERPRINT'",
+    "uses-permission: name='android.permission.WAKE_LOCK'",
+    "uses-permission: name='android.permission.RECEIVE_BOOT_COMPLETED'",
+    "uses-permission: name='android.permission.FOREGROUND_SERVICE'",
+    "permission: my.fuelledger.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
+    "uses-permission: name='my.fuelledger.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'"
+  ],
+  "signatureVerification": [
+    "Signer #1 certificate DN: C=US, O=Android, CN=Android Debug",
+    "Signer #1 certificate SHA-256 digest: 4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8",
+    "Signer #1 certificate SHA-1 digest: cb9b25b4477dca28bd030f219bda5c3e4fa5eec2",
+    "Signer #1 certificate MD5 digest: cbf2e817c43e3addc28c9d67ab499f76"
+  ]
+}

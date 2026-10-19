@@ -4,23 +4,24 @@ A native Android app for personal spending and car fuel records. Kotlin, Jetpack
 
 ## Download the APK
 
-[**Download Fuel & Expense Tracker for Android**](https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/downloads/FuelExpenseTracker_v1.5.1.apk)
+[**Download Fuel & Expense Tracker v1.5.4**](https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/downloads/FuelExpenseTracker_v1.5.4.apk)
 
-**Verification candidate:** version 1.5.1 (code 8), signed debug build, Android 8.0 or later. Automated tests pass, but native startup acceptance remains blocked by an emulator System UI ANR; see [VALIDATION.md](VALIDATION.md). Open this link on your phone, download the `.apk` file, then open it to install. If Android asks, allow installation for the browser or file manager you used. The APK is also available in this repository's `downloads` folder. Its SHA-256 checksum is in `downloads/SHA256SUMS`; build and test evidence is in [VALIDATION.md](VALIDATION.md).
+Version **1.5.4 / code11**, signed debug build, Android8.0 or later. The APK uses the original `my.fuelledger` package and signing certificate for compatible in-place updates. Open the link on your phone, download the `.apk`, then open it to install. The binary is also in `downloads/`; its verified metadata and checksum are in [RELEASES.md](RELEASES.md) and `downloads/SHA256SUMS`.
 
-The launcher icon now combines a fuel pump and wallet in ivory and gold on teal. The installed app is named **Fuel & Expense Tracker v1.5.1**; main screens begin with their screen title and an inline Settings button, without an app-name/version header or empty toolbar row. Project metadata is now managed by the verified release workflow (1.5.1 / code 8). Android adaptive icons follow the launcher’s circle, squircle or rounded-square shape, and Android 13+ themed icons use a monochrome companion. Install this APK over the existing app to keep your records: the application ID and signing key are unchanged, and version code 8 is greater than every known previous artifact (codes 1–7).
+The audit and CLARITY refinement extend the existing app. See [cleanup findings](CLEANUP_REPORT.md), [UI changes and screenshots](CLARITY_REPORT.md) and [test results and device limits](VALIDATION.md). Financial records, Room schema5/migrations, encrypted backups and offline processing are preserved. The main screens have no app-name/version header; Settings → About reads the installed version.
+
+Existing launcher/splash branding is retained. The selected Option4 replacement is deferred under the user's instruction because `design-assets/Fuel_Expense_Logo_Option_4.png` and `design-assets/Fuel_Expense_Android_Adaptive_Foreground.png` are still unavailable. No substitute logo was generated.
 
 ## Install on your phone
 
-Requires **Android 8.0 or later**. The default units are Malaysian Ringgit (MYR/RM), kilometres and litres. Dates are displayed in your phone's local time zone.
+Requires **Android8.0 or later**. Default units are Malaysian Ringgit (MYR/RM), kilometres and litres; dates follow the phone's local time zone.
 
-1. Build or download `app/build/outputs/apk/debug/app-debug.apk`.
-2. Transfer the APK to your phone using USB, Bluetooth or a private file transfer service.
-3. Open the APK with your phone's file manager.
-4. When Android asks, allow **Install unknown apps** for that file manager or browser. Install, then turn that permission off again if desired.
-5. Open **Fuel & Expense Tracker v1.5.1**. No Internet connection is needed for installation or use once the APK is on the phone.
+1. Download `FuelExpenseTracker_v1.5.4.apk` using the link above, or transfer it privately to your phone.
+2. Open the APK in your browser or file manager and allow installation from that source when Android requests it.
+3. Install over the existing app, using the same original signing identity. Do not uninstall to apply this update; local financial records remain in the existing database.
+4. Open **Fuel & Expense Tracker v1.5.4**. The app and bundled receipt recognition operate offline, including first use.
 
-A debug APK is already signed with a development key and is suitable for personal testing. An optimized release APK must be signed with the **existing application key** for a compatible update. Updates must have the same application ID, the same signing key and a higher version code to retain data. Keep your signing key safe. If Android reports a signing mismatch, stop before uninstalling. **Create and test a complete encrypted backup first**; uninstalling removes local records and their Keystore keys. Keep the existing signing key for an in-place update.
+This distribution preserves the existing development signing key. The optimized release variant also builds, but its unsigned APK is not the download. No signing key/password is committed. Future distributions must follow [RELEASING.md](RELEASING.md).
 
 ## Build in Android Studio (beginner workflow)
 
@@ -42,11 +43,11 @@ Configure `ANDROID_HOME` or let Android Studio create the ignored `local.propert
 
 ## Using the app
 
-Swipe left/right between **Home → Expenses → Fuel → Journey → Analysis**, or tap the matching bottom tab. Pages stop at either end and retain their drafts and scroll positions. Category rows, the Journey toggle and chart regions keep their own gestures; forms, Settings, scanner and planner configuration retain their existing Back behavior. See [current implementation and verification](docs/refinement-2026-10-17/IMPLEMENTATION.md).
+Swipe left/right between **Home → Expenses → Fuel → Journey → Analysis**, or tap the matching bottom tab. Pages stop at either end and retain their drafts and scroll positions. Category rows, the Journey toggle and chart regions keep their own gestures; forms, Settings, scanner and planner configuration retain their existing Back behavior. Wide windows use a navigation rail with the same pager selection. See [current UI implementation and verification](CLARITY_REPORT.md).
 
 Journey now shares the reference screens' content margins, omits empty suggestion spacing, and uses concise labels that fit small phones. See the [measured layout investigation and matching screenshots](docs/journey-layout/README.md).
 
-- **Home:** month/Overview header, actual today’s expenses, right-aligned monthly budget progress, two Expense/Fuel actions, an embedded Spending Calendar, upcoming payments and an amount-privacy eye control. No bank balance or safe-to-spend recommendation is shown.
+- **Home:** compact date/Overview header; navy card with actual today’s expenses, monthly expenses and income received; right-aligned monthly budget, two Add Expense/Add Fuel actions, shared Spending Calendar, upcoming payments and an amount-privacy eye control. No bank balance or safe-to-spend recommendation is shown.
 - **Fuel:** weighted provisional odometer consumption after two valid fills, retained per-fill/full-cycle history, recent change detection, actual price history and estimated fuel/recorded transport costs per kilometre with coverage labels.
 - **Expenses:** favourites, merchant/category/payment memory, refunds, duplicate warnings, persistent Undo, configurable row swipes and advanced date/category/payment/type/search filters. Others stays last; category filters remain below Transaction history. The embedded shared Spending Calendar shows actual daily records and supports date-seeded entry. Dedicated Fuel is omitted from manual entry; historical fuel records and general Transport/Parking/Tolls remain.
 - **Analysis:** actual income and net expenses, category/daily/monthly trends, budget performance, paid fixed/variable spending, planned forecasts/reserves, local insights, vehicle statistics and local CSV/PDF reports. Select current/previous/3/6/12-month or custom ranges. Daily expenditure scrolls horizontally, starts centred on today and offers a Today action; the Monthly plan vs actual card is removed.
@@ -68,7 +69,7 @@ Week totals use Monday–Sunday. Calendar totals and date filters use the phone'
 
 ### Adding and editing expenses
 
-Tap **Expense** on Home or **Add Expense** in Expenses, choose an icon in the horizontal category row (custom categories are retained, Others stays last), and use the cents-first keypad. Starting at RM 0.00, digits 1 → 2 → 3 → 4 → 5 produce RM 0.01 → RM 0.12 → RM 1.23 → RM 12.34 → RM 123.45. Backspace removes the last digit; Clear resets to zero. There is no decimal key or software keyboard for the amount. Save requires a positive amount and a selected payment method; values are exact integer sen and limited to the existing RM1,000,000,000 maximum.
+Tap **Add Expense** on Home or **Add Expense** in Expenses, choose an icon in the horizontal category row (custom categories are retained, Others stays last), and use the cents-first keypad. Starting at RM 0.00, digits 1 → 2 → 3 → 4 → 5 produce RM 0.01 → RM 0.12 → RM 1.23 → RM 12.34 → RM 123.45. Backspace removes the last digit; Clear resets to zero. There is no decimal key or software keyboard for the amount. Save requires a positive amount and a selected payment method; values are exact integer sen and limited to the existing RM1,000,000,000 maximum.
 
 Choose **E-Wallet**, **Cash** or **Card** in that order. The last selected method is saved in encrypted local DataStore, including when cancelling the draft, and highlighted for the next new expense (initially Cash). Existing Credit Card/Debit Card payments display as Card but retain their original stored strings when edited within that group. Historical Not specified records remain intact and prompt for an explicit method before saving changes. Existing amounts initialize directly from their stored sen; untouched transaction timestamps retain their original precision.
 
@@ -76,7 +77,7 @@ Open **Details & receipt** for date, time, merchant, description, collapsed note
 
 ### Touch feedback
 
-App controls use a subtle 0.97× press animation instead of grey ripple overlays. The drawing shrinks for roughly 90ms and returns smoothly over 130ms; touch targets, layout and accessibility semantics keep their original bounds. Selected categories, chips, navigation and the journey toggle use accent colours, and keyboard focus has a rounded accent outline. Android's Remove animations / animator duration scale is respected: scaling is disabled at zero, and the app only reads that system preference. The shared policy covers the app, dialogs, app-lock screen and previews in both themes. Standard date/time input internals retain their native selection/editing behavior with the grey ripple suppressed.
+App controls use a subtle 0.98× press animation instead of grey ripple overlays. The drawing shrinks for roughly 90ms and returns smoothly over 130ms; touch targets, layout and accessibility semantics keep their original bounds. Selected categories, chips, navigation and the journey toggle use accent colours, and keyboard focus has a rounded accent outline. Android's Remove animations / animator duration scale is respected: scaling is disabled at zero, and the app only reads that system preference. The shared policy covers the app, dialogs, app-lock screen and previews in both themes. Standard date/time input internals retain their native selection/editing behavior with the grey ripple suppressed.
 
 ## Receipt photos and offline scanning
 

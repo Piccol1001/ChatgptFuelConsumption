@@ -1,0 +1,178 @@
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=
+my.fuelledger.OfflinePrivacyTest:
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=bundledReceiptModelRecognizesTextWithoutAnyNetwork
+INSTRUMENTATION_STATUS: class=my.fuelledger.OfflinePrivacyTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=bundledReceiptModelRecognizesTextWithoutAnyNetwork
+INSTRUMENTATION_STATUS: class=my.fuelledger.OfflinePrivacyTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=packagedApplicationHasNoNetworkOrPublicStoragePermission
+INSTRUMENTATION_STATUS: class=my.fuelledger.OfflinePrivacyTest
+INSTRUMENTATION_STATUS: current=2
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=packagedApplicationHasNoNetworkOrPublicStoragePermission
+INSTRUMENTATION_STATUS: class=my.fuelledger.OfflinePrivacyTest
+INSTRUMENTATION_STATUS: current=2
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=financialRecordsRecurringPaymentsAndEncryptedPhotoBackupWorkOffline
+INSTRUMENTATION_STATUS: class=my.fuelledger.OfflinePrivacyTest
+INSTRUMENTATION_STATUS: current=3
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=financialRecordsRecurringPaymentsAndEncryptedPhotoBackupWorkOffline
+INSTRUMENTATION_STATUS: class=my.fuelledger.OfflinePrivacyTest
+INSTRUMENTATION_STATUS: current=3
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=
+my.fuelledger.ProductionStartupTest:
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=freshOfflineActivityReachesLedgerAndSurvivesRecreation
+INSTRUMENTATION_STATUS: class=my.fuelledger.ProductionStartupTest
+INSTRUMENTATION_STATUS: current=4
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=
+Error in freshOfflineActivityReachesLedgerAndSurvivesRecreation(my.fuelledger.ProductionStartupTest):
+kotlinx.coroutines.TimeoutCancellationException: Timed out waiting for 30000 ms
+	at kotlinx.coroutines.TimeoutKt.TimeoutCancellationException(Timeout.kt:281)
+	at kotlinx.coroutines.TimeoutCoroutine.run(Timeout.kt:243)
+	at kotlinx.coroutines.EventLoopImplBase$DelayedRunnableTask.run(EventLoop.common.kt:498)
+	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:256)
+	at kotlinx.coroutines.DefaultExecutor.run(DefaultExecutor.kt:105)
+	at java.lang.Thread.run(Thread.java:764)
+
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=freshOfflineActivityReachesLedgerAndSurvivesRecreation
+INSTRUMENTATION_STATUS: class=my.fuelledger.ProductionStartupTest
+INSTRUMENTATION_STATUS: stack=kotlinx.coroutines.TimeoutCancellationException: Timed out waiting for 30000 ms
+	at kotlinx.coroutines.TimeoutKt.TimeoutCancellationException(Timeout.kt:281)
+	at kotlinx.coroutines.TimeoutCoroutine.run(Timeout.kt:243)
+	at kotlinx.coroutines.EventLoopImplBase$DelayedRunnableTask.run(EventLoop.common.kt:498)
+	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:256)
+	at kotlinx.coroutines.DefaultExecutor.run(DefaultExecutor.kt:105)
+	at java.lang.Thread.run(Thread.java:764)
+
+INSTRUMENTATION_STATUS: current=4
+INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=
+my.fuelledger.security.EncryptedStorageTest:
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=keystoreMasterIsNonExportableAndPurposeBoundAcrossVaultInstances
+INSTRUMENTATION_STATUS: class=my.fuelledger.security.EncryptedStorageTest
+INSTRUMENTATION_STATUS: current=5
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=keystoreMasterIsNonExportableAndPurposeBoundAcrossVaultInstances
+INSTRUMENTATION_STATUS: class=my.fuelledger.security.EncryptedStorageTest
+INSTRUMENTATION_STATUS: current=5
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=damagedPlaintextSourceFailsWithoutDeletingOrReplacingOriginal
+INSTRUMENTATION_STATUS: class=my.fuelledger.security.EncryptedStorageTest
+INSTRUMENTATION_STATUS: current=6
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=damagedPlaintextSourceFailsWithoutDeletingOrReplacingOriginal
+INSTRUMENTATION_STATUS: class=my.fuelledger.security.EncryptedStorageTest
+INSTRUMENTATION_STATUS: current=6
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=plaintextVersionsOneThroughFourBecomeEncryptedVersionFiveWithoutLosingRecords
+INSTRUMENTATION_STATUS: class=my.fuelledger.security.EncryptedStorageTest
+INSTRUMENTATION_STATUS: current=7
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=plaintextVersionsOneThroughFourBecomeEncryptedVersionFiveWithoutLosingRecords
+INSTRUMENTATION_STATUS: class=my.fuelledger.security.EncryptedStorageTest
+INSTRUMENTATION_STATUS: current=7
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=freshDatabasePersistsEncryptedRecordsWithKeystoreWrappedKey
+INSTRUMENTATION_STATUS: class=my.fuelledger.security.EncryptedStorageTest
+INSTRUMENTATION_STATUS: current=8
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=freshDatabasePersistsEncryptedRecordsWithKeystoreWrappedKey
+INSTRUMENTATION_STATUS: class=my.fuelledger.security.EncryptedStorageTest
+INSTRUMENTATION_STATUS: current=8
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=incompleteMigrationCandidateIsPreservedIfOriginalIsMissingOrEmpty
+INSTRUMENTATION_STATUS: class=my.fuelledger.security.EncryptedStorageTest
+INSTRUMENTATION_STATUS: current=9
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=incompleteMigrationCandidateIsPreservedIfOriginalIsMissingOrEmpty
+INSTRUMENTATION_STATUS: class=my.fuelledger.security.EncryptedStorageTest
+INSTRUMENTATION_STATUS: current=9
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=missingWrongWrappingKeyAndWrongDatabaseKeyNeverReplaceExistingRecords
+INSTRUMENTATION_STATUS: class=my.fuelledger.security.EncryptedStorageTest
+INSTRUMENTATION_STATUS: current=10
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: numtests=10
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=missingWrongWrappingKeyAndWrongDatabaseKeyNeverReplaceExistingRecords
+INSTRUMENTATION_STATUS: class=my.fuelledger.security.EncryptedStorageTest
+INSTRUMENTATION_STATUS: current=10
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_RESULT: stream=
+
+Time: 442.941
+There was 1 failure:
+1) freshOfflineActivityReachesLedgerAndSurvivesRecreation(my.fuelledger.ProductionStartupTest)
+kotlinx.coroutines.TimeoutCancellationException: Timed out waiting for 30000 ms
+	at kotlinx.coroutines.TimeoutKt.TimeoutCancellationException(Timeout.kt:281)
+	at kotlinx.coroutines.TimeoutCoroutine.run(Timeout.kt:243)
+	at kotlinx.coroutines.EventLoopImplBase$DelayedRunnableTask.run(EventLoop.common.kt:498)
+	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:256)
+	at kotlinx.coroutines.DefaultExecutor.run(DefaultExecutor.kt:105)
+	at java.lang.Thread.run(Thread.java:764)
+
+FAILURES!!!
+Tests run: 10,  Failures: 1
+
+
+INSTRUMENTATION_CODE: -1

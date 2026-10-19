@@ -1,0 +1,7 @@
+Home heading=Rect.fromLTRB(16.0, 40.0, 132.0, 74.0) navigation=Rect.fromLTRB(0.0, 762.0, 104.0, 842.0)
+Fuel heading=Rect.fromLTRB(16.0, 40.0, 164.0, 74.0) navigation=Rect.fromLTRB(0.0, 762.0, 65.0, 842.0)
+Expenses heading=Rect.fromLTRB(16.0, 40.0, 138.0, 74.0) navigation=Rect.fromLTRB(0.0, 762.0, 65.0, 842.0)
+Journey heading=Rect.fromLTRB(16.0, 40.0, 119.0, 74.0) navigation=Rect.fromLTRB(0.0, 762.0, 65.0, 842.0)
+Analysis heading=Rect.fromLTRB(16.0, 40.0, 131.0, 74.0) navigation=Rect.fromLTRB(0.0, 762.0, 65.0, 842.0)
+Outbound=Rect.fromLTRB(32.0, 555.0, 361.0, 636.0)
+Origin=Rect.fromLTRB(32.0, 245.0, 361.0, 326.0) Destination=Rect.fromLTRB(32.0, 398.0, 361.0, 479.0) gap=72.0

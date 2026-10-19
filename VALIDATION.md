@@ -1,3 +1,54 @@
+# Audit and CLARITY validation — 1.5.4
+
+Verified build on **19 October 2026 (Malaysia)**. Existing app extended in place; package `my.fuelledger`, Room schema5/entities/migrations, encrypted local storage, backups and original signing certificate retained. Audit source `48e3c51`; CLARITY source `5bf83fe`; final window-metrics source `a093f63`. Historical validation, including earlier failures, remains below.
+
+## Final binary and build
+
+[FuelExpenseTracker_v1.5.4.apk](downloads/FuelExpenseTracker_v1.5.4.apk), **version1.5.4/code11**, **76,275,157 bytes**, signed debug with the original certificate. SHA256 `92ec7a5887651e60cf78dd6601c522fc14ffef574880e248ca5a002b6e50d1ca`. Embedded binary metadata/signature were verified, rather than inferred from the filename. The same package/certificate and higher code provide a compatible in-place update path; unavailable physical-phone records are not claimed as inspected.
+
+The documented release workflow completed sequentially: host/debug/test APK stage1m21s; optimized unsigned release2m6s; lint1m5s. **316 app host tests across39 suites pass, zero failures/errors/skips**. Four build-policy tests and six Python release-workflow tests also pass. Lint has **0 errors,4 warnings,1 hint**: preserved SQLite update, offset-overload and two KTX suggestions; primitive-state hint. Gradle deprecation advisories remain. Current window metrics remove the additional warning observed in1.5.3. [Build details](docs/clarity-2026-10-18/BUILD_RESULTS.md) and [per-suite results](docs/clarity-2026-10-18/TEST_RESULTS.md).
+
+## Native Android results
+
+The exact1.5.3/code10 APK passes the complete10-case native suite in airplane mode (`OK (10 tests)`,463.989s): bundled first-use OCR, permissions, financial/recurring/allocation/Journey/receipt workflows, encrypted photo backups, real SQLCipher/Keystore, safe migrations1–4→5, failure-closed damaged/wrong-key cases and production Activity readiness/recreation. Its installed SHA matches the immutable download.
+
+The exact1.5.4/code11 APK passes **four follow-up native cases**, `OK (4 tests)`,154.001s: first-use offline OCR, packaged permissions, production startup/recreation and encrypted database persistence. Installed version/code and SHA match the download. This is separate from the full1.5.3 native suite; only adaptive-navigation window-size source changed afterward. After standalone launch, actual ready Home was captured and inspected using the empty fixture. Fixture15 was removed and active owner0/airplane mode1 were confirmed, with only owner0 remaining. No owner data was cleared. [Native Home and capture/cleanup evidence](docs/clarity-2026-10-18/native/). [Native evidence and provenance](docs/clarity-2026-10-18/NATIVE_RESULTS.md).
+
+The audit1.5.2 combined run passed9 cases and timed out1 startup first-state wait at30s (442.941s). A separate startup follow-up with the same120s budget as readiness passed (125.352s). Both outcomes remain recorded. Actual readiness/recreation now passes on1.5.3; this does not establish a physical-device startup speed improvement or prove a root cause for every earlier software-emulator/SystemUI ANR observation.
+
+## Visual and functional verification
+
+**45 retained native-graphics host renders**, with synthetic/empty local profiles. All five screens use matching393×851dp Light/Dark,320×640dp Dark and393×851dp Light/font1.6 configurations; additional populated480dp phone,852×393dp landscape and800dp tablet groups cover all five screens. Home component previews use393×852dp. About renders display actual PackageManager1.5.4/build11. [Screens, configurations and measurements](docs/clarity-2026-10-18/SCREENS.md).
+
+Home/Fuel/Expenses/Journey were compared at the same393dp Dark configuration. Main heading gutters, card conventions and navigation align. Journey input width/height match the Expenses reference; no global scale/density override is used. Shared heading icon/vertical-centering offsets were removed. Enlarged fonts keep equal Home action heights and accessible tab names. Contrast and signed refund-chart geometry tests pass. Main pager/tab/child gestures, expense/income entry, themes, calculations, calendar/chart selection, widgets and persistent Undo remain covered by existing host tests.
+
+No design-reference screenshot was attached, so exact reference-image matching is not claimed. The actual Option4 logo PNGs remain absent locally and from fetched GitHub main as of19 October; replacement is explicitly deferred under the user's instruction. Current launcher/splash/monochrome assets remain unchanged.
+
+## Data and privacy
+
+No Room entity/schema/migration or backup-format change was made. Two audit regression guards prevent Undo from restoring an expense below existing refunds and prevent linking a refund as a paid recurring commitment; all other calculation/financial behavior is preserved. Native fixtures are isolated; owner data was never cleared or uninstalled. All15 retained APK hashes match the release ledger; earlier binaries and report history remain intact.
+
+Final APK has21 bundled OCR assets, no INTERNET/network-state/public-storage permissions and no DataTransport runtime/CCT or Firebase Analytics/Crashlytics markers. Actual manifest has `allowBackup=false` and existing exclusion rules. Original certificate SHA256 `4cb7dbc7bfd1eafb5b37339ddcc875174bf6f35139c0e6d87ba4b0f120c37ae8`. Screenshots intentionally remain allowed; app lock/encryption are retained. [Packaged audit](docs/clarity-2026-10-18/APK_AUDIT.json), [cleanup report](CLEANUP_REPORT.md), [UI report and file inventory](CLARITY_REPORT.md).
+
+## Remaining device limits and reproduction
+
+Software-emulator startup remains slow. Physical startup/performance, IME behavior, camera/gallery, thermal-paper lighting/skew, external share/document providers, OEM widgets, TalkBack and native Android15 system edge gestures on a reliable device remain manual checks. These are not represented as passed from host rendering or a resumed Activity alone. Calendar cells have48dp minimum height; seven columns on narrow phones cannot each provide48dp width.
+
+```sh
+cd /workspace/ChatgptFuelConsumption
+source /workspace/.tooling/fuel-ledger-env.sh
+python -m unittest discover -s scripts/tests -v
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew :app:assembleRelease
+./gradlew :app:lintDebug
+(cd downloads && sha256sum -c SHA256SUMS)
+```
+
+These commands reproduce1.5.4/code11 without incrementing versions. Source is frozen after `a093f63`; new distributables after future source changes must use RELEASING.md. Native tests require a new isolated test user; never clear/uninstall owner0. GitHub publication/hash verification is recorded after delivery.
+
+<details>
+<summary>Preserved validation before the audit and CLARITY phase</summary>
+
 # Corrective update and version-management validation
 
 Verified 17 October 2026 (Malaysia). Baseline `4ef21fc`; final app source `8366cc8`. **Version 1.5.1 / code 8**, package `my.fuelledger`, Room schema 5 and the original certificate. All historical reports remain below and apply to their own binaries.
@@ -668,6 +719,8 @@ The complete setup script was exercised, including wrapper activation, SDK setup
 ## Remaining verification
 
 No physical phone or hardware emulator was attached (`/dev/kvm` is absent). Robolectric tests are automated Android simulations, not physical-device tests. On your phone, verify the document picker, CSV export, backup/restore, keyboard behavior, accessibility/font scaling and updates with the same signing key before depending on it for irreplaceable records. The app supports one vehicle and MYR; backups replace existing data after confirmation and are not encrypted. CSV import is not provided.
+
+</details>
 
 </details>
 

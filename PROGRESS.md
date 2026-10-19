@@ -1,34 +1,50 @@
-# Current progress — audit complete, CLARITY refinement in verification
+# Current progress — audit and CLARITY completed
 
-Updated **18 October 2026 (Malaysia)**. Current successful audit artifact: **1.5.2 / code9**, original package/certificate and Room schema5. Source checkpoint `48e3c51`; artifact checkpoint `f9ab990`. The CLARITY UI phase is separate and not yet released. Previous progress records remain below.
+Updated **19 October 2026 (Malaysia)**. Final build: **1.5.4 / code11**, package `my.fuelledger`, Room schema5 and original signing certificate. Source checkpoint `a093f63`; initial CLARITY source `5bf83fe`, audit source `48e3c51`. Previous progress records remain below.
 
 ## 1. Features completed
 
-- Whole-repository audit, verified unused content removal, two regression-proven financial guards, query/lookup optimizations; see CLEANUP_REPORT.md.
-- CLARITY Home: navy financial card, actual daily/monthly spending and actual received income; budget alignment, two Add actions, shared calendar with selected total, upcoming payments.
-- Shared 16dp cards, 24sp headings and 32sp primary amounts; warm light palette and existing requested navy/emerald dark palette; .98 press feedback with reduced-motion behavior.
-- Fuel history before charts, estimated-consumption info dialog and compact record details; existing calculations/metadata retained.
-- Consistent heading gutters, grouped Settings, wider-screen navigation rail and bounded editor width. Existing pager, form entry, data and privacy behavior retained.
+- Full291-file baseline audit; verified unused content/dependency removal, two regression-proven financial guards and query/lookup optimizations. CLEANUP_REPORT.md records findings and retained uncertain files.
+- CLARITY Home with actual daily/monthly expenses and received income, aligned monthly budget, exactly two Add actions, shared calendar and upcoming payments.
+- Shared colors/type/dimensions, aligned headings/cards/fields, compact Fuel/history, existing Journey tools, signed comparison charts, grouped Settings and installed-version About.
+- Adaptive rail/bottom navigation from actual window width; existing saveable pager/forms/child gestures preserved. Large-font actions/navigation verified. Reusable.98 feedback retains reduced-motion/accessibility behavior.
+- Final316 host tests across39 suites,4 build-policy tests and6 workflow tests pass. Debug/test/optimized builds and lint pass;0 errors,4 warnings,1 hint.
+- Complete10-case native suite passes on1.5.3/code10;4 exact-APK native follow-ups pass on1.5.4/code11 in airplane mode. Actual ready Home was captured and inspected. Owner0 restored; only owner0 remains, airplane mode1; only temporary fixtures were removed.
+- All15 APKs retained and checksums verified. Final package/version/original certificate,21 bundled OCR assets, no-network permissions and disabled automatic backup verified.
 
-## 2. Current work
+## 2. Features currently being implemented
 
-Running complete CLARITY functional/visual regressions before a separately versioned release. The audit's nine native data/OCR/security cases passed; its added startup case hit the first-state 30-second budget in the combined run. A baseline standalone readiness/recreation test previously passed and actual Home was captured. The first-state test budget now matches readiness (120 seconds) for software emulation; final follow-up is pending. Do not claim all ten native tests passed yet.
+No application feature remains in progress for the audit/CLARITY delivery. GitHub publication verification is the final delivery step. The requested logo replacement is explicitly deferred until its actual source PNGs are supplied.
 
-## 3. Files
+## 3. Files created or modified
 
-CLEANUP_REPORT.md and docs/audit-2026-10-18 contain audit inventory/request/evidence. docs/clarity-2026-10-18 contains the new request and logo status. The working diff contains shared UI tokens, Home/Fuel/Settings/navigation changes and targeted visual/functional tests. Preserve all existing APKs and historical reports.
+[Complete baseline-to-delivery inventory](docs/clarity-2026-10-18/MODIFIED_FILES.txt). [Audit report](CLEANUP_REPORT.md), [UI implementation and limits](CLARITY_REPORT.md), [host results](docs/clarity-2026-10-18/TEST_RESULTS.md), [native provenance/results](docs/clarity-2026-10-18/NATIVE_RESULTS.md), [45 host renders and native capture](docs/clarity-2026-10-18/SCREENS.md).
+
+APK: downloads/FuelExpenseTracker_v1.5.4.apk —76,275,157 bytes, signed debug with original certificate. SHA256 `92ec7a5887651e60cf78dd6601c522fc14ffef574880e248ca5a002b6e50d1ca`. Release metadata/changelog/history/checksums are synchronized; old binaries are immutable.
 
 ## 4. Remaining tasks
 
-Finish automated checks and inspect representative renders, build CLARITY through scripts/release.py, verify native behavior and actual APK metadata, finalize reports/inventories, commit and push. **Logo replacement is deferred with explicit user authorization:** both named Option4 PNGs are absent locally and from fetched GitHub design-assets/. Never substitute an invented logo.
+Finish authorized GitHub push and public hash verification. Future branding requires `design-assets/Fuel_Expense_Logo_Option_4.png` and `design-assets/Fuel_Expense_Android_Adaptive_Foreground.png`; both remain absent locally and on fetched main as of19 October. Do not invent/substitute a logo. Physical startup/performance, IME, camera/gallery, thermal receipt variability, external providers, OEM widgets, TalkBack and reliable native Android15 edge gestures remain manual checks.
 
-## 5. Known issues
+## 5. Known errors or compilation issues
 
-Software-emulator startup is slow; no physical-device performance claim. One native first-state timeout was observed and must remain in the report. Layout regressions from header alignment and intentionally split calendar summary semantics were corrected; existing tests remain. AppSmoke's old Analysis subtitle expectation was updated to the new caption. Physical camera/gallery, provider/OEM widgets, TalkBack and reliable Android15 edge gestures remain manual limits.
+No known compilation or automated-test error remains. Lint retains4 advisory warnings and1 hint; Gradle deprecation advisories remain. Software-emulator startup remains slow. Earlier timeout/ANR reports remain preserved, separately from current native readiness passes; no physical startup-speed improvement is claimed. Seven calendar columns on narrow phones cannot each be48dp wide (minimum height retained). No unavailable reference-image match or physical-device pass is claimed.
 
-## 6. Resume
+## 6. Exact instructions for resuming development
 
-Read AGENTS.md, CLEANUP_REPORT.md and current git status. Load `/workspace/.tooling/fuel-ledger-env.sh`. Ongoing logs: `/tmp/clarity-final-host.log`, `/tmp/clarity-adaptive.log`, `/tmp/audit-native-final.log`. Finish source before release/lint. Run complete app tests/builds, buildSrc tests and Python workflow tests; only then use the documented patch release workflow with reviewed CLARITY notes. Native fixture user12 is active; never clear/uninstall owner0. Restore user0 and remove only the test fixture at completion. Keep airplane mode1. Recheck named logo files before final delivery; skip branding if still absent.
+Read AGENTS.md, this current section, CLEANUP_REPORT.md, CLARITY_REPORT.md and VALIDATION.md; inspect git status. Load `/workspace/.tooling/fuel-ledger-env.sh`. Ordinary reproduction, without another version bump:
+
+```sh
+cd /workspace/ChatgptFuelConsumption
+source /workspace/.tooling/fuel-ledger-env.sh
+python -m unittest discover -s scripts/tests -v
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew :app:assembleRelease
+./gradlew :app:lintDebug
+(cd downloads && sha256sum -c SHA256SUMS)
+```
+
+These checks already pass; repeat after relevant future changes, not merely to consume another release. Finish app source before lint and keep stages sequential. Future changed distributables must use RELEASING.md and the same original signing identity; never overwrite old APKs. Preserve schema5/entities/migrations, exact sen, hidden legacy fields, encrypted backups and offline architecture. Native tests require a new isolated temporary user; owner0 must never be cleared/uninstalled. Current device cleanup is recorded in docs/clarity-2026-10-18/native/device-cleanup.json. Durable evidence is in Git, not only /tmp. Authorized publication uses `git push origin HEAD:main` without force; verify remote HEAD and public final APK hash. Check for the actual supplied PNGs before resuming the deferred branding task.
 
 <details>
 <summary>Preserved progress before the audit and CLARITY phase</summary>
