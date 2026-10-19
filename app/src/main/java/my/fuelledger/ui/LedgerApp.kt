@@ -142,7 +142,8 @@ fun LedgerApp(vm: LedgerViewModel) {
             else expenseEditId = expense.id
         }
         val motionEnabled = LocalPressMotionEnabled.current
-        val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
+        val windowSize = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
+        val wide = with(androidx.compose.ui.platform.LocalDensity.current) { windowSize.width.toDp() } >= 600.dp
         val largeLabels = androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.3f
         val showMainNavigation = !settingsOpen && !financeOpen && !calendarOpen
         val selectMain: (Int) -> Unit = { index ->
