@@ -1,0 +1,6 @@
+# Treat distribution formats as binary even when a PDF starts with ASCII objects.
+*.pdf binary
+*.docx binary
+*.zip binary
+*.png binary
+*.html linguist-generated=true

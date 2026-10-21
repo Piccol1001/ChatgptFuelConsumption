@@ -1,0 +1,9 @@
+Fuel & Expense Tracker learning edition — 21 October 2026
+Start with Fuel_Expense_Tracker_Learning_Guide.pdf.
+HTML reads offline; DOCX and Markdown are editable.
+Source_Browser.html is an offline file browser; Source_Companion.zip contains exact source.
+Source checkpoint: 1f13482bfc550da77e5c950e48075f62de12620f
+App source 1.5.4 / code 11. No APK release or application changes were made for this book.
+The source archive excludes secrets, user records, APKs and build caches.
+External reference links require connectivity; the reading editions and source browser do not.
+To rebuild these documents in the repository, run docs/learning/tools/build_book.py.

@@ -1,3 +1,9 @@
+# Learning material — 21 October 2026
+
+The requested learning guide is complete: 80-page PDF, 29 chapters, editable Word/Markdown, offline HTML, 12 answered labs, annotated source excerpts, matched screenshots and a source companion covering all 63 production Kotlin files (212 files total). The book is pinned to app source `1f13482` / 1.5.4 code11. Application files, records, versions, APKs and signing material are unchanged.
+
+See [learning progress, editable sources and resume commands](docs/learning/README.md) and [documentation validation](docs/learning/VALIDATION.md). To revise the material, edit `docs/learning/chapters/`, run `python docs/learning/tools/build_book.py`, then `python docs/learning/tools/verify_book.py`, inspect representative PDF pages and publish the checked artifacts. No Android release bump is needed for documentation. Prior application progress is preserved below.
+
 # Current progress — audit and CLARITY completed
 
 Updated **19 October 2026 (Malaysia)**. Final build: **1.5.4 / code11**, package `my.fuelledger`, Room schema5 and original signing certificate. Source checkpoint `a093f63`; initial CLARITY source `5bf83fe`, audit source `48e3c51`. Previous progress records remain below.

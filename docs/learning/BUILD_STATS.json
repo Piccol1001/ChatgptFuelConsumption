@@ -1,0 +1,12 @@
+{
+  "source_commit": "1f13482bfc550da77e5c950e48075f62de12620f",
+  "app_version": "1.5.4",
+  "version_code": 11,
+  "learning_edition": "2026-10-21",
+  "chapters": 29,
+  "core_word_count": 16040,
+  "combined_word_count": 19125,
+  "pdf_pages": 80,
+  "source_files": 212,
+  "production_kotlin_files": 63
+}

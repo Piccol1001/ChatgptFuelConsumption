@@ -12,6 +12,12 @@ The audit and CLARITY refinement extend the existing app. See [cleanup findings]
 
 Existing launcher/splash branding is retained. The selected Option4 replacement is deferred under the user's instruction because `design-assets/Fuel_Expense_Logo_Option_4.png` and `design-assets/Fuel_Expense_Android_Adaptive_Foreground.png` are still unavailable. No substitute logo was generated.
 
+## Learn how this app works
+
+The [80-page learning guide](docs/learning/README.md) explains Kotlin/Compose, architecture, financial calculations, offline receipt scanning, encrypted storage, UI design, common bugs, testing, GitHub and releases using this app's actual source. It includes 29 chapters, annotated code, worked examples and answered labs.
+
+[Download the PDF](https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/learning-materials/Fuel_Expense_Tracker_Learning_Guide.pdf) · [Download the complete learning pack](https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/learning-materials/Fuel_Expense_Tracker_Complete_Learning_Pack.zip) (PDF, editable Word/Markdown, offline HTML and source companion).
+
 ## Install on your phone
 
 Requires **Android8.0 or later**. Default units are Malaysian Ringgit (MYR/RM), kilometres and litres; dates follow the phone's local time zone.
