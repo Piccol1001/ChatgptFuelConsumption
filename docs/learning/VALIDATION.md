@@ -30,4 +30,4 @@ python docs/learning/tools/build_book.py
 python docs/learning/tools/verify_book.py
 ```
 
-Use the documented Pandoc, font and Python requirements in [README.md](README.md). Inspect representative pages after any layout edit. Publishing verification is recorded separately after the files are available on GitHub.
+Use the documented Pandoc, font and Python requirements in [README.md](README.md). Inspect representative pages after any layout edit. [Public download verification](PUBLICATION.md) records HTTP 200 and exact local/public byte matches for all six principal downloads.

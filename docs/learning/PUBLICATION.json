@@ -1,0 +1,54 @@
+{
+  "verified_date_malaysia": "2026-10-21",
+  "publication_commit": "c469cd5c91be8044ccbb912c2a08bc348de23cda",
+  "artifacts": [
+    {
+      "file": "Fuel_Expense_Tracker_Learning_Guide.pdf",
+      "url": "https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/learning-materials/Fuel_Expense_Tracker_Learning_Guide.pdf",
+      "http_status": 200,
+      "bytes": 538524,
+      "sha256": "6cdf2319b0e1d23c7fb04a2614727f953e48ec542058695e274f5b1d67306e78",
+      "matches_local": true
+    },
+    {
+      "file": "Fuel_Expense_Tracker_Complete_Learning_Pack.zip",
+      "url": "https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/learning-materials/Fuel_Expense_Tracker_Complete_Learning_Pack.zip",
+      "http_status": 200,
+      "bytes": 3276606,
+      "sha256": "257b1f3e3ee3d346f6bad4b15e71018b51284417a6cf058793f7c067e60eb5d6",
+      "matches_local": true
+    },
+    {
+      "file": "Fuel_Expense_Tracker_Learning_Guide.docx",
+      "url": "https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/learning-materials/Fuel_Expense_Tracker_Learning_Guide.docx",
+      "http_status": 200,
+      "bytes": 331572,
+      "sha256": "6a561196273bd3077e1ce324ebdfe95280010cd443c3b259d0e58b1640282a44",
+      "matches_local": true
+    },
+    {
+      "file": "Fuel_Expense_Tracker_Learning_Guide.html",
+      "url": "https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/learning-materials/Fuel_Expense_Tracker_Learning_Guide.html",
+      "http_status": 200,
+      "bytes": 611087,
+      "sha256": "0b6e1c573297fead2f429e80289c3d97316358e65d7b069f4d52967d8c4e7764",
+      "matches_local": true
+    },
+    {
+      "file": "Source_Browser.html",
+      "url": "https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/learning-materials/Source_Browser.html",
+      "http_status": 200,
+      "bytes": 3714525,
+      "sha256": "540b8c7f079da026adcb3b54d5e5d75375e7b1939e5bed87dbef19bdc196727b",
+      "matches_local": true
+    },
+    {
+      "file": "Source_Companion.zip",
+      "url": "https://github.com/Piccol1001/ChatgptFuelConsumption/raw/refs/heads/main/learning-materials/Source_Companion.zip",
+      "http_status": 200,
+      "bytes": 1428272,
+      "sha256": "5c64880164214d985d961c69fdd641fb71d7ee65c80495caba791a13040102df",
+      "matches_local": true
+    }
+  ]
+}

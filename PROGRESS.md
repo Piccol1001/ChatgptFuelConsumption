@@ -1,6 +1,6 @@
 # Learning material — 21 October 2026
 
-The requested learning guide is complete: 80-page PDF, 29 chapters, editable Word/Markdown, offline HTML, 12 answered labs, annotated source excerpts, matched screenshots and a source companion covering all 63 production Kotlin files (212 files total). The book is pinned to app source `1f13482` / 1.5.4 code11. Application files, records, versions, APKs and signing material are unchanged.
+The requested learning guide is complete: 80-page PDF, 29 chapters, editable Word/Markdown, offline HTML, 12 answered labs, annotated source excerpts, matched screenshots and a source companion covering all 63 production Kotlin files (212 files total). The book is pinned to app source `1f13482` / 1.5.4 code11. Application files, records, versions, APKs and signing material are unchanged. All six principal public downloads return HTTP200 and match the verified local bytes; [publication evidence](docs/learning/PUBLICATION.md).
 
 See [learning progress, editable sources and resume commands](docs/learning/README.md) and [documentation validation](docs/learning/VALIDATION.md). To revise the material, edit `docs/learning/chapters/`, run `python docs/learning/tools/build_book.py`, then `python docs/learning/tools/verify_book.py`, inspect representative PDF pages and publish the checked artifacts. No Android release bump is needed for documentation. Prior application progress is preserved below.
 

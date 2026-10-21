@@ -44,6 +44,6 @@ python docs/learning/tools/build_book.py
 python docs/learning/tools/verify_book.py
 ```
 
-Review [build statistics](BUILD_STATS.json), [validation](VALIDATION.md), [machine-readable checks](VALIDATION.json) and [artifact checksums](../../learning-materials/SHA256SUMS). Visually inspect representative PDF pages after changing layout. The DOCX contents field may need updating in a word processor after edits; the PDF has resolved clickable page numbers.
+Review [build statistics](BUILD_STATS.json), [validation](VALIDATION.md), [machine-readable checks](VALIDATION.json), [public download verification](PUBLICATION.md) and [artifact checksums](../../learning-materials/SHA256SUMS). Visually inspect representative PDF pages after changing layout. The DOCX contents field may need updating in a word processor after edits; the PDF has resolved clickable page numbers.
 
 When publishing a revised learning edition, regenerate all formats together, verify the complete ZIP and public download hashes, then record the new edition. Do not increment the Android release version for documentation work.
